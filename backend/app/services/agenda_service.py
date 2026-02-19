@@ -1,39 +1,27 @@
-from datetime import datetime, timedelta, time
+from datetime import datetime, time, timedelta
+
 from sqlalchemy.orm import Session
 
+from app.config import HORARIO_ABERTURA, HORARIO_FECHAMENTO, INTERVALO_MINUTOS
 from app.models.agendamento import Agendamento
 from app.models.servico import Servico
-from app.config import (
-    HORARIO_ABERTURA,
-    HORARIO_FECHAMENTO,
-    INTERVALO_MINUTOS
-)
 
 
 def gerar_horarios_disponiveis(
     db: Session,
     barbeiro_id: int,
     servico_id: int,
-    data: datetime
+    data: datetime,
 ):
-
-    servico = db.query(Servico).filter(
-        Servico.id == servico_id
-    ).first()
+    servico = db.query(Servico).filter(Servico.id == servico_id).first()
+    if not servico:
+        return []
 
     duracao = servico.duracao_minutos
 
-    inicio_dia = datetime.combine(
-        data.date(),
-        time(HORARIO_ABERTURA, 0)
-    )
+    inicio_dia = datetime.combine(data.date(), time(HORARIO_ABERTURA, 0))
+    fim_dia = datetime.combine(data.date(), time(HORARIO_FECHAMENTO, 0))
 
-    fim_dia = datetime.combine(
-        data.date(),
-        time(HORARIO_FECHAMENTO, 0)
-    )
-
-    # gera slots possíveis
     horarios = []
     atual = inicio_dia
 
@@ -41,12 +29,15 @@ def gerar_horarios_disponiveis(
         horarios.append(atual)
         atual += timedelta(minutes=INTERVALO_MINUTOS)
 
-    # busca agendamentos do dia
-    agendamentos = db.query(Agendamento).filter(
-        Agendamento.barbeiro_id == barbeiro_id,
-        Agendamento.data_hora_inicio >= inicio_dia,
-        Agendamento.data_hora_inicio < fim_dia
-    ).all()
+    agendamentos = (
+        db.query(Agendamento)
+        .filter(
+            Agendamento.barbeiro_id == barbeiro_id,
+            Agendamento.data_hora_inicio >= inicio_dia,
+            Agendamento.data_hora_inicio < fim_dia,
+        )
+        .all()
+    )
 
     livres = []
 
@@ -54,12 +45,8 @@ def gerar_horarios_disponiveis(
         fim_slot = horario + timedelta(minutes=duracao)
 
         conflito = False
-
         for ag in agendamentos:
-            if (
-                ag.data_hora_inicio < fim_slot and
-                ag.data_hora_fim > horario
-            ):
+            if ag.data_hora_inicio < fim_slot and ag.data_hora_fim > horario:
                 conflito = True
                 break
 

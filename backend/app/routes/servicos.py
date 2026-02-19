@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
+
 from app.database import get_db
 from app.models.servico import Servico
 from app.schemas.servico import ServicoCreate, ServicoResponse
@@ -9,7 +10,7 @@ router = APIRouter(prefix="/servicos")
 
 @router.post("/", response_model=ServicoResponse)
 def criar(dados: ServicoCreate, db: Session = Depends(get_db)):
-    servico = Servico(**dados.dict())
+    servico = Servico(**dados.model_dump())
 
     db.add(servico)
     db.commit()

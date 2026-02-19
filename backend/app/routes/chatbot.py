@@ -13,7 +13,7 @@ def mensagem(dados: ChatbotMensagem, db: Session = Depends(get_db)):
     resposta = responder_mensagem(
         db,
         dados.telefone,
-        dados.mensagem
+        dados.mensagem,
     )
 
     return {"resposta": resposta}
