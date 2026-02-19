@@ -1,11 +1,12 @@
-from sqlalchemy import Column, Integer, String, Float, ForeignKey
+from sqlalchemy import Column, Float, ForeignKey, Integer, String
 from app.database import Base
+
 
 class Servico(Base):
     __tablename__ = "servicos"
 
     id = Column(Integer, primary_key=True, index=True)
-    nome = Column(String)
-    duracao_minutos = Column(Integer)
-    preco = Column(Float)
-    
+    nome = Column(String(255), nullable=False)
+    duracao_minutos = Column(Integer, nullable=False)
+    preco = Column(Float, nullable=False)
+    barbearia_id = Column(Integer, ForeignKey("barbearias.id"), nullable=True)

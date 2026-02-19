@@ -1,7 +1,14 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routes import barbeiros, servicos,agendamentos,agenda,chatbot,whatsapp
+from app.database import init_db
+from app.routes import barbeiros, servicos, agendamentos, agenda, chatbot, whatsapp
+
 app = FastAPI()
+
+
+@app.on_event("startup")
+def startup():
+    init_db()
 
 app.add_middleware(
     CORSMiddleware,

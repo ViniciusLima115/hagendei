@@ -3,6 +3,8 @@ import json
 import re
 from datetime import datetime, timedelta
 
+from sqlalchemy.orm import Session
+
 from app.models.barbeiro import Barbeiro
 from app.models.conversa import Conversa
 from app.models.servico import Servico
@@ -62,21 +64,21 @@ def _carregar_contexto(conversa: Conversa) -> dict:
     return {}
 
 
-def _salvar_estado(db, conversa: Conversa, estado: str, contexto: dict | None = None):
+def _salvar_estado(db: Session, conversa: Conversa, estado: str, contexto: dict | None = None):
     conversa.estado = estado
     conversa.contexto = contexto if contexto is not None else None
     db.commit()
 
 
-def _listar_servicos(db) -> list[Servico]:
+def _listar_servicos(db: Session) -> list[Servico]:
     return db.query(Servico).order_by(Servico.id.asc()).all()
 
 
-def _listar_barbeiros(db) -> list[Barbeiro]:
+def _listar_barbeiros(db: Session) -> list[Barbeiro]:
     return db.query(Barbeiro).order_by(Barbeiro.id.asc()).all()
 
 
-def _encontrar_servico(db, mensagem: str):
+def _encontrar_servico(db: Session, mensagem: str):
     servicos = _listar_servicos(db)
     msg = _normalizar_texto(mensagem)
 
@@ -104,7 +106,7 @@ def _encontrar_servico(db, mensagem: str):
     return None
 
 
-def _encontrar_barbeiro(db, mensagem: str):
+def _encontrar_barbeiro(db: Session, mensagem: str):
     barbeiros = _listar_barbeiros(db)
     msg = _normalizar_texto(mensagem)
 
@@ -116,7 +118,7 @@ def _encontrar_barbeiro(db, mensagem: str):
     return None
 
 
-def _mensagem_lista_servicos(db) -> str:
+def _mensagem_lista_servicos(db: Session) -> str:
     servicos = _listar_servicos(db)
     if not servicos:
         return "Ainda não temos serviços cadastrados."
@@ -133,7 +135,7 @@ def _mensagem_lista_horarios(horarios: list[str]) -> str:
     return f"Tenho estes horários para amanhã: {sugestoes}. Pode escolher um horário ou digitar 'escolhe' que eu seleciono o primeiro disponível."
 
 
-def _confirmar_agendamento(db, telefone: str, contexto: dict) -> str:
+def _confirmar_agendamento(db: Session, telefone: str, contexto: dict) -> str:
     data = datetime.fromisoformat(contexto["data"])
     horario_escolhido = contexto["horario_escolhido"]
 
@@ -153,11 +155,11 @@ def _confirmar_agendamento(db, telefone: str, contexto: dict) -> str:
     try:
         criar_agendamento(db=db, dados=dados_agendamento)
         return f"Agendamento confirmado para amanhã às {horario_escolhido}."
-    except Exception:
+    except ValueError:
         return "Esse horário acabou de ficar indisponível. Digite 'mostrar horários' para eu te mostrar novas opções."
 
 
-def responder_mensagem(db, telefone, mensagem):
+def responder_mensagem(db: Session, telefone, mensagem):
     conversa = db.query(Conversa).filter(Conversa.telefone == telefone).first()
 
     if not conversa:
