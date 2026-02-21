@@ -17,9 +17,10 @@ def horarios(
     barbeiro_id: int,
     servico_id: int,
     data: datetime,
+    periodo: str | None = None,
     db: Session = Depends(get_db),
 ):
-    return gerar_horarios_disponiveis(db, barbeiro_id, servico_id, data)
+    return gerar_horarios_disponiveis(db, barbeiro_id, servico_id, data, periodo=periodo)
 
 
 @router.get("/dia")

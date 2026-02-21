@@ -79,3 +79,47 @@ def atualizar_status_agendamento(db: Session, agendamento_id: int, status: str):
         "data_hora_fim": agendamento.data_hora_fim,
         "status": agendamento.status,
     }
+
+
+def remarcar_agendamento(db: Session, agendamento_id: int, nova_data_hora_inicio):
+    agendamento = db.query(Agendamento).filter(Agendamento.id == agendamento_id).first()
+    if not agendamento:
+        raise ValueError("Agendamento não encontrado")
+
+    servico = db.query(Servico).filter(Servico.id == agendamento.servico_id).first()
+    if not servico:
+        raise ValueError("Serviço não encontrado")
+
+    nova_data_hora_fim = nova_data_hora_inicio + timedelta(minutes=servico.duracao_minutos)
+
+    conflito = (
+        db.query(Agendamento)
+        .filter(
+            Agendamento.id != agendamento.id,
+            Agendamento.barbeiro_id == agendamento.barbeiro_id,
+            Agendamento.data_hora_inicio < nova_data_hora_fim,
+            Agendamento.data_hora_fim > nova_data_hora_inicio,
+            Agendamento.status.in_(["pendente", "confirmado"]),
+        )
+        .first()
+    )
+
+    if conflito:
+        raise ValueError("Horário indisponível")
+
+    agendamento.data_hora_inicio = nova_data_hora_inicio
+    agendamento.data_hora_fim = nova_data_hora_fim
+    agendamento.status = "confirmado"
+    db.commit()
+    db.refresh(agendamento)
+
+    return {
+        "id": agendamento.id,
+        "cliente_nome": agendamento.cliente.nome,
+        "telefone": agendamento.cliente.telefone,
+        "barbeiro_nome": agendamento.barbeiro.nome,
+        "servico_nome": agendamento.servico.nome,
+        "data_hora_inicio": agendamento.data_hora_inicio,
+        "data_hora_fim": agendamento.data_hora_fim,
+        "status": agendamento.status,
+    }

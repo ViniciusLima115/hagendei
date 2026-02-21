@@ -1,11 +1,34 @@
 from sqlalchemy.orm import Session
 
+from app.models.agendamento import Agendamento
 from app.models.cliente import Cliente
 from app.models.servico import Servico
+from app.services.agenda_service import gerar_horarios_disponiveis
 
-from datetime import datetime
-from app.services.agendamento_service import criar_agendamento
+from datetime import datetime, timedelta
+from app.services.agendamento_service import (
+    criar_agendamento,
+    atualizar_status_agendamento,
+    remarcar_agendamento,
+)
 from app.schemas.agendamento import AgendamentoCreate
+
+
+PERIODOS_VALIDOS = {
+    "1": "manha",
+    "2": "tarde",
+    "3": "noite",
+    "manha": "manha",
+    "manhã": "manha",
+    "tarde": "tarde",
+    "noite": "noite",
+}
+
+PERIODO_LABEL = {
+    "manha": "manhã",
+    "tarde": "tarde",
+    "noite": "noite",
+}
 
 
 def _normalizar_texto(texto: str) -> str:
@@ -33,10 +56,13 @@ def _listar_servicos(db: Session) -> list[Servico]:
 
 def _mensagem_menu(nome_cliente: str) -> str:
     return (
-        f"Olá, {nome_cliente}! 👋\n"
-        "1️⃣ Ver serviços\n"
-        "2️⃣ Agendar horário\n"
-        "3️⃣ Falar com atendente"
+        f"Olá, {nome_cliente}. Sou a assistente da barbearia.\n"
+        "Como posso te ajudar hoje?\n"
+        "1️⃣ Agendar horário\n"
+        "2️⃣ Ver serviços e preços\n"
+        "3️⃣ Remarcar ou cancelar\n"
+        "4️⃣ Falar com atendente\n\n"
+        "Responda com o número da opção desejada."
     )
 
 
@@ -51,6 +77,71 @@ def _mensagem_servicos(db: Session) -> str:
     return "\n".join(linhas)
 
 
+def _mensagem_servicos_com_instrucao(db: Session) -> str:
+    base = _mensagem_servicos(db)
+    if base == "Ainda não temos serviços cadastrados.":
+        return base
+    return (
+        f"{base}\n\n"
+        "Para agendar, responda com o número do serviço.\n"
+        "Para voltar ao menu, digite 0."
+    )
+
+
+def _agendamentos_futuros_cliente(db: Session, cliente_id: int) -> list[Agendamento]:
+    return (
+        db.query(Agendamento)
+        .filter(
+            Agendamento.cliente_id == cliente_id,
+            Agendamento.status.in_(["pendente", "confirmado"]),
+            Agendamento.data_hora_inicio >= datetime.now(),
+        )
+        .order_by(Agendamento.data_hora_inicio.asc())
+        .all()
+    )
+
+
+def _mensagem_periodos() -> str:
+    return (
+        "Escolha um período:\n"
+        "1️⃣ Manhã\n"
+        "2️⃣ Tarde\n"
+        "3️⃣ Noite"
+    )
+
+
+def _normalizar_periodo(mensagem: str) -> str | None:
+    return PERIODOS_VALIDOS.get(_normalizar_texto(mensagem))
+
+
+def _datas_disponiveis_por_periodo(
+    db: Session,
+    barbeiro_id: int,
+    servico_id: int,
+    periodo: str,
+    dias_busca: int = 14,
+    limite_datas: int = 7,
+) -> list[str]:
+    datas = []
+    hoje = datetime.now()
+
+    for i in range(dias_busca):
+        data = hoje + timedelta(days=i)
+        horarios = gerar_horarios_disponiveis(
+            db=db,
+            barbeiro_id=barbeiro_id,
+            servico_id=servico_id,
+            data=data,
+            periodo=periodo,
+        )
+        if horarios:
+            datas.append(data.strftime("%d/%m/%Y"))
+        if len(datas) >= limite_datas:
+            break
+
+    return datas
+
+
 def _buscar_ou_criar_cliente(db: Session, telefone: str) -> Cliente:
     cliente = db.query(Cliente).filter(Cliente.telefone == telefone).first()
     if cliente:
@@ -60,6 +151,7 @@ def _buscar_ou_criar_cliente(db: Session, telefone: str) -> Cliente:
         telefone=telefone,
         nome="Vinicius",
         etapa_atual="inicio",
+        contexto=None,
     )
     db.add(cliente)
     db.commit()
@@ -69,6 +161,14 @@ def _buscar_ou_criar_cliente(db: Session, telefone: str) -> Cliente:
 
 def _salvar_etapa(db: Session, cliente: Cliente, etapa: str):
     cliente.etapa_atual = etapa
+    db.commit()
+
+
+def _atualizar_contexto(db: Session, cliente: Cliente, **campos):
+    contexto_atual = cliente.contexto if isinstance(cliente.contexto, dict) else {}
+    novo_contexto = dict(contexto_atual)
+    novo_contexto.update(campos)
+    cliente.contexto = novo_contexto
     db.commit()
 
 
@@ -88,48 +188,300 @@ def responder_mensagem(db: Session, telefone, mensagem):
         return _mensagem_menu(cliente.nome)
 
     if cliente.etapa_atual == "menu" and msg.startswith("1"):
-        _salvar_etapa(db, cliente, "vendo_servicos")
+        cliente.contexto = None
+        db.commit()
+        _salvar_etapa(db, cliente, "escolhendo_servico")
         return _mensagem_servicos(db)
 
     if cliente.etapa_atual == "menu" and msg.startswith("2"):
-        _salvar_etapa(db, cliente, "escolhendo_data")
-        return "Perfeito. Qual data você deseja agendar? (formato: DD/MM/AAAA)"
+        _salvar_etapa(db, cliente, "vendo_servicos")
+        return _mensagem_servicos_com_instrucao(db)
 
     if cliente.etapa_atual == "menu" and msg.startswith("3"):
+        agendamentos = _agendamentos_futuros_cliente(db, cliente.id)
+
+        if not agendamentos:
+            _salvar_etapa(db, cliente, "menu")
+            return "Você não tem agendamentos futuros no momento.\n\n" + _mensagem_menu(cliente.nome)
+
+        cliente.contexto = {
+            "agendamento_ids": [ag.id for ag in agendamentos],
+        }
+        db.commit()
+
+        _salvar_etapa(db, cliente, "escolhendo_agendamento_gestao")
+
+        linhas = ["Seus próximos agendamentos:"]
+        for i, ag in enumerate(agendamentos, start=1):
+            linhas.append(
+                f"{i}. {ag.data_hora_inicio.strftime('%d/%m/%Y %H:%M')} - {ag.servico.nome}"
+            )
+        linhas.append("\nDigite o número do agendamento para gerenciar.")
+        return "\n".join(linhas)
+
+    if cliente.etapa_atual == "menu" and msg.startswith("4"):
         _salvar_etapa(db, cliente, "falando_com_atendente")
         return "Certo. Vou te direcionar para um atendente."
 
     if cliente.etapa_atual == "menu":
-        return "Escolha uma opção do menu:\n1️⃣ Ver serviços\n2️⃣ Agendar horário\n3️⃣ Falar com atendente"
+        return _mensagem_menu(cliente.nome)
 
-    if cliente.etapa_atual == "escolhendo_data":
-        try:
-            data = datetime.strptime(mensagem, "%d/%m/%Y")
-        except ValueError:
-            return "Data inválida. Use o formato DD/MM/AAAA."
+    if cliente.etapa_atual == "vendo_servicos":
+        if msg in {"0", "menu", "voltar"}:
+            _salvar_etapa(db, cliente, "menu")
+            return _mensagem_menu(cliente.nome)
 
-        # Exemplo simples: usando serviço 1 e barbeiro 1 fixos para teste
+        servicos = _listar_servicos(db)
         try:
-            agendamento = criar_agendamento(
-                db,
-                AgendamentoCreate(
-                    telefone=cliente.telefone,
-                    nome_cliente=cliente.nome,
-                    barbeiro_id=1,
-                    servico_id=1,
-                    data_hora_inicio=datetime(
-                        data.year, data.month, data.day, 14, 0
-                    ),
-                    status="confirmado",
-                ),
+            indice = int(msg) - 1
+            servico = servicos[indice]
+        except (ValueError, IndexError):
+            return "Escolha um número válido do serviço ou digite 0 para voltar ao menu."
+
+        cliente.contexto = {"servico_id": servico.id}
+        db.commit()
+        _salvar_etapa(db, cliente, "escolhendo_periodo")
+        return _mensagem_periodos()
+
+    if cliente.etapa_atual == "escolhendo_agendamento_gestao":
+        if not cliente.contexto or "agendamento_ids" not in cliente.contexto:
+            _salvar_etapa(db, cliente, "menu")
+            return "Sessão expirada. Vamos começar novamente.\n" + _mensagem_menu(cliente.nome)
+
+        try:
+            indice = int(msg) - 1
+            agendamento_id = cliente.contexto["agendamento_ids"][indice]
+        except (ValueError, IndexError, TypeError, KeyError):
+            return "Escolha um número válido da lista de agendamentos."
+
+        _atualizar_contexto(db, cliente, agendamento_id_gestao=agendamento_id)
+        _salvar_etapa(db, cliente, "escolhendo_acao_agendamento")
+
+        return (
+            "O que você deseja fazer com esse agendamento?\n"
+            "1️⃣ Remarcar\n"
+            "2️⃣ Cancelar\n"
+            "3️⃣ Voltar ao menu"
+        )
+
+    if cliente.etapa_atual == "escolhendo_acao_agendamento":
+        if msg.startswith("1"):
+            if not cliente.contexto or "agendamento_id_gestao" not in cliente.contexto:
+                _salvar_etapa(db, cliente, "menu")
+                return "Sessão expirada. Vamos começar novamente.\n" + _mensagem_menu(cliente.nome)
+
+            agendamento = (
+                db.query(Agendamento)
+                .filter(
+                    Agendamento.id == cliente.contexto["agendamento_id_gestao"],
+                    Agendamento.cliente_id == cliente.id,
+                )
+                .first()
             )
+
+            if not agendamento:
+                cliente.contexto = None
+                db.commit()
+                _salvar_etapa(db, cliente, "menu")
+                return "Não encontrei esse agendamento para remarcação.\n" + _mensagem_menu(cliente.nome)
+
+            cliente.contexto = {
+                "modo": "remarcacao",
+                "agendamento_id_remarcacao": agendamento.id,
+                "servico_id": agendamento.servico_id,
+            }
+            db.commit()
+            _salvar_etapa(db, cliente, "escolhendo_periodo")
+            return (
+                "Perfeito. Vamos remarcar seu horário.\n"
+                + _mensagem_periodos()
+            )
+
+        if msg.startswith("2"):
+            if not cliente.contexto or "agendamento_id_gestao" not in cliente.contexto:
+                _salvar_etapa(db, cliente, "menu")
+                return "Sessão expirada. Vamos começar novamente.\n" + _mensagem_menu(cliente.nome)
+
+            try:
+                atualizado = atualizar_status_agendamento(
+                    db,
+                    cliente.contexto["agendamento_id_gestao"],
+                    "cancelado",
+                )
+            except Exception as e:
+                return f"Não consegui cancelar agora: {str(e)}"
+
+            cliente.contexto = None
+            db.commit()
+            _salvar_etapa(db, cliente, "menu")
+            return (
+                f"Agendamento de {atualizado['data_hora_inicio'].strftime('%d/%m/%Y %H:%M')} "
+                "cancelado com sucesso.\n\n"
+                + _mensagem_menu(cliente.nome)
+            )
+
+        if msg.startswith("3"):
+            cliente.contexto = None
+            db.commit()
+            _salvar_etapa(db, cliente, "menu")
+            return _mensagem_menu(cliente.nome)
+
+        return "Escolha uma opção válida:\n1️⃣ Remarcar\n2️⃣ Cancelar\n3️⃣ Voltar ao menu"
+
+    if cliente.etapa_atual == "escolhendo_servico":
+        servicos = _listar_servicos(db)
+
+        try:
+            indice = int(msg) - 1
+            servico = servicos[indice]
+        except (ValueError, IndexError):
+            return "Escolha um número válido da lista de serviços."
+
+        cliente.contexto = {"servico_id": servico.id}
+        db.commit()
+
+        _salvar_etapa(db, cliente, "escolhendo_periodo")
+        return _mensagem_periodos()
+
+    if cliente.etapa_atual == "escolhendo_periodo":
+        periodo = _normalizar_periodo(msg)
+        if not periodo:
+            return "Escolha um período válido:\n1️⃣ Manhã\n2️⃣ Tarde\n3️⃣ Noite"
+
+        if not cliente.contexto or "servico_id" not in cliente.contexto:
+            _salvar_etapa(db, cliente, "menu")
+            return "Ocorreu um erro na sessão. Vamos começar novamente.\n" + _mensagem_menu(cliente.nome)
+
+        datas = _datas_disponiveis_por_periodo(
+            db=db,
+            barbeiro_id=1,
+            servico_id=cliente.contexto["servico_id"],
+            periodo=periodo,
+        )
+
+        if not datas:
+            return (
+                f"Não encontrei datas disponíveis para {PERIODO_LABEL[periodo]} nos próximos dias.\n"
+                "Escolha outro período:\n1️⃣ Manhã\n2️⃣ Tarde\n3️⃣ Noite"
+            )
+
+        _atualizar_contexto(
+            db,
+            cliente,
+            periodo=periodo,
+            datas_disponiveis=datas,
+        )
+
+        _salvar_etapa(db, cliente, "escolhendo_data_disponivel")
+
+        linhas = [f"Datas disponíveis para {PERIODO_LABEL[periodo]}:"]
+        for i, data in enumerate(datas, start=1):
+            linhas.append(f"{i}. {data}")
+        linhas.append("\nDigite o número da data desejada.")
+        return "\n".join(linhas)
+
+    if cliente.etapa_atual == "escolhendo_data_disponivel":
+        try:
+            indice = int(msg) - 1
+            data_str = cliente.contexto["datas_disponiveis"][indice]
+        except (ValueError, IndexError, TypeError, KeyError):
+            return "Escolha um número válido da lista de datas."
+
+        if not cliente.contexto or "servico_id" not in cliente.contexto or "periodo" not in cliente.contexto:
+            _salvar_etapa(db, cliente, "menu")
+            return "Ocorreu um erro na sessão. Vamos começar novamente.\n" + _mensagem_menu(cliente.nome)
+
+        data = datetime.strptime(data_str, "%d/%m/%Y")
+
+        horarios = gerar_horarios_disponiveis(
+            db=db,
+            barbeiro_id=1,
+            servico_id=cliente.contexto["servico_id"],
+            data=data,
+            periodo=cliente.contexto["periodo"],
+        )
+
+        if not horarios:
+            return "Esse período ficou sem horários nessa data. Escolha outra data da lista."
+
+        _atualizar_contexto(
+            db,
+            cliente,
+            data=data_str,
+            horarios_disponiveis=horarios,
+        )
+
+        _salvar_etapa(db, cliente, "escolhendo_horario")
+
+        linhas = [f"Horários disponíveis ({PERIODO_LABEL[cliente.contexto['periodo']]}):"]
+        for i, h in enumerate(horarios, start=1):
+            linhas.append(f"{i}. {h}")
+
+        linhas.append("\nDigite o número do horário desejado.")
+
+        return "\n".join(linhas)
+
+    if cliente.etapa_atual == "escolhendo_horario":
+
+        if not cliente.contexto or "horarios_disponiveis" not in cliente.contexto:
+            _salvar_etapa(db, cliente, "menu")
+            return "Sessão expirada. Vamos começar novamente.\n" + _mensagem_menu(cliente.nome)
+
+        horarios = cliente.contexto["horarios_disponiveis"]
+
+        try:
+            indice = int(msg) - 1
+            horario_escolhido = horarios[indice]
+        except (ValueError, IndexError):
+            return "Escolha um número válido da lista."
+
+        data_str = cliente.contexto["data"]
+        data = datetime.strptime(data_str, "%d/%m/%Y")
+        hora = datetime.strptime(horario_escolhido, "%H:%M").time()
+
+        data_hora = datetime(
+            data.year,
+            data.month,
+            data.day,
+            hora.hour,
+            hora.minute,
+        )
+
+        try:
+            if cliente.contexto.get("modo") == "remarcacao":
+                agendamento = remarcar_agendamento(
+                    db,
+                    cliente.contexto["agendamento_id_remarcacao"],
+                    data_hora,
+                )
+                mensagem_confirmacao = (
+                    f"Remarcação confirmada para "
+                    f"{agendamento['data_hora_inicio'].strftime('%d/%m/%Y %H:%M')} ✅"
+                )
+            else:
+                agendamento = criar_agendamento(
+                    db,
+                    AgendamentoCreate(
+                        telefone=cliente.telefone,
+                        nome_cliente=cliente.nome,
+                        barbeiro_id=1,
+                        servico_id=cliente.contexto["servico_id"],
+                        data_hora_inicio=data_hora,
+                        status="confirmado",
+                    ),
+                )
+                mensagem_confirmacao = (
+                    f"Agendamento confirmado para "
+                    f"{agendamento['data_hora_inicio'].strftime('%d/%m/%Y %H:%M')} ✅"
+                )
         except Exception as e:
-            return f"Erro ao criar agendamento: {str(e)}"
+            return f"Erro ao confirmar horário: {str(e)}"
+
+        cliente.contexto = None
+        db.commit()
 
         _salvar_etapa(db, cliente, "menu")
-        return (
-            f"Agendamento confirmado para "
-            f"{agendamento.data_hora_inicio.strftime('%d/%m/%Y %H:%M')} ✅"
-        )
+
+        return mensagem_confirmacao
 
     return _mensagem_menu(cliente.nome)
