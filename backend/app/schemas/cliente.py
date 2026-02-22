@@ -18,3 +18,9 @@ class ClienteResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class ClienteUpdate(BaseModel):
+    telefone: str
+    nome: str
+    etapa_atual: str | None = None

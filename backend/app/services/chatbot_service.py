@@ -30,6 +30,8 @@ PERIODO_LABEL = {
     "noite": "noite",
 }
 
+PARTICULAS_NOME = {"da", "de", "do", "das", "dos", "e"}
+
 
 def _normalizar_texto(texto: str) -> str:
     return " ".join(texto.lower().strip().split())
@@ -48,6 +50,20 @@ def _normalizar_telefone(telefone: str) -> str:
 def _eh_saudacao(mensagem: str) -> bool:
     msg = _normalizar_texto(mensagem)
     return msg in {"oi", "ola", "olá", "bom dia", "boa tarde", "boa noite"}
+
+
+def _normalizar_nome(nome: str) -> str:
+    partes = " ".join(nome.strip().split()).split(" ")
+    normalizadas = []
+
+    for i, parte in enumerate(partes):
+        base = parte.lower()
+        if i > 0 and base in PARTICULAS_NOME:
+            normalizadas.append(base)
+        else:
+            normalizadas.append(base.capitalize())
+
+    return " ".join(normalizadas)
 
 
 def _listar_servicos(db: Session) -> list[Servico]:
@@ -149,8 +165,8 @@ def _buscar_ou_criar_cliente(db: Session, telefone: str) -> Cliente:
 
     cliente = Cliente(
         telefone=telefone,
-        nome="Vinicius",
-        etapa_atual="inicio",
+        nome="Cliente",
+        etapa_atual="aguardando_nome",
         contexto=None,
     )
     db.add(cliente)
@@ -182,6 +198,17 @@ def responder_mensagem(db: Session, telefone, mensagem):
     print("ETAPA ATUAL:", cliente.etapa_atual)
     print("MENSAGEM NORMALIZADA:", msg)
     print("===========================")
+
+    if cliente.etapa_atual == "aguardando_nome":
+        nome = mensagem.strip()
+        if _eh_saudacao(msg) or len(nome) < 2 or nome.isdigit():
+            return "Para te cadastrar, me diga seu nome."
+
+        cliente.nome = _normalizar_nome(nome)
+        cliente.contexto = None
+        db.commit()
+        _salvar_etapa(db, cliente, "menu")
+        return _mensagem_menu(cliente.nome)
 
     if _eh_saudacao(msg):
         _salvar_etapa(db, cliente, "menu")

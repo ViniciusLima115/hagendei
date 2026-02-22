@@ -11,6 +11,14 @@ def _msg(client, telefone, mensagem):
     )
 
 
+def _iniciar_chat_novo_cliente(client, telefone, nome="Teste"):
+    r1 = _msg(client, telefone, "oi")
+    assert "Para te cadastrar, me diga seu nome." in r1.json()["resposta"]
+    r2 = _msg(client, telefone, nome)
+    assert "Agendar horário" in r2.json()["resposta"]
+    return r2
+
+
 def _criar_agendamento(client, barbeiro_id, servico_id, telefone, nome, inicio_iso):
     return client.post(
         "/agendamentos/",
@@ -28,9 +36,7 @@ def _criar_agendamento(client, barbeiro_id, servico_id, telefone, nome, inicio_i
 def test_chatbot_fluxo_agendamento_completo(client, dados_base):
     telefone = "5582911111111"
 
-    r1 = _msg(client, telefone, "oi")
-    assert r1.status_code == 200
-    assert "Agendar horário" in r1.json()["resposta"]
+    _iniciar_chat_novo_cliente(client, telefone, "Cliente Fluxo")
 
     r2 = _msg(client, telefone, "1")
     assert r2.status_code == 200
@@ -56,7 +62,7 @@ def test_chatbot_fluxo_agendamento_completo(client, dados_base):
 def test_chatbot_ver_servicos_permite_seguir_para_periodo(client, dados_base):
     telefone = "5582922222222"
 
-    _msg(client, telefone, "oi")
+    _iniciar_chat_novo_cliente(client, telefone, "Cliente Servicos")
     r2 = _msg(client, telefone, "2")
     assert "Para agendar, responda com o número do serviço" in r2.json()["resposta"]
 
@@ -164,7 +170,7 @@ def test_chatbot_remarcacao_com_conflito_apos_listar_horarios(client, dados_base
 
 def test_chatbot_erro_data_invalida_na_lista(client, dados_base):
     telefone = "5582971111111"
-    _msg(client, telefone, "oi")
+    _iniciar_chat_novo_cliente(client, telefone, "Cliente Data")
     _msg(client, telefone, "1")
     _msg(client, telefone, "1")
     _msg(client, telefone, "2")
@@ -175,7 +181,7 @@ def test_chatbot_erro_data_invalida_na_lista(client, dados_base):
 
 def test_chatbot_erro_servico_invalido(client):
     telefone = "5582972222222"
-    _msg(client, telefone, "oi")
+    _iniciar_chat_novo_cliente(client, telefone, "Cliente Servico")
     _msg(client, telefone, "1")
     resp = _msg(client, telefone, "99")
 
@@ -184,7 +190,7 @@ def test_chatbot_erro_servico_invalido(client):
 
 def test_chatbot_erro_horario_invalido(client, dados_base):
     telefone = "5582973333333"
-    _msg(client, telefone, "oi")
+    _iniciar_chat_novo_cliente(client, telefone, "Cliente Horario")
     _msg(client, telefone, "1")
     _msg(client, telefone, "1")
     _msg(client, telefone, "2")
@@ -217,9 +223,22 @@ def test_chatbot_ausencia_de_horarios(client, monkeypatch, dados_base):
     monkeypatch.setattr(chatbot_service, "gerar_horarios_disponiveis", sem_horarios)
 
     telefone = "5582975555555"
-    _msg(client, telefone, "oi")
+    _iniciar_chat_novo_cliente(client, telefone, "Cliente SemHorario")
     _msg(client, telefone, "1")
     _msg(client, telefone, "1")
     resp = _msg(client, telefone, "2")
 
     assert "Não encontrei datas disponíveis para tarde nos próximos dias." in resp.json()["resposta"]
+
+
+def test_chatbot_normaliza_nome_no_cadastro(client, db_session):
+    telefone = "5582976666666"
+    r1 = _msg(client, telefone, "oi")
+    assert "Para te cadastrar, me diga seu nome." in r1.json()["resposta"]
+
+    r2 = _msg(client, telefone, "   joao   da   silva   ")
+    assert "Olá, Joao da Silva." in r2.json()["resposta"]
+
+    cliente = db_session.query(Cliente).filter(Cliente.telefone == telefone).first()
+    assert cliente is not None
+    assert cliente.nome == "Joao da Silva"
