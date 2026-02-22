@@ -7,6 +7,19 @@ from app.models.cliente import Cliente
 from app.models.servico import Servico
 
 
+def _serializar_agendamento(agendamento: Agendamento):
+    return {
+        "id": agendamento.id,
+        "cliente_nome": agendamento.cliente.nome,
+        "telefone": agendamento.cliente.telefone,
+        "barbeiro_nome": agendamento.barbeiro.nome,
+        "servico_nome": agendamento.servico.nome,
+        "data_hora_inicio": agendamento.data_hora_inicio,
+        "data_hora_fim": agendamento.data_hora_fim,
+        "status": agendamento.status,
+    }
+
+
 def criar_agendamento(db: Session, dados):
     servico = db.query(Servico).filter(Servico.id == dados.servico_id).first()
     if not servico:
@@ -48,16 +61,12 @@ def criar_agendamento(db: Session, dados):
     db.commit()
     db.refresh(novo)
 
-    return {
-        "id": novo.id,
-        "cliente_nome": cliente.nome,
-        "telefone": cliente.telefone,
-        "barbeiro_nome": novo.barbeiro.nome,
-        "servico_nome": servico.nome,
-        "data_hora_inicio": novo.data_hora_inicio,
-        "data_hora_fim": novo.data_hora_fim,
-        "status": novo.status,
-    }
+    return _serializar_agendamento(novo)
+
+
+def listar_agendamentos(db: Session):
+    agendamentos = db.query(Agendamento).order_by(Agendamento.data_hora_inicio.asc()).all()
+    return [_serializar_agendamento(ag) for ag in agendamentos]
 
 
 def atualizar_status_agendamento(db: Session, agendamento_id: int, status: str):
@@ -69,16 +78,7 @@ def atualizar_status_agendamento(db: Session, agendamento_id: int, status: str):
     db.commit()
     db.refresh(agendamento)
 
-    return {
-        "id": agendamento.id,
-        "cliente_nome": agendamento.cliente.nome,
-        "telefone": agendamento.cliente.telefone,
-        "barbeiro_nome": agendamento.barbeiro.nome,
-        "servico_nome": agendamento.servico.nome,
-        "data_hora_inicio": agendamento.data_hora_inicio,
-        "data_hora_fim": agendamento.data_hora_fim,
-        "status": agendamento.status,
-    }
+    return _serializar_agendamento(agendamento)
 
 
 def remarcar_agendamento(db: Session, agendamento_id: int, nova_data_hora_inicio):
@@ -113,13 +113,50 @@ def remarcar_agendamento(db: Session, agendamento_id: int, nova_data_hora_inicio
     db.commit()
     db.refresh(agendamento)
 
-    return {
-        "id": agendamento.id,
-        "cliente_nome": agendamento.cliente.nome,
-        "telefone": agendamento.cliente.telefone,
-        "barbeiro_nome": agendamento.barbeiro.nome,
-        "servico_nome": agendamento.servico.nome,
-        "data_hora_inicio": agendamento.data_hora_inicio,
-        "data_hora_fim": agendamento.data_hora_fim,
-        "status": agendamento.status,
-    }
+    return _serializar_agendamento(agendamento)
+
+
+def atualizar_agendamento(db: Session, agendamento_id: int, dados):
+    agendamento = db.query(Agendamento).filter(Agendamento.id == agendamento_id).first()
+    if not agendamento:
+        raise ValueError("Agendamento não encontrado")
+
+    servico = db.query(Servico).filter(Servico.id == dados.servico_id).first()
+    if not servico:
+        raise ValueError("Serviço não encontrado")
+
+    novo_fim = dados.data_hora_inicio + timedelta(minutes=servico.duracao_minutos)
+
+    conflito = (
+        db.query(Agendamento)
+        .filter(
+            Agendamento.id != agendamento.id,
+            Agendamento.barbeiro_id == dados.barbeiro_id,
+            Agendamento.data_hora_inicio < novo_fim,
+            Agendamento.data_hora_fim > dados.data_hora_inicio,
+            Agendamento.status.in_(["pendente", "confirmado"]),
+        )
+        .first()
+    )
+
+    if conflito:
+        raise ValueError("Horário indisponível")
+
+    agendamento.barbeiro_id = dados.barbeiro_id
+    agendamento.servico_id = dados.servico_id
+    agendamento.data_hora_inicio = dados.data_hora_inicio
+    agendamento.data_hora_fim = novo_fim
+    agendamento.status = dados.status
+    db.commit()
+    db.refresh(agendamento)
+
+    return _serializar_agendamento(agendamento)
+
+
+def remover_agendamento(db: Session, agendamento_id: int):
+    agendamento = db.query(Agendamento).filter(Agendamento.id == agendamento_id).first()
+    if not agendamento:
+        raise ValueError("Agendamento não encontrado")
+
+    db.delete(agendamento)
+    db.commit()

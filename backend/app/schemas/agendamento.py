@@ -19,6 +19,14 @@ class AgendamentoCreate(BaseModel):
 class AgendamentoStatusUpdate(BaseModel):
     status: StatusAgendamento
 
+
+class AgendamentoUpdate(BaseModel):
+    barbeiro_id: int
+    servico_id: int
+    data_hora_inicio: datetime
+    status: StatusAgendamento = "confirmado"
+
+
 class AgendamentoResponse(BaseModel):
     id: int
 

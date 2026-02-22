@@ -16,3 +16,9 @@ class ServicoResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class ServicoUpdate(BaseModel):
+    nome: str
+    duracao_minutos: int
+    preco: float
