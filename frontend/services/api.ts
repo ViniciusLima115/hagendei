@@ -16,10 +16,12 @@ export type AgendaBarbeiro = {
   agendamentos: AgendaSlot[];
 };
 
+
 export type AgendaDiaResponse = {
   data?: string;
   horarios: string[];
   barbeiros: AgendaBarbeiro[];
+  
 };
 
 export async function getAgendaDia(data: string): Promise<AgendaDiaResponse> {
