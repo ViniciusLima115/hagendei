@@ -6,26 +6,12 @@ import secrets
 import os
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
-
-app = FastAPI(
-    docs_url=None,
-    redoc_url=None,
-    openapi_url=None
-)
 from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.responses import HTMLResponse
 
-@app.get("/docs", response_class=HTMLResponse)
-def custom_swagger_ui(credentials: HTTPBasicCredentials = Depends(verify_docs)):
-    return get_swagger_ui_html(
-        openapi_url="/openapi.json",
-        title="Barbearia Chatbot API - Documentação"
-    )
-@app.get("/openapi.json")
-def openapi(credentials: HTTPBasicCredentials = Depends(verify_docs)):
-    return app.openapi()
 
 security = HTTPBasic()
+
 
 def verify_docs(credentials: HTTPBasicCredentials = Depends(security)):
     DOCS_USER = os.getenv("DOCS_USER")
@@ -46,6 +32,22 @@ def verify_docs(credentials: HTTPBasicCredentials = Depends(security)):
             detail="Unauthorized",
             headers={"WWW-Authenticate": "Basic"},
         )
+
+app = FastAPI(
+    docs_url=None,
+    redoc_url=None,
+    openapi_url=None
+)
+
+@app.get("/docs", response_class=HTMLResponse)
+def custom_swagger_ui(credentials: HTTPBasicCredentials = Depends(verify_docs)):
+    return get_swagger_ui_html(
+        openapi_url="/openapi.json",
+        title="Barbearia Chatbot API - Documentação"
+    )
+@app.get("/openapi.json")
+def openapi(credentials: HTTPBasicCredentials = Depends(verify_docs)):
+    return app.openapi()
 
 @app.on_event("startup")
 def startup():
