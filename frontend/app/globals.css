@@ -1,0 +1,54 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f3efe7;
+  --foreground: #17120f;
+  --surface: #fffdfa;
+  --surface-muted: #f6f1e8;
+  --line: #dfd7c7;
+  --line-strong: #b7aa93;
+  --accent: #2f271d;
+  --accent-soft: #ddd2c0;
+  --ok: #177245;
+  --danger: #b43e2f;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: "Avenir Next", "Trebuchet MS", "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", "SFMono-Regular", "Menlo", monospace;
+}
+
+body {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 0% 0%, #ffffffcc 0, #ffffff00 35%),
+    radial-gradient(circle at 100% 100%, #efe5d300 0, #efe5d3cc 40%),
+    linear-gradient(135deg, #f8f5ee 0%, var(--background) 55%, #ece4d8 100%);
+  color: var(--foreground);
+  font-family: "Avenir Next", "Trebuchet MS", "Segoe UI", sans-serif;
+}
+
+.glass-panel {
+  background: color-mix(in srgb, var(--surface) 92%, #fff 8%);
+  border: 1px solid var(--line);
+  box-shadow:
+    0 1px 0 #ffffffcc inset,
+    0 16px 36px #2f271d1a;
+}
+
+.fade-up {
+  animation: fadeUp 0.55s ease both;
+}
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
