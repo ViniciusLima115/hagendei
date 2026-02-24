@@ -42,6 +42,7 @@ export type Servico = {
 export type Barbeiro = {
   id: number;
   nome: string;
+  barbearia_id: number;
 };
 
 export type Agendamento = {
@@ -57,6 +58,13 @@ export type Agendamento = {
 
 export type AdminCheckResponse = {
   is_admin: boolean;
+};
+
+export type LoginResponse = {
+  is_admin: boolean;
+  tenant_id: number | null;
+  tenant_name: string | null;
+  plano: "basico" | "premium" | null;
 };
 
 function getTenantId(): string | null {
@@ -174,6 +182,29 @@ export async function listBarbeiros(): Promise<Barbeiro[]> {
   return parseOrThrow(res, "Falha ao carregar barbeiros.");
 }
 
+export async function createBarbeiro(payload: { nome: string }): Promise<Barbeiro> {
+  const res = await apiFetch("/barbeiros/", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  return parseOrThrow(res, "Falha ao criar barbeiro.");
+}
+
+export async function updateBarbeiro(id: number, payload: { nome: string }): Promise<Barbeiro> {
+  const res = await apiFetch(`/barbeiros/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  return parseOrThrow(res, "Falha ao atualizar barbeiro.");
+}
+
+export async function deleteBarbeiro(id: number): Promise<void> {
+  const res = await apiFetch(`/barbeiros/${id}`, { method: "DELETE" });
+  await parseOrThrow(res, "Falha ao remover barbeiro.");
+}
+
 export async function listAgendamentos(): Promise<Agendamento[]> {
   const res = await apiFetch("/agendamentos/", { cache: "no-store" });
   return parseOrThrow(res, "Falha ao carregar agendamentos.");
@@ -222,6 +253,19 @@ export async function checkAdminLogin(payload: {
   senha: string;
 }): Promise<AdminCheckResponse> {
   const res = await apiFetch("/auth/admin-check", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  return parseOrThrow(res, "Falha ao validar login.");
+}
+
+export async function loginUsuario(payload: {
+  usuario: string;
+  senha: string;
+}): Promise<LoginResponse> {
+  const res = await apiFetch("/auth/login", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),

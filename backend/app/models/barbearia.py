@@ -1,6 +1,8 @@
 from datetime import datetime
 
 from sqlalchemy import Boolean, Column, Date, DateTime, Integer, String
+from sqlalchemy.orm import relationship
+
 from app.database import Base
 
 
@@ -22,3 +24,5 @@ class Barbearia(Base):
     ultimo_acesso_em = Column(DateTime, nullable=True)
     pagamento_recusado = Column(Boolean, nullable=False, default=False)
     criado_em = Column(DateTime, nullable=False, default=datetime.utcnow)
+
+    barbeiros = relationship("Barbeiro", back_populates="barbearia")

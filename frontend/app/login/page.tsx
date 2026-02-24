@@ -4,7 +4,7 @@ import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Eye, Headset, Laptop, MessageCircle, User, X } from "lucide-react";
 import { login } from "@/services/auth";
-import { checkAdminLogin } from "@/services/api";
+import { loginUsuario } from "@/services/api";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -21,7 +21,6 @@ export default function LoginPage() {
 
     const usuario = email.trim();
     const senha = password;
-    const adminCredencialExata = usuario === "vhtech_" && senha === "@dinizvascaino";
 
     if (!usuario || !senha) {
       setError("Preencha todos os campos para entrar.");
@@ -31,30 +30,37 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const adminCheck = await checkAdminLogin({
+      const resposta = await loginUsuario({
         usuario,
         senha,
-      }).catch(() => ({ is_admin: false }));
+      });
 
-      if (adminCheck.is_admin || adminCredencialExata) {
+      if (resposta.is_admin) {
         login({
           email: usuario,
           tenantId: "admin",
           tenantName: "Administrador",
+          plan: "premium",
         });
         router.replace("/admin");
         return;
       }
 
+      if (!resposta.tenant_id || !resposta.tenant_name) {
+        setError("Nao foi possivel identificar a barbearia do usuario.");
+        return;
+      }
+
       login({
         email: usuario,
-        tenantId: "1",
-        tenantName: "Barbearia",
+        tenantId: String(resposta.tenant_id),
+        tenantName: resposta.tenant_name,
+        plan: resposta.plano === "premium" ? "premium" : "basico",
       });
 
       router.replace("/");
-    } catch {
-      setError("Nao foi possivel iniciar sessao.");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Nao foi possivel iniciar sessao.");
     } finally {
       setLoading(false);
     }

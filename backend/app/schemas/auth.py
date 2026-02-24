@@ -8,3 +8,15 @@ class AdminCheckRequest(BaseModel):
 
 class AdminCheckResponse(BaseModel):
     is_admin: bool
+
+
+class LoginRequest(BaseModel):
+    usuario: str
+    senha: str
+
+
+class LoginResponse(BaseModel):
+    is_admin: bool
+    tenant_id: int | None = None
+    tenant_name: str | None = None
+    plano: str | None = None
