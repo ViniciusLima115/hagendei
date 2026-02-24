@@ -1,0 +1,42 @@
+name: Deploy VPS
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H 34.121.162.107 >> ~/.ssh/known_hosts
+
+      - name: Deploy Staging
+        if: github.ref == 'refs/heads/develop'
+        run: |
+          ssh mankindbr@34.121.162.107 "
+            cd ~/barbershop-chatbot &&
+            git checkout develop &&
+            git pull origin develop &&
+            docker-compose -p staging -f docker-compose.staging.yml up -d --build
+          "
+
+      - name: Deploy Production
+        if: github.ref == 'refs/heads/main'
+        run: |
+          ssh mankindbr@34.121.162.107 "
+            cd ~/barbershop-chatbot &&
+            git checkout main &&
+            git pull origin main &&
+            docker-compose -p prod -f docker-compose.prod.yml up -d --build
+          "
