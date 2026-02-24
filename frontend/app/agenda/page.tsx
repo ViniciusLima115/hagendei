@@ -34,6 +34,7 @@ function calcularDuracaoEmMinutos(inicio?: string, fim?: string): string {
 
 export default function AgendaPage() {
   const [selectedDate, setSelectedDate] = useState(getLocalISODate());
+  const [selectedBarbeiroId, setSelectedBarbeiroId] = useState("all");
   const [data, setData] = useState<AgendaDiaResponse | null>(null);
   const [selected, setSelected] = useState<SelectedAgendamento | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
@@ -63,10 +64,29 @@ export default function AgendaPage() {
     carregarAgenda();
   }, [selectedDate]);
 
+  useEffect(() => {
+    if (!data) {
+      setSelectedBarbeiroId("all");
+      return;
+    }
+
+    if (
+      selectedBarbeiroId !== "all" &&
+      !data.barbeiros.some((barbeiro) => String(barbeiro.id) === selectedBarbeiroId)
+    ) {
+      setSelectedBarbeiroId("all");
+    }
+  }, [data, selectedBarbeiroId]);
+
+  const barbeirosVisiveis =
+    data?.barbeiros.filter(
+      (barbeiro) => selectedBarbeiroId === "all" || String(barbeiro.id) === selectedBarbeiroId
+    ) ?? [];
+  const filteredData = data ? { ...data, barbeiros: barbeirosVisiveis } : null;
   const selectedKey = selected ? `${selected.barbeiroId}-${selected.hora}` : undefined;
-  const totalSlots = data ? data.horarios.length * data.barbeiros.length : 0;
-  const totalOcupados = data
-    ? data.barbeiros.reduce((acc, b) => acc + b.agendamentos.length, 0)
+  const totalSlots = filteredData ? filteredData.horarios.length * filteredData.barbeiros.length : 0;
+  const totalOcupados = filteredData
+    ? filteredData.barbeiros.reduce((acc, b) => acc + b.agendamentos.length, 0)
     : 0;
   const totalLivres = Math.max(totalSlots - totalOcupados, 0);
   const taxaOcupacao = totalSlots > 0 ? Math.round((totalOcupados / totalSlots) * 100) : 0;
@@ -136,7 +156,7 @@ export default function AgendaPage() {
 
           {loading && <Loading />}
 
-          {!loading && !error && data && (
+          {!loading && !error && filteredData && (
             <Card
               title="Grade de Agendamentos"
               subtitle={`Verde: agendamento confirmado. Data: ${new Date(selectedDate).toLocaleDateString("pt-BR", {
@@ -146,8 +166,30 @@ export default function AgendaPage() {
                 day: "numeric",
               })}`}
             >
+              <div className="mb-4 flex flex-col gap-2 sm:max-w-sm">
+                <label htmlFor="barbeiro-filter" className="text-sm font-semibold text-gray-700">
+                  Barbeiro
+                </label>
+                <select
+                  id="barbeiro-filter"
+                  value={selectedBarbeiroId}
+                  onChange={(e) => {
+                    setSelectedBarbeiroId(e.target.value);
+                    setSelected(null);
+                    setIsDetailsOpen(false);
+                  }}
+                  className="input"
+                >
+                  <option value="all">Todos os barbeiros</option>
+                  {data.barbeiros.map((barbeiro) => (
+                    <option key={barbeiro.id} value={String(barbeiro.id)}>
+                      {barbeiro.nome}
+                    </option>
+                  ))}
+                </select>
+              </div>
               <AgendaGrid
-                data={data}
+                data={filteredData}
                 selectedKey={selectedKey}
                 onSelect={abrirDetalhes}
               />

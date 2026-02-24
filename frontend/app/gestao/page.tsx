@@ -7,9 +7,11 @@ import {
   Cliente,
   Servico,
   createAgendamento,
+  createBarbeiro,
   createCliente,
   createServico,
   deleteAgendamento,
+  deleteBarbeiro,
   deleteCliente,
   deleteServico,
   listAgendamentos,
@@ -17,9 +19,11 @@ import {
   listClientes,
   listServicos,
   updateAgendamento,
+  updateBarbeiro,
   updateCliente,
   updateServico,
 } from "@/services/api";
+import { useAuthSession } from "@/services/auth";
 import Alert from "../components/Alert";
 import Loading from "../components/Loading";
 import Card from "../components/Card";
@@ -33,6 +37,8 @@ type Tab = "agendamentos" | "clientes" | "servicos";
 
 const initialCliente = { nome: "", telefone: "" };
 const initialServico = { nome: "", duracao_minutos: 40, preco: 40 };
+const initialBarbeiro = { nome: "" };
+const MAX_BARBEIROS_PREMIUM = 3;
 const tabs: Array<{ key: Tab; label: string; icon: ComponentType<{ size?: number }> }> = [
   { key: "agendamentos", label: "Agendamentos", icon: CalendarDays },
   { key: "clientes", label: "Clientes", icon: Users },
@@ -51,6 +57,8 @@ function toDateTimeLocalInput(value: string): string {
 }
 
 export default function GestaoPage() {
+  const authSession = useAuthSession();
+  const isPremiumPlan = authSession?.plan === "premium";
   const [tab, setTab] = useState<Tab>("agendamentos");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -60,6 +68,7 @@ export default function GestaoPage() {
   const [showClienteModal, setShowClienteModal] = useState(false);
   const [showServicoModal, setShowServicoModal] = useState(false);
   const [showAgendamentoModal, setShowAgendamentoModal] = useState(false);
+  const [showBarbeiroModal, setShowBarbeiroModal] = useState(false);
 
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [servicos, setServicos] = useState<Servico[]>([]);
@@ -71,6 +80,8 @@ export default function GestaoPage() {
 
   const [novoServico, setNovoServico] = useState(initialServico);
   const [editServicoId, setEditServicoId] = useState<number | null>(null);
+  const [novoBarbeiro, setNovoBarbeiro] = useState(initialBarbeiro);
+  const [editBarbeiroId, setEditBarbeiroId] = useState<number | null>(null);
 
   const [formAgendamento, setFormAgendamento] = useState({
     clienteId: "",
@@ -80,6 +91,8 @@ export default function GestaoPage() {
     status: "confirmado" as "pendente" | "confirmado" | "cancelado",
   });
   const [editAgendamentoId, setEditAgendamentoId] = useState<number | null>(null);
+
+  const limiteBarbeirosAtingido = barbeiros.length >= MAX_BARBEIROS_PREMIUM;
 
   async function carregarTudo() {
     setLoading(true);
@@ -190,6 +203,55 @@ export default function GestaoPage() {
     setShowServicoModal(true);
   }
 
+  // BARBEIRO HANDLERS
+  async function submitBarbeiro(e: FormEvent) {
+    e.preventDefault();
+    limparMensagens();
+
+    if (!isPremiumPlan) {
+      setError("Gestao de barbeiros disponivel apenas para plano premium.");
+      return;
+    }
+
+    try {
+      if (editBarbeiroId) {
+        await updateBarbeiro(editBarbeiroId, novoBarbeiro);
+        setSuccess("Barbeiro atualizado com sucesso!");
+      } else {
+        if (limiteBarbeirosAtingido) {
+          setError("Limite de 3 barbeiros ativos atingido.");
+          return;
+        }
+        await createBarbeiro(novoBarbeiro);
+        setSuccess("Barbeiro criado com sucesso!");
+      }
+
+      setNovoBarbeiro(initialBarbeiro);
+      setEditBarbeiroId(null);
+      setShowBarbeiroModal(false);
+      await carregarTudo();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Erro ao salvar barbeiro.");
+    }
+  }
+
+  function abrirModalBarbeiro(barbeiro?: Barbeiro) {
+    if (!isPremiumPlan) {
+      setError("Gestao de barbeiros disponivel apenas para plano premium.");
+      return;
+    }
+
+    if (barbeiro) {
+      setEditBarbeiroId(barbeiro.id);
+      setNovoBarbeiro({ nome: barbeiro.nome });
+    } else {
+      setEditBarbeiroId(null);
+      setNovoBarbeiro(initialBarbeiro);
+    }
+
+    setShowBarbeiroModal(true);
+  }
+
   // AGENDAMENTO HANDLERS
   async function submitAgendamento(e: FormEvent) {
     e.preventDefault();
@@ -296,6 +358,23 @@ export default function GestaoPage() {
       await carregarTudo();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Erro ao remover agendamento.");
+    }
+  };
+
+  const deleteBarbeiroHandler = async (id: number) => {
+    if (!isPremiumPlan) {
+      setError("Gestao de barbeiros disponivel apenas para plano premium.");
+      return;
+    }
+    if (!confirm("Tem certeza que deseja remover este barbeiro?")) return;
+
+    try {
+      limparMensagens();
+      await deleteBarbeiro(id);
+      setSuccess("Barbeiro removido com sucesso!");
+      await carregarTudo();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Erro ao remover barbeiro.");
     }
   };
 
@@ -511,18 +590,91 @@ export default function GestaoPage() {
               {/* AGENDAMENTOS TAB */}
               {tab === "agendamentos" && (
                 <div className="space-y-6">
+                  <Card
+                    title="Gestao de Barbeiros (Plano Premium)"
+                    subtitle="Crie, edite e exclua barbeiros ativos diretamente neste painel"
+                  >
+                    {!isPremiumPlan ? (
+                      <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-700">
+                        Somente usuarios com Plano Premium possuem acesso a gestao de barbeiros.
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                          <p className="text-sm text-gray-600">
+                            Ativos: <strong>{barbeiros.length}</strong> / {MAX_BARBEIROS_PREMIUM}
+                          </p>
+                          <Button
+                            variant="primary"
+                            onClick={() => abrirModalBarbeiro()}
+                            disabled={limiteBarbeirosAtingido}
+                          >
+                            <Plus size={18} />
+                            Adicionar Barbeiro
+                          </Button>
+                        </div>
+
+                        {limiteBarbeirosAtingido && (
+                          <p className="text-sm text-amber-600">
+                            Limite de 3 barbeiros ativos atingido.
+                          </p>
+                        )}
+
+                        {barbeiros.length === 0 ? (
+                          <p className="text-sm text-gray-600">Nenhum barbeiro cadastrado.</p>
+                        ) : (
+                          <div className="table-wrapper">
+                            <table className="table">
+                              <thead>
+                                <tr>
+                                  <th>Nome</th>
+                                  <th className="text-right">Acoes</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {barbeiros.map((barbeiro) => (
+                                  <tr key={barbeiro.id}>
+                                    <td className="font-medium">{barbeiro.nome}</td>
+                                    <td className="text-right">
+                                      <div className="flex justify-end gap-2">
+                                        <button
+                                          type="button"
+                                          onClick={() => abrirModalBarbeiro(barbeiro)}
+                                          className="btn btn-secondary btn-sm"
+                                        >
+                                          <Edit2 size={16} />
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => deleteBarbeiroHandler(barbeiro.id)}
+                                          className="btn btn-danger btn-sm"
+                                        >
+                                          <Trash2 size={16} />
+                                        </button>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </Card>
+
                   <div>
                     <Button
                       variant="primary"
                       onClick={() => abrirModalAgendamento()}
-                      disabled={clientes.length === 0 || servicos.length === 0}
+                      disabled={clientes.length === 0 || servicos.length === 0 || barbeiros.length === 0}
                     >
                       <Plus size={18} />
                       Novo Agendamento
                     </Button>
-                    {(clientes.length === 0 || servicos.length === 0) && (
+                    {(clientes.length === 0 || servicos.length === 0 || barbeiros.length === 0) && (
                       <p className="mt-2 text-sm text-amber-600">
-                        ⚠️ Você precisa cadastrar clientes e serviços antes de fazer agendamentos
+                        ⚠️ Você precisa cadastrar clientes, serviços e barbeiros antes de fazer agendamentos
                       </p>
                     )}
                   </div>
@@ -536,7 +688,7 @@ export default function GestaoPage() {
                           variant="secondary"
                           onClick={() => abrirModalAgendamento()}
                           className="mt-4"
-                          disabled={clientes.length === 0 || servicos.length === 0}
+                          disabled={clientes.length === 0 || servicos.length === 0 || barbeiros.length === 0}
                         >
                           Criar Primeiro Agendamento
                         </Button>
@@ -702,6 +854,37 @@ export default function GestaoPage() {
             </Button>
             <Button variant="primary" type="submit">
               {editServicoId ? "Atualizar" : "Criar"} Serviço
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Barbeiro Modal */}
+      <Modal
+        isOpen={showBarbeiroModal}
+        onClose={() => setShowBarbeiroModal(false)}
+        title={editBarbeiroId ? "Editar Barbeiro" : "Novo Barbeiro"}
+      >
+        <form onSubmit={submitBarbeiro} className="space-y-4">
+          <FormInput
+            label="Nome do Barbeiro"
+            placeholder="Ex: Carlos"
+            value={novoBarbeiro.nome}
+            onChange={(e) =>
+              setNovoBarbeiro((p) => ({ ...p, nome: e.target.value }))
+            }
+            required
+          />
+
+          <div className="flex gap-3 justify-end pt-4 border-t border-gray-200">
+            <Button
+              variant="secondary"
+              onClick={() => setShowBarbeiroModal(false)}
+            >
+              Cancelar
+            </Button>
+            <Button variant="primary" type="submit">
+              {editBarbeiroId ? "Atualizar" : "Criar"} Barbeiro
             </Button>
           </div>
         </form>

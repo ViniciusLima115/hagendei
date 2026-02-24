@@ -10,6 +10,7 @@ export type AuthSession = {
   email: string;
   tenantId: string;
   tenantName: string;
+  plan: "basico" | "premium";
 };
 
 export function getAuthSession(): AuthSession | null {
@@ -32,11 +33,14 @@ export function getAuthSession(): AuthSession | null {
       cachedParsedSession = null;
       return null;
     }
+    const rawPlan = parsed.plan;
+    const plan = rawPlan === "premium" ? "premium" : "basico";
 
     cachedParsedSession = {
       email: parsed.email,
       tenantId: parsed.tenantId,
       tenantName: parsed.tenantName,
+      plan,
     };
     return cachedParsedSession;
   } catch {
