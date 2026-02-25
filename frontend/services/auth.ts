@@ -11,6 +11,7 @@ export type AuthSession = {
   tenantId: string;
   tenantName: string;
   plan: "basico" | "premium";
+  accessToken: string;
 };
 
 export function getAuthSession(): AuthSession | null {
@@ -29,7 +30,7 @@ export function getAuthSession(): AuthSession | null {
 
   try {
     const parsed = JSON.parse(raw) as Partial<AuthSession>;
-    if (!parsed.email || !parsed.tenantId || !parsed.tenantName) {
+    if (!parsed.email || !parsed.tenantId || !parsed.tenantName || !parsed.accessToken) {
       cachedParsedSession = null;
       return null;
     }
@@ -41,6 +42,7 @@ export function getAuthSession(): AuthSession | null {
       tenantId: parsed.tenantId,
       tenantName: parsed.tenantName,
       plan,
+      accessToken: parsed.accessToken,
     };
     return cachedParsedSession;
   } catch {

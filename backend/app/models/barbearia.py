@@ -12,6 +12,9 @@ class Barbearia(Base):
     id = Column(Integer, primary_key=True, index=True)
     nome = Column(String(255), nullable=False)
     endereco = Column(String(255), nullable=True, default="")
+    mega_instance_key = Column(String(255), nullable=True, unique=True, index=True)
+    mega_token = Column(String(255), nullable=True)
+    whatsapp_number = Column(String(30), nullable=True, unique=True, index=True)
 
     # Campos administrativos usados pelo painel /admin.
     login = Column(String(255), nullable=True, unique=True)

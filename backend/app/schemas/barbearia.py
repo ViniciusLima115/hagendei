@@ -12,6 +12,9 @@ class BarbeariaAdminCreate(BaseModel):
     nome: str
     login: str
     senha: str
+    mega_instance_key: str | None = None
+    mega_token: str | None = None
+    whatsapp_number: str | None = None
     plano: PlanoBarbearia = "basico"
     status_manual: StatusManualBarbearia = "ativo"
     vencimento_em: date
@@ -26,6 +29,9 @@ class BarbeariaAdminUpdate(BaseModel):
     nome: str
     login: str
     senha: str
+    mega_instance_key: str | None = None
+    mega_token: str | None = None
+    whatsapp_number: str | None = None
     plano: PlanoBarbearia
     status_manual: StatusManualBarbearia
     vencimento_em: date
@@ -41,6 +47,9 @@ class BarbeariaAdminResponse(BaseModel):
     nome: str
     login: str | None = None
     senha: str | None = None
+    mega_instance_key: str | None = None
+    mega_token: str | None = None
+    whatsapp_number: str | None = None
     plano: PlanoBarbearia | None = "basico"
     status_manual: StatusManualBarbearia | None = "ativo"
     vencimento_em: date | None = None

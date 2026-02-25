@@ -77,7 +77,13 @@ def test_atualizar_status_agendamento_inexistente(client, tenant_headers):
     assert resp.status_code == 404
 
 
-def test_agendamentos_sao_isolados_por_barbearia(client, db_session, dados_base, tenant_headers):
+def test_agendamentos_sao_isolados_por_barbearia(
+    client,
+    db_session,
+    dados_base,
+    tenant_headers,
+    make_tenant_headers,
+):
     from app.models.barbearia import Barbearia
     from app.models.barbeiro import Barbeiro
     from app.models.servico import Servico
@@ -99,7 +105,7 @@ def test_agendamentos_sao_isolados_por_barbearia(client, db_session, dados_base,
     db_session.refresh(barbeiro_b)
     db_session.refresh(servico_b)
 
-    headers_b = {"X-Barbearia-Id": str(barbearia_b.id)}
+    headers_b = make_tenant_headers(barbearia_b.id)
     inicio_a = dados_base["amanha"].replace(hour=11, minute=0, second=0, microsecond=0)
     inicio_b = dados_base["amanha"].replace(hour=12, minute=0, second=0, microsecond=0)
 

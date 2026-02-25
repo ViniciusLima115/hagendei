@@ -1,11 +1,11 @@
-def test_barbeiros_criar_e_listar(client, db_session):
+def test_barbeiros_criar_e_listar(client, db_session, make_tenant_headers):
     from app.models.barbearia import Barbearia
 
     premium = Barbearia(nome="Barbearia Premium", plano="premium")
     db_session.add(premium)
     db_session.commit()
     db_session.refresh(premium)
-    db_headers = {"X-Barbearia-Id": str(premium.id)}
+    db_headers = make_tenant_headers(premium.id)
 
     criar = client.post("/barbeiros/", json={"nome": "Carlos"}, headers=db_headers)
     assert criar.status_code == 200
@@ -20,30 +20,35 @@ def test_barbeiros_criar_e_listar(client, db_session):
     assert body[0]["barbershop_id"] == premium.id
 
 
-def test_barbeiros_exige_header_tenant(client):
-    criar = client.post("/barbeiros/", json={"nome": "Carlos"})
+def test_barbeiros_exige_header_tenant(client, make_tenant_headers):
+    criar = client.post(
+        "/barbeiros/",
+        json={"nome": "Carlos"},
+        headers=make_tenant_headers(tenant_id=1, include_tenant_header=False),
+    )
     assert criar.status_code == 400
     assert criar.json()["detail"] == "X-Barbearia-Id obrigatorio."
 
 
-def test_barbeiros_basico_permite_um_e_bloqueia_mais_com_upgrade(client, db_session):
+def test_barbeiros_basico_permite_um_e_bloqueia_mais_com_upgrade(client, db_session, make_tenant_headers):
     from app.models.barbearia import Barbearia
 
     basico = Barbearia(nome="Barbearia Basica", plano="basico")
     db_session.add(basico)
     db_session.commit()
 
+    headers = make_tenant_headers(basico.id)
     criar_primeiro = client.post(
         "/barbeiros/",
         json={"nome": "Carlos"},
-        headers={"X-Barbearia-Id": str(basico.id)},
+        headers=headers,
     )
     assert criar_primeiro.status_code == 200
 
     criar_segundo = client.post(
         "/barbeiros/",
         json={"nome": "Andre"},
-        headers={"X-Barbearia-Id": str(basico.id)},
+        headers=headers,
     )
     assert criar_segundo.status_code == 403
     assert (
@@ -52,14 +57,14 @@ def test_barbeiros_basico_permite_um_e_bloqueia_mais_com_upgrade(client, db_sess
     )
 
 
-def test_barbeiros_premium_limite_edicao_e_exclusao(client, db_session):
+def test_barbeiros_premium_limite_edicao_e_exclusao(client, db_session, make_tenant_headers):
     from app.models.barbearia import Barbearia
 
     premium = Barbearia(nome="Barbearia Premium", plano="premium")
     db_session.add(premium)
     db_session.commit()
 
-    headers = {"X-Barbearia-Id": str(premium.id)}
+    headers = make_tenant_headers(premium.id)
 
     for nome in ("Carlos", "Andre", "Rafael"):
         criar = client.post("/barbeiros/", json={"nome": nome}, headers=headers)
@@ -88,7 +93,7 @@ def test_barbeiros_premium_limite_edicao_e_exclusao(client, db_session):
     assert remover.status_code == 204
 
 
-def test_barbeiro_nao_pode_ser_acessado_por_outra_barbearia(client, db_session):
+def test_barbeiro_nao_pode_ser_acessado_por_outra_barbearia(client, db_session, make_tenant_headers):
     from app.models.barbearia import Barbearia
 
     premium_a = Barbearia(nome="Premium A", plano="premium")
@@ -96,8 +101,8 @@ def test_barbeiro_nao_pode_ser_acessado_por_outra_barbearia(client, db_session):
     db_session.add_all([premium_a, premium_b])
     db_session.commit()
 
-    headers_a = {"X-Barbearia-Id": str(premium_a.id)}
-    headers_b = {"X-Barbearia-Id": str(premium_b.id)}
+    headers_a = make_tenant_headers(premium_a.id)
+    headers_b = make_tenant_headers(premium_b.id)
 
     criar = client.post("/barbeiros/", json={"nome": "Vinicius"}, headers=headers_a)
     assert criar.status_code == 200

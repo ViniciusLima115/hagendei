@@ -76,6 +76,9 @@ def _ensure_barbearias_admin_columns():
     alter_statements = [
         "ALTER TABLE barbearias ADD COLUMN login VARCHAR(255) NULL UNIQUE",
         "ALTER TABLE barbearias ADD COLUMN senha VARCHAR(255) NULL",
+        "ALTER TABLE barbearias ADD COLUMN mega_instance_key VARCHAR(255) NULL UNIQUE",
+        "ALTER TABLE barbearias ADD COLUMN mega_token VARCHAR(255) NULL",
+        "ALTER TABLE barbearias ADD COLUMN whatsapp_number VARCHAR(30) NULL UNIQUE",
         "ALTER TABLE barbearias ADD COLUMN plano VARCHAR(50) NULL DEFAULT 'basico'",
         "ALTER TABLE barbearias ADD COLUMN status_manual VARCHAR(50) NULL DEFAULT 'ativo'",
         "ALTER TABLE barbearias ADD COLUMN vencimento_em DATE NULL",

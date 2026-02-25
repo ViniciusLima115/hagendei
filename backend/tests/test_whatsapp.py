@@ -64,7 +64,11 @@ def test_whatsapp_receive_message_ok(monkeypatch, client):
             pass
 
     monkeypatch.setattr(whatsapp_module, "SessionLocal", lambda: DummyDB())
-    monkeypatch.setattr(whatsapp_module, "WHATSAPP_DEFAULT_TENANT_ID", "1")
+    monkeypatch.setattr(
+        whatsapp_module,
+        "_resolver_tenant_id",
+        lambda db, instance_key=None, whatsapp_number=None: 1,
+    )
     monkeypatch.setattr(
         whatsapp_module,
         "responder_mensagem",
@@ -84,6 +88,7 @@ def test_whatsapp_receive_message_ok(monkeypatch, client):
                 "changes": [
                     {
                         "value": {
+                            "instance_key": "instancia-1",
                             "metadata": {"phone_number_id": "999"},
                             "messages": [
                                 {
@@ -115,7 +120,11 @@ def test_whatsapp_receive_message_captura_excecao(monkeypatch, client):
             pass
 
     monkeypatch.setattr(whatsapp_module, "SessionLocal", lambda: DummyDB())
-    monkeypatch.setattr(whatsapp_module, "WHATSAPP_DEFAULT_TENANT_ID", "1")
+    monkeypatch.setattr(
+        whatsapp_module,
+        "_resolver_tenant_id",
+        lambda db, instance_key=None, whatsapp_number=None: 1,
+    )
 
     def quebra(*args, **kwargs):
         raise RuntimeError("falha proposital")
@@ -150,8 +159,16 @@ def test_whatsapp_receive_message_captura_excecao(monkeypatch, client):
 def test_whatsapp_receive_message_ignored_sem_tenant(monkeypatch, client):
     import app.routes.whatsapp as whatsapp_module
 
-    monkeypatch.setattr(whatsapp_module, "WHATSAPP_DEFAULT_TENANT_ID", None)
-    monkeypatch.setattr(whatsapp_module, "WHATSAPP_PHONE_TENANT_MAP", "")
+    class DummyDB:
+        def close(self):
+            pass
+
+    monkeypatch.setattr(whatsapp_module, "SessionLocal", lambda: DummyDB())
+    monkeypatch.setattr(
+        whatsapp_module,
+        "_resolver_tenant_id",
+        lambda db, instance_key=None, whatsapp_number=None: None,
+    )
 
     payload = {
         "entry": [
@@ -177,3 +194,20 @@ def test_whatsapp_receive_message_ignored_sem_tenant(monkeypatch, client):
     resp = client.post("/whatsapp/webhook", json=payload)
     assert resp.status_code == 200
     assert resp.json() == {"status": "ignored"}
+
+
+def test_resolve_tenant_por_instance_key(db_session):
+    from app.models.barbearia import Barbearia
+    from app.routes.whatsapp import _resolver_tenant_id
+
+    barbearia = Barbearia(
+        nome="Barbearia Instance",
+        endereco="Rua A",
+        mega_instance_key="instancia-teste-1",
+    )
+    db_session.add(barbearia)
+    db_session.commit()
+    db_session.refresh(barbearia)
+
+    tenant_id = _resolver_tenant_id(db_session, instance_key="instancia-teste-1")
+    assert tenant_id == barbearia.id

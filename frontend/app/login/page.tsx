@@ -41,6 +41,7 @@ export default function LoginPage() {
           tenantId: "admin",
           tenantName: "Administrador",
           plan: "premium",
+          accessToken: resposta.access_token,
         });
         router.replace("/admin");
         return;
@@ -56,6 +57,7 @@ export default function LoginPage() {
         tenantId: String(resposta.tenant_id),
         tenantName: resposta.tenant_name,
         plan: resposta.plano === "premium" ? "premium" : "basico",
+        accessToken: resposta.access_token,
       });
 
       router.replace("/");

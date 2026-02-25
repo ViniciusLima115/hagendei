@@ -1,4 +1,5 @@
 import { API_URL } from "./api";
+import { getAuthSession } from "./auth";
 
 export type PlanoBarbearia = "basico" | "premium";
 export type StatusManualBarbearia = "ativo" | "inativo";
@@ -70,8 +71,23 @@ async function parseOrThrow(res: Response, fallback: string) {
   throw new Error(body?.detail || fallback);
 }
 
+function getAdminHeaders(contentTypeJson: boolean = false): HeadersInit {
+  const token = getAuthSession()?.accessToken;
+  const headers = new Headers();
+  if (token) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
+  if (contentTypeJson) {
+    headers.set("Content-Type", "application/json");
+  }
+  return headers;
+}
+
 export async function listBarbeariasAdmin(): Promise<BarbeariaAdmin[]> {
-  const res = await fetch(`${API_URL}/barbearias/`, { cache: "no-store" });
+  const res = await fetch(`${API_URL}/barbearias/`, {
+    cache: "no-store",
+    headers: getAdminHeaders(),
+  });
   const data = (await parseOrThrow(res, "Falha ao carregar barbearias.")) as BarbeariaApi[];
   return data.map(toUi);
 }
@@ -88,7 +104,7 @@ export async function createBarbeariaAdmin(payload: {
 }): Promise<BarbeariaAdmin> {
   const res = await fetch(`${API_URL}/barbearias/`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: getAdminHeaders(true),
     body: JSON.stringify({
       nome: payload.nome.trim(),
       login: payload.login.trim(),
@@ -125,7 +141,7 @@ export async function updateBarbeariaAdmin(
 ): Promise<BarbeariaAdmin> {
   const res = await fetch(`${API_URL}/barbearias/${id}`, {
     method: "PUT",
-    headers: { "Content-Type": "application/json" },
+    headers: getAdminHeaders(true),
     body: JSON.stringify({
       nome: payload.nome.trim(),
       login: payload.login.trim(),
@@ -146,7 +162,10 @@ export async function updateBarbeariaAdmin(
 }
 
 export async function deleteBarbeariaAdmin(id: number): Promise<void> {
-  const res = await fetch(`${API_URL}/barbearias/${id}`, { method: "DELETE" });
+  const res = await fetch(`${API_URL}/barbearias/${id}`, {
+    method: "DELETE",
+    headers: getAdminHeaders(),
+  });
   await parseOrThrow(res, "Falha ao excluir barbearia.");
 }
 
