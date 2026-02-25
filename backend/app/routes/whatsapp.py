@@ -3,8 +3,11 @@ import re
 
 import requests
 from fastapi import APIRouter, Query, Request
+from sqlalchemy import or_
+from sqlalchemy.orm import Session
 
 from app.database import SessionLocal
+from app.models.barbearia import Barbearia
 from app.services.chatbot_service import responder_mensagem
 
 router = APIRouter()
@@ -13,8 +16,6 @@ VERIFY_TOKEN = "barbearia_token_123"
 
 WHATSAPP_TOKEN = os.getenv("WHATSAPP_TOKEN")
 PHONE_NUMBER_ID = os.getenv("PHONE_NUMBER_ID")
-WHATSAPP_DEFAULT_TENANT_ID = os.getenv("WHATSAPP_DEFAULT_TENANT_ID")
-WHATSAPP_PHONE_TENANT_MAP = os.getenv("WHATSAPP_PHONE_TENANT_MAP", "")
 
 
 @router.get("/webhook")
@@ -35,40 +36,26 @@ async def receive_message(request: Request):
 
     try:
         print("WEBHOOK BODY:", body)
-
-        entry = body.get("entry", [])
-        if not entry:
-            return {"status": "ignored"}
-
-        changes = entry[0].get("changes", [])
-        if not changes:
-            return {"status": "ignored"}
-
-        value = changes[0].get("value", {})
-
-        messages = value.get("messages")
-        if not messages:
-            return {"status": "ignored"}
-
-        mensagem = messages[0]
-
-        if mensagem.get("type") != "text":
-            return {"status": "ignored"}
-
-        telefone = mensagem.get("from")
-        texto = mensagem.get("text", {}).get("body")
+        telefone, texto, value = _extrair_dados_mensagem(body)
 
         if not telefone or not texto:
             return {"status": "ignored"}
 
         phone_number_id = value.get("metadata", {}).get("phone_number_id")
-        tenant_id = _resolver_tenant_id(phone_number_id)
-        if tenant_id is None:
-            print("Webhook ignorado: tenant_id nao resolvido.")
-            return {"status": "ignored"}
+        whatsapp_number = value.get("metadata", {}).get("display_phone_number") or phone_number_id
+        instance_key = _extrair_instance_key(body, value)
 
         db = SessionLocal()
         try:
+            tenant_id = _resolver_tenant_id(
+                db,
+                instance_key=instance_key,
+                whatsapp_number=whatsapp_number,
+            )
+            if tenant_id is None:
+                print("Webhook ignorado: tenant_id nao resolvido.")
+                return {"status": "ignored"}
+
             resposta = responder_mensagem(db, telefone, texto, tenant_id=tenant_id)
         finally:
             db.close()
@@ -82,24 +69,108 @@ async def receive_message(request: Request):
     return {"status": "ok"}
 
 
-def _resolver_tenant_id(phone_number_id: str | None) -> int | None:
-    if phone_number_id and WHATSAPP_PHONE_TENANT_MAP:
-        for item in WHATSAPP_PHONE_TENANT_MAP.split(","):
-            bruto = item.strip()
-            if ":" not in bruto:
-                continue
-            numero_id, tenant = bruto.split(":", 1)
-            if numero_id.strip() == str(phone_number_id).strip():
-                try:
-                    return int(tenant.strip())
-                except ValueError:
-                    return None
+def _extrair_dados_mensagem(body: dict) -> tuple[str | None, str | None, dict]:
+    entry = body.get("entry", [])
+    if entry:
+        changes = entry[0].get("changes", [])
+        if not changes:
+            return None, None, {}
 
-    if WHATSAPP_DEFAULT_TENANT_ID:
-        try:
-            return int(WHATSAPP_DEFAULT_TENANT_ID)
-        except ValueError:
-            return None
+        value = changes[0].get("value", {})
+        messages = value.get("messages")
+        if not messages:
+            return None, None, value
+
+        mensagem = messages[0]
+        if mensagem.get("type") != "text":
+            return None, None, value
+
+        telefone = mensagem.get("from")
+        texto = mensagem.get("text", {}).get("body")
+        return telefone, texto, value
+
+    # Fallback para formatos comuns de webhook (MegaAPI/Evolution-like).
+    data = body.get("data", {}) if isinstance(body.get("data", {}), dict) else {}
+    data_message = data.get("message", {}) if isinstance(data.get("message", {}), dict) else {}
+    telefone = (
+        body.get("from")
+        or body.get("sender")
+        or data.get("from")
+        or data.get("sender")
+        or data.get("key", {}).get("remoteJid")
+        or body.get("remoteJid")
+    )
+    texto = (
+        body.get("text")
+        or body.get("message")
+        or body.get("body")
+        or data.get("text")
+        or data.get("body")
+        or data_message.get("conversation")
+        or data_message.get("extendedTextMessage", {}).get("text")
+    )
+    return telefone, texto, {}
+
+
+def _extrair_instance_key(body: dict, value: dict) -> str | None:
+    candidatos = [
+        body.get("instance_key"),
+        body.get("instanceKey"),
+        body.get("instance"),
+        body.get("instance", {}).get("key") if isinstance(body.get("instance"), dict) else None,
+        body.get("instance", {}).get("instance_key") if isinstance(body.get("instance"), dict) else None,
+        body.get("instance", {}).get("instanceKey") if isinstance(body.get("instance"), dict) else None,
+        body.get("data", {}).get("instance_key") if isinstance(body.get("data"), dict) else None,
+        body.get("data", {}).get("instanceKey") if isinstance(body.get("data"), dict) else None,
+        value.get("instance_key"),
+        value.get("instanceKey"),
+        value.get("instance"),
+        value.get("instance", {}).get("key") if isinstance(value.get("instance"), dict) else None,
+        value.get("instance", {}).get("instance_key") if isinstance(value.get("instance"), dict) else None,
+        value.get("instance", {}).get("instanceKey") if isinstance(value.get("instance"), dict) else None,
+        value.get("metadata", {}).get("instance_key"),
+        value.get("metadata", {}).get("instanceKey"),
+    ]
+    for candidato in candidatos:
+        if isinstance(candidato, str) and candidato.strip():
+            return candidato.strip()
+
+    return None
+
+
+def _normalizar_whatsapp(valor: str | None) -> str | None:
+    if valor is None:
+        return None
+    digits = re.sub(r"\D", "", str(valor))
+    return digits or None
+
+
+def _resolver_tenant_id(
+    db: Session,
+    instance_key: str | None = None,
+    whatsapp_number: str | None = None,
+) -> int | None:
+    if instance_key:
+        barbearia = (
+            db.query(Barbearia)
+            .filter(Barbearia.mega_instance_key == instance_key.strip())
+            .first()
+        )
+        if barbearia:
+            return barbearia.id
+
+    numero_bruto = whatsapp_number.strip() if isinstance(whatsapp_number, str) else None
+    numero_normalizado = _normalizar_whatsapp(whatsapp_number)
+    if numero_bruto or numero_normalizado:
+        filtros = []
+        if numero_bruto:
+            filtros.append(Barbearia.whatsapp_number == numero_bruto)
+        if numero_normalizado and numero_normalizado != numero_bruto:
+            filtros.append(Barbearia.whatsapp_number == numero_normalizado)
+
+        barbearia = db.query(Barbearia).filter(or_(*filtros)).first()
+        if barbearia:
+            return barbearia.id
 
     return None
 

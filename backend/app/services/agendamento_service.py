@@ -21,24 +21,27 @@ def _serializar_agendamento(agendamento: Agendamento):
     }
 
 
-def criar_agendamento(db: Session, dados, tenant_id: int | None = None):
-    servico_query = db.query(Servico).filter(Servico.id == dados.servico_id)
-    if tenant_id is not None:
-        servico_query = servico_query.filter(Servico.barbearia_id == tenant_id)
+def criar_agendamento(db: Session, dados, tenant_id: int):
+    servico_query = db.query(Servico).filter(
+        Servico.id == dados.servico_id,
+        Servico.barbearia_id == tenant_id,
+    )
     servico = servico_query.first()
     if not servico:
         raise ValueError("Serviço não encontrado")
 
-    barbeiro_query = db.query(Barbeiro).filter(Barbeiro.id == dados.barbeiro_id)
-    if tenant_id is not None:
-        barbeiro_query = barbeiro_query.filter(Barbeiro.barbershop_id == tenant_id)
+    barbeiro_query = db.query(Barbeiro).filter(
+        Barbeiro.id == dados.barbeiro_id,
+        Barbeiro.barbershop_id == tenant_id,
+    )
     barbeiro = barbeiro_query.first()
     if not barbeiro:
         raise ValueError("Barbeiro não encontrado")
 
-    cliente_query = db.query(Cliente).filter(Cliente.telefone == dados.telefone)
-    if tenant_id is not None:
-        cliente_query = cliente_query.filter(Cliente.barbearia_id == tenant_id)
+    cliente_query = db.query(Cliente).filter(
+        Cliente.telefone == dados.telefone,
+        Cliente.barbearia_id == tenant_id,
+    )
     cliente = cliente_query.first()
     if not cliente:
         cliente = Cliente(
@@ -54,12 +57,11 @@ def criar_agendamento(db: Session, dados, tenant_id: int | None = None):
 
     conflito_query = db.query(Agendamento).filter(
         Agendamento.barbeiro_id == dados.barbeiro_id,
+        Agendamento.barbearia_id == tenant_id,
         Agendamento.data_hora_inicio < fim,
         Agendamento.data_hora_fim > dados.data_hora_inicio,
         Agendamento.status.in_(["pendente", "confirmado"]),
     )
-    if tenant_id is not None:
-        conflito_query = conflito_query.filter(Agendamento.barbearia_id == tenant_id)
     conflito = conflito_query.first()
 
     if conflito:
@@ -69,7 +71,7 @@ def criar_agendamento(db: Session, dados, tenant_id: int | None = None):
         cliente_id=cliente.id,
         barbeiro_id=dados.barbeiro_id,
         servico_id=dados.servico_id,
-        barbearia_id=tenant_id if tenant_id is not None else getattr(barbeiro, "barbershop_id", None),
+        barbearia_id=tenant_id,
         data_hora_inicio=dados.data_hora_inicio,
         data_hora_fim=fim,
         status=dados.status,
@@ -82,10 +84,8 @@ def criar_agendamento(db: Session, dados, tenant_id: int | None = None):
     return _serializar_agendamento(novo)
 
 
-def listar_agendamentos(db: Session, tenant_id: int | None = None):
-    query = db.query(Agendamento)
-    if tenant_id is not None:
-        query = query.filter(Agendamento.barbearia_id == tenant_id)
+def listar_agendamentos(db: Session, tenant_id: int):
+    query = db.query(Agendamento).filter(Agendamento.barbearia_id == tenant_id)
     agendamentos = query.order_by(Agendamento.data_hora_inicio.asc()).all()
     return [_serializar_agendamento(ag) for ag in agendamentos]
 
@@ -94,11 +94,12 @@ def atualizar_status_agendamento(
     db: Session,
     agendamento_id: int,
     status: str,
-    tenant_id: int | None = None,
+    tenant_id: int,
 ):
-    query = db.query(Agendamento).filter(Agendamento.id == agendamento_id)
-    if tenant_id is not None:
-        query = query.filter(Agendamento.barbearia_id == tenant_id)
+    query = db.query(Agendamento).filter(
+        Agendamento.id == agendamento_id,
+        Agendamento.barbearia_id == tenant_id,
+    )
     agendamento = query.first()
     if not agendamento:
         raise ValueError("Agendamento não encontrado")
@@ -114,16 +115,24 @@ def remarcar_agendamento(
     db: Session,
     agendamento_id: int,
     nova_data_hora_inicio,
-    tenant_id: int | None = None,
+    tenant_id: int,
 ):
-    query = db.query(Agendamento).filter(Agendamento.id == agendamento_id)
-    if tenant_id is not None:
-        query = query.filter(Agendamento.barbearia_id == tenant_id)
+    query = db.query(Agendamento).filter(
+        Agendamento.id == agendamento_id,
+        Agendamento.barbearia_id == tenant_id,
+    )
     agendamento = query.first()
     if not agendamento:
         raise ValueError("Agendamento não encontrado")
 
-    servico = db.query(Servico).filter(Servico.id == agendamento.servico_id).first()
+    servico = (
+        db.query(Servico)
+        .filter(
+            Servico.id == agendamento.servico_id,
+            Servico.barbearia_id == tenant_id,
+        )
+        .first()
+    )
     if not servico:
         raise ValueError("Serviço não encontrado")
 
@@ -132,12 +141,11 @@ def remarcar_agendamento(
     conflito_query = db.query(Agendamento).filter(
         Agendamento.id != agendamento.id,
         Agendamento.barbeiro_id == agendamento.barbeiro_id,
+        Agendamento.barbearia_id == tenant_id,
         Agendamento.data_hora_inicio < nova_data_hora_fim,
         Agendamento.data_hora_fim > nova_data_hora_inicio,
         Agendamento.status.in_(["pendente", "confirmado"]),
     )
-    if tenant_id is not None:
-        conflito_query = conflito_query.filter(Agendamento.barbearia_id == tenant_id)
     conflito = conflito_query.first()
 
     if conflito:
@@ -156,25 +164,28 @@ def atualizar_agendamento(
     db: Session,
     agendamento_id: int,
     dados,
-    tenant_id: int | None = None,
+    tenant_id: int,
 ):
-    query = db.query(Agendamento).filter(Agendamento.id == agendamento_id)
-    if tenant_id is not None:
-        query = query.filter(Agendamento.barbearia_id == tenant_id)
+    query = db.query(Agendamento).filter(
+        Agendamento.id == agendamento_id,
+        Agendamento.barbearia_id == tenant_id,
+    )
     agendamento = query.first()
     if not agendamento:
         raise ValueError("Agendamento não encontrado")
 
-    servico_query = db.query(Servico).filter(Servico.id == dados.servico_id)
-    if tenant_id is not None:
-        servico_query = servico_query.filter(Servico.barbearia_id == tenant_id)
+    servico_query = db.query(Servico).filter(
+        Servico.id == dados.servico_id,
+        Servico.barbearia_id == tenant_id,
+    )
     servico = servico_query.first()
     if not servico:
         raise ValueError("Serviço não encontrado")
 
-    barbeiro_query = db.query(Barbeiro).filter(Barbeiro.id == dados.barbeiro_id)
-    if tenant_id is not None:
-        barbeiro_query = barbeiro_query.filter(Barbeiro.barbershop_id == tenant_id)
+    barbeiro_query = db.query(Barbeiro).filter(
+        Barbeiro.id == dados.barbeiro_id,
+        Barbeiro.barbershop_id == tenant_id,
+    )
     barbeiro = barbeiro_query.first()
     if not barbeiro:
         raise ValueError("Barbeiro não encontrado")
@@ -184,12 +195,11 @@ def atualizar_agendamento(
     conflito_query = db.query(Agendamento).filter(
         Agendamento.id != agendamento.id,
         Agendamento.barbeiro_id == dados.barbeiro_id,
+        Agendamento.barbearia_id == tenant_id,
         Agendamento.data_hora_inicio < novo_fim,
         Agendamento.data_hora_fim > dados.data_hora_inicio,
         Agendamento.status.in_(["pendente", "confirmado"]),
     )
-    if tenant_id is not None:
-        conflito_query = conflito_query.filter(Agendamento.barbearia_id == tenant_id)
     conflito = conflito_query.first()
 
     if conflito:
@@ -200,18 +210,18 @@ def atualizar_agendamento(
     agendamento.data_hora_inicio = dados.data_hora_inicio
     agendamento.data_hora_fim = novo_fim
     agendamento.status = dados.status
-    if tenant_id is not None:
-        agendamento.barbearia_id = tenant_id
+    agendamento.barbearia_id = tenant_id
     db.commit()
     db.refresh(agendamento)
 
     return _serializar_agendamento(agendamento)
 
 
-def remover_agendamento(db: Session, agendamento_id: int, tenant_id: int | None = None):
-    query = db.query(Agendamento).filter(Agendamento.id == agendamento_id)
-    if tenant_id is not None:
-        query = query.filter(Agendamento.barbearia_id == tenant_id)
+def remover_agendamento(db: Session, agendamento_id: int, tenant_id: int):
+    query = db.query(Agendamento).filter(
+        Agendamento.id == agendamento_id,
+        Agendamento.barbearia_id == tenant_id,
+    )
     agendamento = query.first()
     if not agendamento:
         raise ValueError("Agendamento não encontrado")

@@ -1,15 +1,17 @@
 import secrets
+import os
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.barbearia import Barbearia
 from app.schemas.auth import AdminCheckRequest, AdminCheckResponse, LoginRequest, LoginResponse
+from app.security import create_access_token
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
-ADMIN_USUARIO = "vhtech_"
-ADMIN_SENHA = "@dinizvascaino"
+ADMIN_USUARIO = os.getenv("ADMIN_USUARIO", "vhtech_")
+ADMIN_SENHA = os.getenv("ADMIN_SENHA", "@dinizvascaino")
 
 
 @router.post("/admin-check", response_model=AdminCheckResponse)
@@ -27,11 +29,18 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
     is_admin_user = secrets.compare_digest(usuario, ADMIN_USUARIO)
     is_admin_pass = secrets.compare_digest(senha, ADMIN_SENHA)
     if is_admin_user and is_admin_pass:
+        token = create_access_token(
+            sub=usuario,
+            tenant_id=None,
+            is_admin=True,
+        )
         return LoginResponse(
             is_admin=True,
             tenant_id=None,
             tenant_name="Administrador",
             plano="premium",
+            access_token=token,
+            token_type="bearer",
         )
 
     barbearia = db.query(Barbearia).filter(Barbearia.login == usuario).first()
@@ -41,9 +50,16 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
     if not secrets.compare_digest(barbearia.senha, senha):
         raise HTTPException(status_code=401, detail="Usuario ou senha invalidos.")
 
+    token = create_access_token(
+        sub=usuario,
+        tenant_id=barbearia.id,
+        is_admin=False,
+    )
     return LoginResponse(
         is_admin=False,
         tenant_id=barbearia.id,
         tenant_name=barbearia.nome,
         plano=(barbearia.plano or "basico").lower(),
+        access_token=token,
+        token_type="bearer",
     )

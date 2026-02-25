@@ -13,7 +13,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.database import Base, get_db
 from app.models import Barbearia, Barbeiro, Servico
-from app.routes import agenda, agendamentos, chatbot, barbeiros, clientes, servicos, whatsapp, barbearias
+from app.routes import agenda, agendamentos, chatbot, barbeiros, clientes, servicos, whatsapp, barbearias, auth
+from app.security import create_access_token
 
 
 @pytest.fixture
@@ -54,6 +55,7 @@ def app(session_factory):
     test_app.include_router(barbearias.router)
     test_app.include_router(servicos.router)
     test_app.include_router(whatsapp.router, prefix="/whatsapp")
+    test_app.include_router(auth.router)
 
     def override_get_db():
         db = session_factory()
@@ -101,5 +103,33 @@ def dados_base(db_session):
 
 
 @pytest.fixture
-def tenant_headers(dados_base):
-    return {"X-Barbearia-Id": str(dados_base["barbearia"].id)}
+def make_tenant_headers():
+    def _make(
+        tenant_id: int | None = None,
+        *,
+        include_tenant_header: bool = True,
+        is_admin: bool = False,
+    ) -> dict[str, str]:
+        if is_admin:
+            token = create_access_token(sub="admin", tenant_id=None, is_admin=True)
+            return {"Authorization": f"Bearer {token}"}
+
+        if tenant_id is None:
+            raise ValueError("tenant_id obrigatorio para gerar header de tenant.")
+
+        token = create_access_token(
+            sub=f"tenant-{tenant_id}",
+            tenant_id=tenant_id,
+            is_admin=False,
+        )
+        headers = {"Authorization": f"Bearer {token}"}
+        if include_tenant_header:
+            headers["X-Barbearia-Id"] = str(tenant_id)
+        return headers
+
+    return _make
+
+
+@pytest.fixture
+def tenant_headers(dados_base, make_tenant_headers):
+    return make_tenant_headers(dados_base["barbearia"].id)

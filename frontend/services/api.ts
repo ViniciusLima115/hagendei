@@ -66,7 +66,14 @@ export type LoginResponse = {
   tenant_id: number | null;
   tenant_name: string | null;
   plano: "basico" | "premium" | null;
+  access_token: string;
+  token_type: "bearer";
 };
+
+function getAccessToken(): string | null {
+  const accessToken = getAuthSession()?.accessToken ?? null;
+  return accessToken || null;
+}
 
 function getTenantId(): string | null {
   const tenantId = getAuthSession()?.tenantId ?? null;
@@ -75,8 +82,13 @@ function getTenantId(): string | null {
 }
 
 async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
+  const accessToken = getAccessToken();
   const tenantId = getTenantId();
   const headers = new Headers(init?.headers);
+
+  if (accessToken) {
+    headers.set("Authorization", `Bearer ${accessToken}`);
+  }
 
   if (tenantId) {
     headers.set("X-Barbearia-Id", tenantId);

@@ -20,3 +20,5 @@ class LoginResponse(BaseModel):
     tenant_id: int | None = None
     tenant_name: str | None = None
     plano: str | None = None
+    access_token: str
+    token_type: str = "bearer"
