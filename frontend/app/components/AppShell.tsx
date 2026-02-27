@@ -16,11 +16,15 @@ export default function AppShell({ children }: AppShellProps) {
   const logged = Boolean(session);
   const inLogin = pathname === "/login";
   const inAdmin = pathname.startsWith("/admin");
+  const inDashboard = pathname === "/" || pathname.startsWith("/agenda") || pathname.startsWith("/gestao");
+  const isPublicBookingPath =
+    /^\/[^/]+$/.test(pathname) &&
+    !["/login", "/admin", "/agenda", "/gestao"].includes(pathname);
+  const needsAuth = inDashboard || inAdmin;
   const isAdmin = session?.tenantId === "admin";
-  const routeState = `${logged}-${inLogin}-${inAdmin}-${isAdmin}`;
 
   useEffect(() => {
-    if (!logged && !inLogin) {
+    if (!logged && needsAuth) {
       router.replace("/login");
     }
 
@@ -31,9 +35,9 @@ export default function AppShell({ children }: AppShellProps) {
     if (logged && inAdmin && !isAdmin) {
       router.replace("/");
     }
-  }, [routeState, router, logged, inLogin, isAdmin, inAdmin]);
+  }, [router, logged, inLogin, isAdmin, inAdmin, needsAuth]);
 
-  if ((!logged && !inLogin) || (logged && inLogin) || (logged && inAdmin && !isAdmin)) {
+  if ((!logged && needsAuth) || (logged && inLogin) || (logged && inAdmin && !isAdmin)) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50">
         <div className="spinner" aria-label="Carregando" />
@@ -43,7 +47,7 @@ export default function AppShell({ children }: AppShellProps) {
 
   return (
     <>
-      {pathname !== "/login" && <Header />}
+      {pathname !== "/login" && !isPublicBookingPath && <Header />}
       {children}
     </>
   );

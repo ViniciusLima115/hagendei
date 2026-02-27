@@ -70,6 +70,47 @@ export type LoginResponse = {
   token_type: "bearer";
 };
 
+export type PublicBarbeiro = {
+  id: number;
+  nome: string;
+  tempo_por_servico?: Record<string, number> | null;
+};
+
+export type PublicServico = {
+  id: number;
+  nome: string;
+  duracao: number;
+  preco: number;
+};
+
+export type PublicHorarioGrade = {
+  hora: string;
+  disponivel: boolean;
+};
+
+export type PublicLookupResponse = {
+  nome: string;
+  slug: string;
+  barbeiros: PublicBarbeiro[];
+  servicos: PublicServico[];
+  horarios_disponiveis: string[];
+  horarios_grade: PublicHorarioGrade[];
+};
+
+export type PublicAgendamentoResponse = {
+  id: number;
+  tenant_id: number;
+  slug: string;
+  cliente_nome: string;
+  cliente_telefone: string;
+  barbeiro_id: number;
+  servico_id: number;
+  data_hora_inicio: string;
+  data_hora_fim: string;
+  status: string;
+  lembretes_agendados: number;
+};
+
 function getAccessToken(): string | null {
   const accessToken = getAuthSession()?.accessToken ?? null;
   return accessToken || null;
@@ -287,4 +328,40 @@ export async function loginUsuario(payload: {
   });
 
   return parseOrThrow(res, "Falha ao validar login.");
+}
+
+export async function lookupPublicBarbershop(params: {
+  slug: string;
+  data?: string;
+  barbeiro_id?: number;
+  servico_id?: number;
+}): Promise<PublicLookupResponse> {
+  const search = new URLSearchParams();
+  if (params.data) search.set("data", params.data);
+  if (params.barbeiro_id) search.set("barbeiro_id", String(params.barbeiro_id));
+  if (params.servico_id) search.set("servico_id", String(params.servico_id));
+  const query = search.toString();
+  const suffix = query ? `?${query}` : "";
+
+  const res = await fetch(`${API_URL}/public/barbearia/${params.slug}${suffix}`, {
+    cache: "no-store",
+  });
+  return parseOrThrow(res, "Falha ao carregar disponibilidade publica.");
+}
+
+export async function createPublicBooking(payload: {
+  slug: string;
+  cliente_nome: string;
+  cliente_telefone: string;
+  barbeiro_id: number;
+  servico_id: number;
+  data: string;
+  hora_inicio: string;
+}): Promise<PublicAgendamentoResponse> {
+  const res = await fetch(`${API_URL}/public/agendamentos`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  return parseOrThrow(res, "Falha ao criar agendamento publico.");
 }

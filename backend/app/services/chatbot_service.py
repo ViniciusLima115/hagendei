@@ -1,4 +1,5 @@
 from sqlalchemy.orm import Session
+import logging
 
 from app.models.agendamento import Agendamento
 from app.models.barbeiro import Barbeiro
@@ -32,6 +33,7 @@ PERIODO_LABEL = {
 }
 
 PARTICULAS_NOME = {"da", "de", "do", "das", "dos", "e"}
+logger = logging.getLogger(__name__)
 
 
 def _normalizar_texto(texto: str) -> str:
@@ -220,11 +222,12 @@ def responder_mensagem(db: Session, telefone, mensagem, tenant_id: int):
     if not barbeiro_padrao:
         return "Nao ha barbeiros cadastrados para esta barbearia."
 
-    print("========== DEBUG ==========")
-    print("TELEFONE:", telefone)
-    print("ETAPA ATUAL:", cliente.etapa_atual)
-    print("MENSAGEM NORMALIZADA:", msg)
-    print("===========================")
+    logger.debug(
+        "Mensagem recebida. telefone=%s etapa=%s msg=%s",
+        telefone,
+        cliente.etapa_atual,
+        msg,
+    )
 
     if cliente.etapa_atual == "aguardando_nome":
         nome = mensagem.strip()
