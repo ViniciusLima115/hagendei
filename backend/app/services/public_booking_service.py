@@ -4,6 +4,7 @@ from datetime import date, datetime, time, timedelta
 
 from sqlalchemy.orm import Session
 
+from app.config import HORARIO_ABERTURA, HORARIO_FECHAMENTO, INTERVALO_MINUTOS
 from app.models.agendamento import Agendamento
 from app.models.barbeiro import Barbeiro
 from app.models.barbearia import Barbearia
@@ -90,7 +91,14 @@ def obter_lookup_publico(
         data_referencia = datetime.now().date()
 
     horarios: list[str] = []
+    horarios_grade: list[dict[str, str | bool]] = []
     if barbeiro_id and servico_id:
+        duracao = None
+        barbeiro_escolhido = next((item for item in barbeiros if item.id == barbeiro_id), None)
+        servico_escolhido = next((item for item in servicos if item.id == servico_id), None)
+        if barbeiro_escolhido and servico_escolhido:
+            duracao = _duracao_servico(barbeiro=barbeiro_escolhido, servico=servico_escolhido)
+
         horarios = gerar_horarios_disponiveis(
             db=db,
             barbeiro_id=barbeiro_id,
@@ -98,6 +106,15 @@ def obter_lookup_publico(
             data=datetime.combine(data_referencia, time(0, 0)),
             tenant_id=barbearia.id,
         )
+        if duracao:
+            horarios_disponiveis_set = set(horarios)
+            horarios_grade = [
+                {
+                    "hora": slot.strftime("%H:%M"),
+                    "disponivel": slot.strftime("%H:%M") in horarios_disponiveis_set,
+                }
+                for slot in _gerar_grade_horarios(data_referencia, duracao)
+            ]
 
     return {
         "nome": barbearia.nome,
@@ -105,6 +122,7 @@ def obter_lookup_publico(
         "barbeiros": barbeiros,
         "servicos": servicos,
         "horarios_disponiveis": horarios,
+        "horarios_grade": horarios_grade,
     }
 
 
@@ -118,6 +136,17 @@ def _duracao_servico(
     if isinstance(custom, int) and custom > 0:
         return custom
     return servico.duracao_minutos
+
+
+def _gerar_grade_horarios(data_referencia: date, duracao_minutos: int) -> list[datetime]:
+    inicio = datetime.combine(data_referencia, time(HORARIO_ABERTURA, 0))
+    fim = datetime.combine(data_referencia, time(HORARIO_FECHAMENTO, 0))
+    grade: list[datetime] = []
+    atual = inicio
+    while atual + timedelta(minutes=duracao_minutos) <= fim:
+        grade.append(atual)
+        atual += timedelta(minutes=INTERVALO_MINUTOS)
+    return grade
 
 
 def _buscar_ou_criar_cliente(

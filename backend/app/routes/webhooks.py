@@ -68,7 +68,12 @@ def _assinatura_valida(raw_body: bytes, headers: Headers) -> bool:
     if "=" in assinatura_limpa:
         assinatura_limpa = assinatura_limpa.split("=", 1)[1]
 
-    payload_assinado = f"{timestamp}.{raw_body.decode('utf-8')}"
+    try:
+        body_text = raw_body.decode("utf-8")
+    except UnicodeDecodeError:
+        return False
+
+    payload_assinado = f"{timestamp}.{body_text}"
     esperado = hmac.new(
         MEGAAPI_WEBHOOK_SECRET.encode("utf-8"),
         payload_assinado.encode("utf-8"),

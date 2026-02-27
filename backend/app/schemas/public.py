@@ -17,6 +17,12 @@ class PublicServicoItem(BaseModel):
     id: int
     nome: str
     duracao: int = Field(validation_alias=AliasChoices("duracao", "duracao_minutos"))
+    preco: float
+
+
+class PublicHorarioItem(BaseModel):
+    hora: str
+    disponivel: bool
 
 
 class PublicBarbeariaLookupResponse(BaseModel):
@@ -25,6 +31,7 @@ class PublicBarbeariaLookupResponse(BaseModel):
     barbeiros: list[PublicBarbeiroItem]
     servicos: list[PublicServicoItem]
     horarios_disponiveis: list[str]
+    horarios_grade: list[PublicHorarioItem] = []
 
 
 class PublicAgendamentoCreate(BaseModel):
