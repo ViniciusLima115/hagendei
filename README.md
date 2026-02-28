@@ -67,6 +67,8 @@ MEGAAPI_WEBHOOK_ALLOW_UNSIGNED=false
 MEGAAPI_WEBHOOK_MAX_SKEW_SECONDS=300
 MEGAAPI_SEND_URL=
 INTERNAL_REMINDER_TOKEN=
+APP_ENV=development
+INIT_DB_CREATE_ALL=true
 ```
 
 Rode a API:
@@ -157,7 +159,12 @@ Depois abra `http://localhost:3000/agenda`.
 - `POST /chatbot/mensagem`
 - `GET /whatsapp/webhook` e `POST /whatsapp/webhook`
 - `POST /webhooks/megaapi`
+- `POST /webhook` (saudacao automatica com controle de conversa ativa)
 - `GET /public/barbearia/{slug}`
+- `GET /public/barbearia-id/{barbearia_id}`
+- `GET /public/servicos?barbearia_id=`
+- `GET /public/barbeiros?barbearia_id=`
+- `GET /public/horarios-disponiveis?...`
 - `POST /public/agendamentos`
 - `POST /internal/reminders/process` (usar `X-Internal-Token` quando configurado)
 

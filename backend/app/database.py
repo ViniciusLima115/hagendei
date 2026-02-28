@@ -1,3 +1,4 @@
+import os
 import re
 import unicodedata
 from datetime import datetime
@@ -11,6 +12,18 @@ engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()
+
+
+def _str_to_bool(value: str | None, default: bool) -> bool:
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _should_run_create_all() -> bool:
+    app_env = os.getenv("APP_ENV", "").strip().lower()
+    default = app_env not in {"prod", "production"}
+    return _str_to_bool(os.getenv("INIT_DB_CREATE_ALL"), default=default)
 
 
 def get_db():
@@ -32,13 +45,15 @@ def init_db():
         reminder_job,
         webhook_event,
     )
-    Base.metadata.create_all(bind=engine)
+    if _should_run_create_all():
+        Base.metadata.create_all(bind=engine)
     _ensure_clientes_contexto_column()
     _ensure_clientes_tenant_indexes()
     _ensure_barbearias_admin_columns()
     _ensure_barbearias_slug()
     _ensure_barbeiros_barbershop_column()
     _ensure_barbeiros_public_columns()
+    _ensure_conversas_multi_tenant()
     _ensure_agendamentos_barbearia_column()
     _ensure_agendamentos_public_columns()
 
@@ -160,6 +175,34 @@ def _ensure_barbeiros_public_columns():
             "ALTER TABLE barbeiros ADD COLUMN ativo BOOLEAN NOT NULL DEFAULT TRUE",
             "ALTER TABLE barbeiros ADD COLUMN tempo_por_servico JSON NULL",
             "CREATE INDEX ix_barbeiros_ativo ON barbeiros (ativo)",
+        ]
+    )
+
+
+def _ensure_conversas_multi_tenant():
+    _run_best_effort(
+        [
+            "ALTER TABLE conversas ADD COLUMN tenant_id INTEGER NULL",
+            "ALTER TABLE conversas ADD COLUMN ativa BOOLEAN NOT NULL DEFAULT TRUE",
+            "ALTER TABLE conversas ADD COLUMN criado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+            "ALTER TABLE conversas ADD COLUMN atualizado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+            "CREATE INDEX ix_conversas_tenant_id ON conversas (tenant_id)",
+            "CREATE INDEX ix_conversas_ativa ON conversas (ativa)",
+            "CREATE INDEX ix_conversas_tenant_ativa ON conversas (tenant_id, ativa)",
+        ]
+    )
+
+    _run_best_effort(
+        [
+            "ALTER TABLE conversas DROP INDEX telefone",
+            "ALTER TABLE conversas DROP INDEX ix_conversas_telefone",
+        ]
+    )
+
+    _run_best_effort(
+        [
+            "CREATE INDEX ix_conversas_telefone ON conversas (telefone)",
+            "CREATE UNIQUE INDEX ux_conversas_tenant_telefone ON conversas (tenant_id, telefone)",
         ]
     )
 

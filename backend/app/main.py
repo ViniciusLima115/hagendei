@@ -12,6 +12,7 @@ from app.routes import (
     internal,
     public,
     servicos,
+    webhook,
     webhooks,
     whatsapp,
 )
@@ -83,6 +84,7 @@ app.include_router(agenda.router)
 app.include_router(chatbot.router)
 app.include_router(whatsapp.router, prefix="/whatsapp")
 app.include_router(webhooks.router)
+app.include_router(webhook.router)
 app.include_router(public.router)
 app.include_router(internal.router)
 app.include_router(auth.router)

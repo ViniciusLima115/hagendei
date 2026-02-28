@@ -60,7 +60,7 @@ export default function LoginPage() {
         accessToken: resposta.access_token,
       });
 
-      router.replace("/");
+      router.replace("/admin");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Nao foi possivel iniciar sessao.");
     } finally {

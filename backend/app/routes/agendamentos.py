@@ -1,15 +1,19 @@
-from fastapi import APIRouter, Depends, HTTPException
+from datetime import date
+
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.routes.deps import tenant_id_from_header
 from app.schemas.agendamento import (
     AgendamentoCreate,
+    AgendamentoPatch,
     AgendamentoResponse,
     AgendamentoUpdate,
     AgendamentoStatusUpdate,
 )
 from app.services.agendamento_service import (
+    aplicar_patch_agendamento,
     criar_agendamento,
     listar_agendamentos,
     atualizar_agendamento,
@@ -33,8 +37,18 @@ def criar(
 
 
 @router.get("/", response_model=list[AgendamentoResponse])
-def listar(tenant_id: int = Depends(tenant_id_from_header), db: Session = Depends(get_db)):
-    return listar_agendamentos(db, tenant_id=tenant_id)
+def listar(
+    data: date | None = Query(default=None),
+    barbeiro_id: int | None = Query(default=None),
+    tenant_id: int = Depends(tenant_id_from_header),
+    db: Session = Depends(get_db),
+):
+    return listar_agendamentos(
+        db,
+        tenant_id=tenant_id,
+        data=data,
+        barbeiro_id=barbeiro_id,
+    )
 
 
 @router.put("/{agendamento_id}", response_model=AgendamentoResponse)
@@ -63,6 +77,26 @@ def atualizar_status(
         return atualizar_status_agendamento(db, agendamento_id, dados.status, tenant_id=tenant_id)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.patch("/{agendamento_id}", response_model=AgendamentoResponse)
+def patch_agendamento(
+    agendamento_id: int,
+    dados: AgendamentoPatch,
+    tenant_id: int = Depends(tenant_id_from_header),
+    db: Session = Depends(get_db),
+):
+    try:
+        return aplicar_patch_agendamento(
+            db,
+            agendamento_id=agendamento_id,
+            dados=dados,
+            tenant_id=tenant_id,
+        )
+    except ValueError as exc:
+        mensagem = str(exc)
+        status_code = 404 if "não encontrado" in mensagem.lower() else 400
+        raise HTTPException(status_code=status_code, detail=mensagem) from exc
 
 
 @router.delete("/{agendamento_id}", status_code=204)

@@ -165,8 +165,11 @@ Nao existe mais fallback para tenant fixo em `.env`.
 ## 10) Fluxo publico de agendamento (modelo moderno)
 
 1. Cliente envia "oi" no WhatsApp.
-2. Webhook responde com link publico da barbearia.
-3. Frontend consulta `GET /public/barbearia/{slug}` para listar barbeiros ativos, servicos e horarios.
+2. `POST /webhook` responde com link publico da barbearia (`/agendar/{barbearia_id}`) na primeira interacao ativa.
+3. Frontend consulta endpoints publicos para listar barbeiros, servicos e horarios:
+   - `GET /public/barbeiros?barbearia_id=...`
+   - `GET /public/servicos?barbearia_id=...`
+   - `GET /public/horarios-disponiveis?...`
 4. Frontend confirma em `POST /public/agendamentos`.
 5. Backend grava no tenant correto, envia confirmacao por WhatsApp e agenda lembretes de 24h e 2h.
 

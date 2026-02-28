@@ -66,6 +66,32 @@ def test_database_init_db_chama_create_all(monkeypatch):
     assert chamadas["barbeiros"] is True
 
 
+def test_database_init_db_nao_chama_create_all_em_producao(monkeypatch):
+    from app import database
+
+    monkeypatch.setenv("APP_ENV", "production")
+    monkeypatch.delenv("INIT_DB_CREATE_ALL", raising=False)
+
+    chamado = {"create_all": False}
+
+    def fake_create_all(bind):
+        chamado["create_all"] = True
+
+    monkeypatch.setattr(database.Base.metadata, "create_all", fake_create_all)
+    monkeypatch.setattr(database, "_ensure_clientes_contexto_column", lambda: None)
+    monkeypatch.setattr(database, "_ensure_clientes_tenant_indexes", lambda: None)
+    monkeypatch.setattr(database, "_ensure_barbearias_admin_columns", lambda: None)
+    monkeypatch.setattr(database, "_ensure_barbearias_slug", lambda: None)
+    monkeypatch.setattr(database, "_ensure_barbeiros_barbershop_column", lambda: None)
+    monkeypatch.setattr(database, "_ensure_barbeiros_public_columns", lambda: None)
+    monkeypatch.setattr(database, "_ensure_conversas_multi_tenant", lambda: None)
+    monkeypatch.setattr(database, "_ensure_agendamentos_barbearia_column", lambda: None)
+    monkeypatch.setattr(database, "_ensure_agendamentos_public_columns", lambda: None)
+
+    database.init_db()
+    assert chamado["create_all"] is False
+
+
 def test_database_ensure_clientes_contexto_column_sucesso(monkeypatch):
     from app import database
 
