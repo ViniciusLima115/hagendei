@@ -11,7 +11,7 @@ from app.models.barbearia import Barbearia
 from app.services.chatbot_service import responder_mensagem
 from app.services.public_booking_service import (
     deve_responder_com_link,
-    montar_mensagem_link_agendamento,
+    montar_mensagem_link_agendamento_por_id,
 )
 from app.services.webhook_payload_service import (
     extrair_dados_mensagem as parse_extrair_dados_mensagem,
@@ -35,14 +35,14 @@ def _resposta_publica_link(db: Session, tenant_id: int, texto: str):
     except Exception:
         return None
 
-    if not barbearia or not barbearia.slug:
+    if not barbearia:
         return None
     if not deve_responder_com_link(texto):
         return None
 
     return {
         "tipo": "link_agendamento",
-        "resposta": montar_mensagem_link_agendamento(barbearia.nome, barbearia.slug),
+        "resposta": montar_mensagem_link_agendamento_por_id(barbearia.nome, barbearia.id),
     }
 
 

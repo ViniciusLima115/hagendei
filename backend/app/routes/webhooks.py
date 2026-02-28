@@ -16,7 +16,7 @@ from app.routes.whatsapp import _extrair_dados_mensagem, _extrair_instance_key, 
 from app.services.chatbot_service import responder_mensagem
 from app.services.public_booking_service import (
     deve_responder_com_link,
-    montar_mensagem_link_agendamento,
+    montar_mensagem_link_agendamento_por_id,
 )
 
 router = APIRouter(prefix="/webhooks", tags=["webhooks"])
@@ -181,10 +181,10 @@ async def receive_megaapi_webhook(
     if not barbearia:
         return {"status": "ignored", "reason": "tenant_nao_encontrado"}
 
-    if barbearia.slug and deve_responder_com_link(texto):
+    if deve_responder_com_link(texto):
         resposta = {
             "tipo": "link_agendamento",
-            "resposta": montar_mensagem_link_agendamento(barbearia.nome, barbearia.slug),
+            "resposta": montar_mensagem_link_agendamento_por_id(barbearia.nome, barbearia.id),
         }
     else:
         resposta = responder_mensagem(db, telefone, texto, tenant_id=tenant_id)
