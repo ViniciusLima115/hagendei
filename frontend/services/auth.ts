@@ -5,6 +5,7 @@ const AUTH_CHANGE_EVENT = "barbershop_auth_changed";
 
 let cachedRawSession: string | null = null;
 let cachedParsedSession: AuthSession | null = null;
+const TOKEN_COOKIE_NAME = "token";
 
 export type AuthSession = {
   email: string;
@@ -58,12 +59,16 @@ export function isAuthenticated(): boolean {
 export function login(session: AuthSession): void {
   if (typeof window === "undefined") return;
   window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(session));
+  const secure = window.location.protocol === "https:" ? "; Secure" : "";
+  document.cookie = `${TOKEN_COOKIE_NAME}=${encodeURIComponent(session.accessToken)}; Path=/; SameSite=Lax${secure}`;
   window.dispatchEvent(new Event(AUTH_CHANGE_EVENT));
 }
 
 export function logout(): void {
   if (typeof window === "undefined") return;
   window.localStorage.removeItem(AUTH_STORAGE_KEY);
+  const secure = window.location.protocol === "https:" ? "; Secure" : "";
+  document.cookie = `${TOKEN_COOKIE_NAME}=; Path=/; Max-Age=0; SameSite=Lax${secure}`;
   window.dispatchEvent(new Event(AUTH_CHANGE_EVENT));
 }
 
