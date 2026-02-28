@@ -41,10 +41,22 @@ def montar_link_agendamento(slug: str) -> str:
     return f"{base}/{slug}"
 
 
+def montar_link_agendamento_por_id(barbearia_id: int) -> str:
+    base = BOOKING_PUBLIC_BASE_URL.rstrip("/")
+    return f"{base}/agendar/{barbearia_id}"
+
+
 def montar_mensagem_link_agendamento(nome_barbearia: str, slug: str) -> str:
     return (
         f"Oi. Para agendar na {nome_barbearia}, use este link:\n"
         f"{montar_link_agendamento(slug)}"
+    )
+
+
+def montar_mensagem_link_agendamento_por_id(nome_barbearia: str, barbearia_id: int) -> str:
+    return (
+        f"Oi. Para agendar na {nome_barbearia}, use este link:\n"
+        f"{montar_link_agendamento_por_id(barbearia_id)}"
     )
 
 
