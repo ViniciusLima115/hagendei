@@ -145,3 +145,60 @@ def test_agendamentos_sao_isolados_por_barbearia(
         headers=tenant_headers,
     )
     assert patch_cruzado.status_code == 404
+
+
+def test_listar_agendamentos_com_filtro_data(client, dados_base, tenant_headers):
+    amanha = dados_base["amanha"].replace(hour=10, minute=0, second=0, microsecond=0)
+    depois = dados_base["amanha"].replace(hour=10, minute=0, second=0, microsecond=0) + timedelta(days=2)
+
+    payload_1 = {
+        "telefone": "5582911111111",
+        "nome_cliente": "Cliente Amanha",
+        "barbeiro_id": dados_base["barbeiro"].id,
+        "servico_id": dados_base["servico"].id,
+        "data_hora_inicio": amanha.isoformat(),
+        "status": "confirmado",
+    }
+    payload_2 = {
+        "telefone": "5582922222222",
+        "nome_cliente": "Cliente Depois",
+        "barbeiro_id": dados_base["barbeiro"].id,
+        "servico_id": dados_base["servico"].id,
+        "data_hora_inicio": depois.isoformat(),
+        "status": "confirmado",
+    }
+    assert client.post("/agendamentos/", json=payload_1, headers=tenant_headers).status_code == 200
+    assert client.post("/agendamentos/", json=payload_2, headers=tenant_headers).status_code == 200
+
+    listar_amanha = client.get(
+        "/agendamentos/",
+        params={"data": amanha.date().isoformat()},
+        headers=tenant_headers,
+    )
+    assert listar_amanha.status_code == 200
+    body = listar_amanha.json()
+    assert len(body) == 1
+    assert body[0]["cliente_nome"] == "Cliente Amanha"
+
+
+def test_patch_agendamento_altera_status(client, dados_base, tenant_headers):
+    inicio = dados_base["amanha"].replace(hour=13, minute=0, second=0, microsecond=0)
+    payload = {
+        "telefone": "5582933333333",
+        "nome_cliente": "Cliente Patch",
+        "barbeiro_id": dados_base["barbeiro"].id,
+        "servico_id": dados_base["servico"].id,
+        "data_hora_inicio": inicio.isoformat(),
+        "status": "confirmado",
+    }
+    created = client.post("/agendamentos/", json=payload, headers=tenant_headers)
+    assert created.status_code == 200
+    agendamento_id = created.json()["id"]
+
+    patch = client.patch(
+        f"/agendamentos/{agendamento_id}",
+        json={"status": "cancelado"},
+        headers=tenant_headers,
+    )
+    assert patch.status_code == 200
+    assert patch.json()["status"] == "cancelado"

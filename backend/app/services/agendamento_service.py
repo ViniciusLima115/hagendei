@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import date, datetime, time, timedelta
 
 from sqlalchemy.orm import Session
 
@@ -90,8 +90,24 @@ def criar_agendamento(db: Session, dados, tenant_id: int):
     return _serializar_agendamento(novo)
 
 
-def listar_agendamentos(db: Session, tenant_id: int):
+def listar_agendamentos(
+    db: Session,
+    tenant_id: int,
+    *,
+    data: date | None = None,
+    barbeiro_id: int | None = None,
+):
     query = db.query(Agendamento).filter(Agendamento.barbearia_id == tenant_id)
+    if data:
+        inicio = datetime.combine(data, time(0, 0))
+        fim = inicio + timedelta(days=1)
+        query = query.filter(
+            Agendamento.data_hora_inicio >= inicio,
+            Agendamento.data_hora_inicio < fim,
+        )
+    if barbeiro_id:
+        query = query.filter(Agendamento.barbeiro_id == barbeiro_id)
+
     agendamentos = query.order_by(Agendamento.data_hora_inicio.asc()).all()
     return [_serializar_agendamento(ag) for ag in agendamentos]
 
@@ -225,6 +241,42 @@ def atualizar_agendamento(
     db.refresh(agendamento)
 
     return _serializar_agendamento(agendamento)
+
+
+def aplicar_patch_agendamento(
+    db: Session,
+    agendamento_id: int,
+    dados,
+    tenant_id: int,
+):
+    if dados.status and not (dados.barbeiro_id or dados.servico_id or dados.data_hora_inicio):
+        return atualizar_status_agendamento(
+            db,
+            agendamento_id=agendamento_id,
+            status=dados.status,
+            tenant_id=tenant_id,
+        )
+
+    query = db.query(Agendamento).filter(
+        Agendamento.id == agendamento_id,
+        Agendamento.barbearia_id == tenant_id,
+    )
+    existente = query.first()
+    if not existente:
+        raise ValueError("Agendamento não encontrado")
+
+    class _Payload:
+        barbeiro_id = dados.barbeiro_id or existente.barbeiro_id
+        servico_id = dados.servico_id or existente.servico_id
+        data_hora_inicio = dados.data_hora_inicio or existente.data_hora_inicio
+        status = dados.status or existente.status
+
+    return atualizar_agendamento(
+        db,
+        agendamento_id=agendamento_id,
+        dados=_Payload,
+        tenant_id=tenant_id,
+    )
 
 
 def remover_agendamento(db: Session, agendamento_id: int, tenant_id: int):

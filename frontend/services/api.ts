@@ -89,6 +89,7 @@ export type PublicHorarioGrade = {
 };
 
 export type PublicLookupResponse = {
+  barbearia_id: number;
   nome: string;
   slug: string;
   barbeiros: PublicBarbeiro[];
@@ -100,6 +101,7 @@ export type PublicLookupResponse = {
 export type PublicAgendamentoResponse = {
   id: number;
   tenant_id: number;
+  barbearia_id: number;
   slug: string;
   cliente_nome: string;
   cliente_telefone: string;
@@ -261,8 +263,15 @@ export async function deleteBarbeiro(id: number): Promise<void> {
   await parseOrThrow(res, "Falha ao remover barbeiro.");
 }
 
-export async function listAgendamentos(): Promise<Agendamento[]> {
-  const res = await apiFetch("/agendamentos/", { cache: "no-store" });
+export async function listAgendamentos(params?: {
+  data?: string;
+  barbeiro_id?: number;
+}): Promise<Agendamento[]> {
+  const search = new URLSearchParams();
+  if (params?.data) search.set("data", params.data);
+  if (params?.barbeiro_id) search.set("barbeiro_id", String(params.barbeiro_id));
+  const suffix = search.toString() ? `?${search.toString()}` : "";
+  const res = await apiFetch(`/agendamentos/${suffix}`, { cache: "no-store" });
   return parseOrThrow(res, "Falha ao carregar agendamentos.");
 }
 
@@ -349,8 +358,60 @@ export async function lookupPublicBarbershop(params: {
   return parseOrThrow(res, "Falha ao carregar disponibilidade publica.");
 }
 
+export async function lookupPublicBarbershopById(params: {
+  barbearia_id: number;
+  data?: string;
+  barbeiro_id?: number;
+  servico_id?: number;
+}): Promise<PublicLookupResponse> {
+  const search = new URLSearchParams();
+  if (params.data) search.set("data", params.data);
+  if (params.barbeiro_id) search.set("barbeiro_id", String(params.barbeiro_id));
+  if (params.servico_id) search.set("servico_id", String(params.servico_id));
+  const query = search.toString();
+  const suffix = query ? `?${query}` : "";
+
+  const res = await fetch(`${API_URL}/public/barbearia-id/${params.barbearia_id}${suffix}`, {
+    cache: "no-store",
+  });
+  return parseOrThrow(res, "Falha ao carregar disponibilidade publica.");
+}
+
+export async function listPublicServicos(barbeariaId: number): Promise<PublicServico[]> {
+  const res = await fetch(`${API_URL}/public/servicos?barbearia_id=${barbeariaId}`, {
+    cache: "no-store",
+  });
+  return parseOrThrow(res, "Falha ao carregar servicos publicos.");
+}
+
+export async function listPublicBarbeiros(barbeariaId: number): Promise<PublicBarbeiro[]> {
+  const res = await fetch(`${API_URL}/public/barbeiros?barbearia_id=${barbeariaId}`, {
+    cache: "no-store",
+  });
+  return parseOrThrow(res, "Falha ao carregar barbeiros publicos.");
+}
+
+export async function listPublicHorarios(params: {
+  barbearia_id: number;
+  barbeiro_id: number;
+  servico_id: number;
+  data: string;
+}): Promise<{ horarios_disponiveis: string[]; horarios_grade: PublicHorarioGrade[] }> {
+  const query = new URLSearchParams({
+    barbearia_id: String(params.barbearia_id),
+    barbeiro_id: String(params.barbeiro_id),
+    servico_id: String(params.servico_id),
+    data: params.data,
+  });
+  const res = await fetch(`${API_URL}/public/horarios-disponiveis?${query.toString()}`, {
+    cache: "no-store",
+  });
+  return parseOrThrow(res, "Falha ao carregar horarios publicos.");
+}
+
 export async function createPublicBooking(payload: {
-  slug: string;
+  slug?: string;
+  barbearia_id?: number;
   cliente_nome: string;
   cliente_telefone: string;
   barbeiro_id: number;

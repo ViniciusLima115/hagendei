@@ -1,6 +1,6 @@
 from datetime import date, datetime, time
 
-from pydantic import AliasChoices, BaseModel, ConfigDict, Field
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, model_validator
 
 
 class PublicBarbeiroItem(BaseModel):
@@ -26,6 +26,7 @@ class PublicHorarioItem(BaseModel):
 
 
 class PublicBarbeariaLookupResponse(BaseModel):
+    barbearia_id: int
     nome: str
     slug: str
     barbeiros: list[PublicBarbeiroItem]
@@ -35,7 +36,8 @@ class PublicBarbeariaLookupResponse(BaseModel):
 
 
 class PublicAgendamentoCreate(BaseModel):
-    slug: str
+    slug: str | None = None
+    barbearia_id: int | None = None
     cliente_nome: str
     cliente_telefone: str
     barbeiro_id: int
@@ -43,10 +45,17 @@ class PublicAgendamentoCreate(BaseModel):
     data: date
     hora_inicio: time
 
+    @model_validator(mode="after")
+    def validar_tenant_identificador(self):
+        if not self.slug and not self.barbearia_id:
+            raise ValueError("Informe slug ou barbearia_id para identificar a barbearia.")
+        return self
+
 
 class PublicAgendamentoResponse(BaseModel):
     id: int
     tenant_id: int
+    barbearia_id: int
     slug: str
     cliente_nome: str
     cliente_telefone: str

@@ -20,6 +20,13 @@ class AgendamentoStatusUpdate(BaseModel):
     status: StatusAgendamento
 
 
+class AgendamentoPatch(BaseModel):
+    barbeiro_id: int | None = None
+    servico_id: int | None = None
+    data_hora_inicio: datetime | None = None
+    status: StatusAgendamento | None = None
+
+
 class AgendamentoUpdate(BaseModel):
     barbeiro_id: int
     servico_id: int
