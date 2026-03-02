@@ -185,7 +185,7 @@ export default function PublicBookingByIdPage() {
               <label className="block">
                 <span className="mb-1 block text-sm font-medium text-blue-700">Nome</span>
                 <input
-                  className="w-full h-12 rounded-xl border border-blue-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+                  className="w-full h-12 rounded-xl border border-blue-200 bg-white px-3 text-sm focus:outline-none focus:ring-0 focus:border-blue-600 focus:bg-blue-600 focus:text-white"
                   required
                   value={nomeCliente}
                   onChange={(event) => setNomeCliente(event.target.value)}
@@ -195,7 +195,7 @@ export default function PublicBookingByIdPage() {
               <label className="block">
                 <span className="mb-1 block text-sm font-medium text-blue-700">Telefone</span>
                 <input
-                  className="w-full h-12 rounded-xl border border-blue-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+                  className="w-full h-12 rounded-xl border border-blue-200 bg-white px-3 text-sm focus:outline-none focus:ring-0 focus:border-blue-600 focus:bg-blue-600 focus:text-white"
                   required
                   value={telefoneCliente}
                   onChange={(event) => setTelefoneCliente(event.target.value)}
@@ -213,7 +213,7 @@ export default function PublicBookingByIdPage() {
               <label className="block">
                 <span className="mb-1 block text-sm font-medium text-blue-700">Barbeiro</span>
                 <select
-                  className="w-full h-12 rounded-xl border border-blue-200 bg-white px-3 text-sm"
+                  className="w-full h-12 rounded-xl border border-blue-200 bg-white px-3 text-sm focus:outline-none focus:ring-0 focus:border-blue-600 focus:bg-blue-600 focus:text-white"
                   value={barbeiroId ?? ""}
                   onChange={(event) => {
                     const valor = Number(event.target.value);
@@ -232,7 +232,7 @@ export default function PublicBookingByIdPage() {
               <label className="block">
                 <span className="mb-1 block text-sm font-medium text-blue-700">Serviço</span>
                 <select
-                  className="w-full h-12 rounded-xl border border-blue-200 bg-white px-3 text-sm"
+                  className="w-full h-12 rounded-xl border border-blue-200 bg-white px-3 text-sm focus:outline-none focus:ring-0 focus:border-blue-600 focus:bg-blue-600 focus:text-white"
                   value={servicoId ?? ""}
                   onChange={(event) => {
                     const valor = Number(event.target.value);
@@ -251,7 +251,7 @@ export default function PublicBookingByIdPage() {
               <label className="block">
                 <span className="mb-1 block text-sm font-medium text-blue-700">Data</span>
                 <input
-                  className="w-full h-12 rounded-xl border border-blue-200 bg-white px-3 text-sm"
+                  className="w-full h-12 rounded-xl border border-blue-200 bg-white px-3 text-sm focus:outline-none focus:ring-0 focus:border-blue-600 focus:bg-blue-600 focus:text-white"
                   type="date"
                   min={hojeISO()}
                   value={data}
@@ -268,7 +268,7 @@ export default function PublicBookingByIdPage() {
                   <div className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-50 text-blue-700 font-semibold">3</div>
                   <h3 className="text-sm font-medium text-blue-800">Horários</h3>
                 </div>
-                <span className="text-xs text-slate-500">Indisponível = X</span>
+                <span className="text-xs text-slate-500"></span>
               </div>
               <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5">
                 {lookup.horarios_grade.map((slot) => {
@@ -280,7 +280,7 @@ export default function PublicBookingByIdPage() {
                       disabled={!slot.disponivel}
                       onClick={() => setHoraInicio(slot.hora)}
                       className={[
-                        "w-full h-12 flex items-center justify-center text-sm font-semibold transition rounded-xl border",
+                        "relative w-full h-12 flex items-center justify-center text-sm font-semibold transition rounded-xl border",
                         slot.disponivel
                           ? "border-blue-100 bg-white text-blue-700 hover:bg-blue-50"
                           : "border-blue-50 bg-blue-50 text-blue-200 opacity-60 cursor-not-allowed",
@@ -289,7 +289,7 @@ export default function PublicBookingByIdPage() {
                     >
                       <span>{slot.hora}</span>
                       {!slot.disponivel && (
-                        <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-lg text-red-500">X</span>
+                        <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-lg text-red-500 p-1">X</span>
                       )}
                     </button>
                   );
@@ -324,7 +324,7 @@ export default function PublicBookingByIdPage() {
                       setErro(null);
                       setSucesso(null);
                     }}
-                    className="text-sm text-blue-600 underline ml-3"
+                    className="h-10 rounded-md border border-blue-200 bg-white px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-50 ml-3"
                   >
                     Limpar
                   </button>
