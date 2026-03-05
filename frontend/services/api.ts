@@ -1,6 +1,7 @@
 import { getAuthSession } from "./auth";
 
-export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
+const DEFAULT_API_URL = "https://api.virtualbarber.shop";
+export const API_URL = (process.env.NEXT_PUBLIC_API_URL?.trim() || DEFAULT_API_URL).replace(/\/+$/, "");
 
 export type AgendaSlot = {
   hora: string;
