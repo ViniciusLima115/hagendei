@@ -10,9 +10,6 @@ export type BarbeariaAdmin = {
   nome: string;
   login: string;
   senha: string;
-  megaInstanceKey: string;
-  megaToken: string;
-  whatsappNumber: string;
   plano: PlanoBarbearia;
   statusManual: StatusManualBarbearia;
   vencimentoEm: string;
@@ -28,9 +25,6 @@ type BarbeariaApi = {
   nome: string;
   login: string | null;
   senha: string | null;
-  mega_instance_key: string | null;
-  mega_token: string | null;
-  whatsapp_number: string | null;
   plano: PlanoBarbearia | null;
   status_manual: StatusManualBarbearia | null;
   vencimento_em: string | null;
@@ -60,9 +54,6 @@ function toUi(item: BarbeariaApi): BarbeariaAdmin {
     nome: item.nome,
     login: item.login ?? "",
     senha: item.senha ?? "",
-    megaInstanceKey: item.mega_instance_key ?? "",
-    megaToken: item.mega_token ?? "",
-    whatsappNumber: item.whatsapp_number ?? "",
     plano: item.plano ?? "basico",
     statusManual: item.status_manual ?? "ativo",
     vencimentoEm: item.vencimento_em ?? plusDays(30),
@@ -105,9 +96,6 @@ export async function createBarbeariaAdmin(payload: {
   nome: string;
   login: string;
   senha: string;
-  megaInstanceKey?: string;
-  megaToken?: string;
-  whatsappNumber?: string;
   plano: PlanoBarbearia;
   vencimentoEm: string;
   trialAtivo: boolean;
@@ -121,9 +109,6 @@ export async function createBarbeariaAdmin(payload: {
       nome: payload.nome.trim(),
       login: payload.login.trim(),
       senha: payload.senha,
-      mega_instance_key: payload.megaInstanceKey?.trim() || null,
-      mega_token: payload.megaToken?.trim() || null,
-      whatsapp_number: payload.whatsappNumber?.trim() || null,
       plano: payload.plano,
       status_manual: "ativo",
       vencimento_em: payload.vencimentoEm,
@@ -145,9 +130,6 @@ export async function updateBarbeariaAdmin(
     nome: string;
     login: string;
     senha: string;
-    megaInstanceKey?: string;
-    megaToken?: string;
-    whatsappNumber?: string;
     plano: PlanoBarbearia;
     statusManual: StatusManualBarbearia;
     vencimentoEm: string;
@@ -164,9 +146,6 @@ export async function updateBarbeariaAdmin(
       nome: payload.nome.trim(),
       login: payload.login.trim(),
       senha: payload.senha,
-      mega_instance_key: payload.megaInstanceKey?.trim() || null,
-      mega_token: payload.megaToken?.trim() || null,
-      whatsapp_number: payload.whatsappNumber?.trim() || null,
       plano: payload.plano,
       status_manual: payload.statusManual,
       vencimento_em: payload.vencimentoEm,

@@ -40,9 +40,6 @@ const initialForm = {
   nome: "",
   login: "",
   senha: "",
-  whatsappNumber: "",
-  megaInstanceKey: "",
-  megaToken: "",
   plano: "basico" as PlanoBarbearia,
   vencimentoEm: plusDaysISO(30),
   trialAtivo: false,
@@ -72,9 +69,6 @@ export default function AdminPage() {
     nome: "",
     login: "",
     senha: "",
-    whatsappNumber: "",
-    megaInstanceKey: "",
-    megaToken: "",
     plano: "basico" as PlanoBarbearia,
     statusManual: "ativo" as StatusManualBarbearia,
     vencimentoEm: plusDaysISO(30),
@@ -234,10 +228,6 @@ export default function AdminPage() {
       setError("Preencha nome, login e senha para cadastrar.");
       return;
     }
-    if (!form.whatsappNumber.trim() && !form.megaInstanceKey.trim()) {
-      setError("Informe o Numero WhatsApp ou a Instance Key para vincular o tenant.");
-      return;
-    }
     if (!form.vencimentoEm) {
       setError("Informe a data de vencimento.");
       return;
@@ -263,9 +253,6 @@ export default function AdminPage() {
       nome: item.nome,
       login: item.login,
       senha: item.senha,
-      whatsappNumber: item.whatsappNumber,
-      megaInstanceKey: item.megaInstanceKey,
-      megaToken: item.megaToken,
       plano: item.plano,
       statusManual: item.statusManual,
       vencimentoEm: item.vencimentoEm,
@@ -284,10 +271,6 @@ export default function AdminPage() {
       setError("Preencha nome, login e senha.");
       return;
     }
-    if (!editForm.whatsappNumber.trim() && !editForm.megaInstanceKey.trim()) {
-      setError("Informe o Numero WhatsApp ou a Instance Key para vincular o tenant.");
-      return;
-    }
     if (!editForm.vencimentoEm) {
       setError("Informe o vencimento.");
       return;
@@ -302,9 +285,6 @@ export default function AdminPage() {
         nome: editForm.nome.trim(),
         login: editForm.login.trim(),
         senha: editForm.senha,
-        whatsappNumber: editForm.whatsappNumber.trim(),
-        megaInstanceKey: editForm.megaInstanceKey.trim(),
-        megaToken: editForm.megaToken.trim(),
         plano: editForm.plano,
         statusManual: editForm.statusManual,
         vencimentoEm: editForm.vencimentoEm,
@@ -422,24 +402,6 @@ export default function AdminPage() {
                   placeholder="Defina uma senha inicial"
                   onChange={(e) => setForm((prev) => ({ ...prev, senha: e.target.value }))}
                   required
-                />
-                <FormInput
-                  label="Numero WhatsApp"
-                  value={form.whatsappNumber}
-                  placeholder="Ex: 5582999991111"
-                  onChange={(e) => setForm((prev) => ({ ...prev, whatsappNumber: e.target.value }))}
-                />
-                <FormInput
-                  label="Instance Key (MegaAPI)"
-                  value={form.megaInstanceKey}
-                  placeholder="Ex: instancia-centro-01"
-                  onChange={(e) => setForm((prev) => ({ ...prev, megaInstanceKey: e.target.value }))}
-                />
-                <FormInput
-                  label="Token da Instancia (opcional)"
-                  value={form.megaToken}
-                  placeholder="Ex: token-interno-da-instancia"
-                  onChange={(e) => setForm((prev) => ({ ...prev, megaToken: e.target.value }))}
                 />
                 <FormInput
                   as="select"
@@ -590,8 +552,6 @@ export default function AdminPage() {
                     <tr>
                       <th>Barbearia</th>
                       <th>Login</th>
-                      <th>WhatsApp</th>
-                      <th>Instance Key</th>
                       <th>Senha</th>
                       <th>Plano</th>
                       <th>Status</th>
@@ -608,8 +568,6 @@ export default function AdminPage() {
                       <tr key={item.id}>
                         <td className="font-medium">{item.nome}</td>
                         <td>{item.login}</td>
-                        <td>{item.whatsappNumber || "-"}</td>
-                        <td>{item.megaInstanceKey || "-"}</td>
                         <td>{showPasswords ? item.senha : "••••••••"}</td>
                         <td>
                           <span
@@ -693,23 +651,6 @@ export default function AdminPage() {
               value={editForm.senha}
               onChange={(e) => setEditForm((prev) => ({ ...prev, senha: e.target.value }))}
               required
-            />
-            <FormInput
-              label="Numero WhatsApp"
-              value={editForm.whatsappNumber}
-              placeholder="Ex: 5582999991111"
-              onChange={(e) => setEditForm((prev) => ({ ...prev, whatsappNumber: e.target.value }))}
-            />
-            <FormInput
-              label="Instance Key (MegaAPI)"
-              value={editForm.megaInstanceKey}
-              placeholder="Ex: instancia-centro-01"
-              onChange={(e) => setEditForm((prev) => ({ ...prev, megaInstanceKey: e.target.value }))}
-            />
-            <FormInput
-              label="Token da Instancia (opcional)"
-              value={editForm.megaToken}
-              onChange={(e) => setEditForm((prev) => ({ ...prev, megaToken: e.target.value }))}
             />
             <FormInput
               as="select"
