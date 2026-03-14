@@ -51,15 +51,18 @@ pip install -r requirements.txt
 
 Use arquivos separados por ambiente:
 
+- Raiz do projeto: `.env` (bom para integrações que escrevem variáveis automaticamente, como `npx neonctl@latest init`)
 - Local: `backend/.env`
 - Produção: `backend/.env.production`
+
+Se existir `.env` na raiz e também `backend/.env`, o backend prioriza a variável já definida na raiz.
 
 Exemplo de `backend/.env` (local):
 
 ```env
 APP_ENV=development
 INIT_DB_CREATE_ALL=true
-DATABASE_URL=mysql+pymysql://chatbot:chatbot@localhost:3306/chatbot
+DATABASE_URL=postgresql://SEU_USUARIO:SEU_TOKEN@SEU_HOST_NEON/neondb?sslmode=require
 HORARIO_ABERTURA=8
 HORARIO_FECHAMENTO=19
 INTERVALO_MINUTOS=40
@@ -82,6 +85,12 @@ Rode a API:
 
 ```bash
 uvicorn app.main:app --reload
+```
+
+Para usar Neon, voce pode gerar a string automaticamente na raiz do projeto:
+
+```bash
+npx neonctl@latest init
 ```
 
 Para produção, rode com `APP_ENV=production` para carregar `backend/.env.production`:
@@ -190,7 +199,7 @@ Depois abra `http://localhost:3000/agenda`.
 ## Problemas comuns
 
 - Erro de conexão com banco:
-  - conferir se MySQL está ativo e se `DATABASE_URL` está correta.
+  - conferir se a `DATABASE_URL` aponta para o Neon/Postgres e se inclui `sslmode=require`.
 - Frontend mostra erro ao carregar agenda:
   - conferir se backend está rodando em `127.0.0.1:8000`.
 - Agenda vazia:
