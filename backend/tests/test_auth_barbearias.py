@@ -64,9 +64,6 @@ def test_barbearias_crud_admin(client, make_tenant_headers):
             "nome": "Barbearia Centro",
             "login": "barbearia.centro",
             "senha": "senha",
-            "mega_instance_key": "inst-centro",
-            "mega_token": "token-centro",
-            "whatsapp_number": "5582999991111",
             "plano": "basico",
             "status_manual": "ativo",
             "vencimento_em": "2026-12-31",
@@ -81,8 +78,6 @@ def test_barbearias_crud_admin(client, make_tenant_headers):
     created = criar.json()
     barbearia_id = created["id"]
     assert created["login"] == "barbearia.centro"
-    assert created["mega_instance_key"] == "inst-centro"
-    assert created["whatsapp_number"] == "5582999991111"
 
     listar = client.get("/barbearias/", headers=admin_headers)
     assert listar.status_code == 200
@@ -95,9 +90,6 @@ def test_barbearias_crud_admin(client, make_tenant_headers):
             "nome": "Barbearia Centro Atualizada",
             "login": "barbearia.centro",
             "senha": "senha-nova",
-            "mega_instance_key": "inst-centro",
-            "mega_token": "token-centro-2",
-            "whatsapp_number": "5582999991111",
             "plano": "premium",
             "status_manual": "ativo",
             "vencimento_em": "2027-01-31",
@@ -124,9 +116,6 @@ def test_barbearias_valida_duplicidades(client, make_tenant_headers):
         "nome": "Barbearia A",
         "login": "barbearia.a",
         "senha": "senha",
-        "mega_instance_key": "inst-a",
-        "mega_token": "token-a",
-        "whatsapp_number": "5582999992222",
         "plano": "basico",
         "status_manual": "ativo",
         "vencimento_em": "2026-12-31",
@@ -140,22 +129,13 @@ def test_barbearias_valida_duplicidades(client, make_tenant_headers):
     assert primeira.status_code == 200
 
     duplicada_login = dict(payload_base)
-    duplicada_login["mega_instance_key"] = "inst-b"
-    duplicada_login["whatsapp_number"] = "5582999993333"
     r_login = client.post("/barbearias/", headers=admin_headers, json=duplicada_login)
     assert r_login.status_code == 400
 
-    duplicada_instancia = dict(payload_base)
-    duplicada_instancia["login"] = "barbearia.c"
-    duplicada_instancia["whatsapp_number"] = "5582999994444"
-    r_instancia = client.post("/barbearias/", headers=admin_headers, json=duplicada_instancia)
-    assert r_instancia.status_code == 400
-
-    duplicada_whatsapp = dict(payload_base)
-    duplicada_whatsapp["login"] = "barbearia.d"
-    duplicada_whatsapp["mega_instance_key"] = "inst-d"
-    r_whatsapp = client.post("/barbearias/", headers=admin_headers, json=duplicada_whatsapp)
-    assert r_whatsapp.status_code == 400
+    sem_conflito = dict(payload_base)
+    sem_conflito["login"] = "barbearia.b"
+    r_ok = client.post("/barbearias/", headers=admin_headers, json=sem_conflito)
+    assert r_ok.status_code == 200
 
 
 def test_tenant_header_mismatch_retorna_403(client, dados_base, make_tenant_headers):
