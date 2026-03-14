@@ -13,7 +13,7 @@ Este documento mostra o fluxo completo:
 Em **cada ambiente** (`staging` e `prod`), configure no backend:
 
 ```env
-DATABASE_URL=...
+DATABASE_URL=postgresql://SEU_USUARIO:SEU_TOKEN@SEU_HOST_NEON/neondb?sslmode=require
 WHATSAPP_TOKEN=...
 PHONE_NUMBER_ID=...
 
@@ -28,6 +28,8 @@ MEGAAPI_WEBHOOK_SECRET=<opcional-hmac-sha256>
 MEGAAPI_WEBHOOK_ALLOW_UNSIGNED=false
 MEGAAPI_WEBHOOK_MAX_SKEW_SECONDS=300
 ```
+
+Se voce usar `npx neonctl@latest init` na raiz do repositorio, o backend agora tambem le esse `.env` automaticamente.
 
 Depois de atualizar, reinicie o backend.
 

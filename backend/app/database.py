@@ -13,6 +13,8 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()
 
+IS_MYSQL = "mysql" in (engine.dialect.name or "").lower()
+
 
 def _str_to_bool(value: str | None, default: bool) -> bool:
     if value is None:
@@ -47,15 +49,16 @@ def init_db():
     )
     if _should_run_create_all():
         Base.metadata.create_all(bind=engine)
-    _ensure_clientes_contexto_column()
-    _ensure_clientes_tenant_indexes()
-    _ensure_barbearias_admin_columns()
-    _ensure_barbearias_slug()
-    _ensure_barbeiros_barbershop_column()
-    _ensure_barbeiros_public_columns()
-    _ensure_conversas_multi_tenant()
-    _ensure_agendamentos_barbearia_column()
-    _ensure_agendamentos_public_columns()
+    if IS_MYSQL:
+        _ensure_clientes_contexto_column()
+        _ensure_clientes_tenant_indexes()
+        _ensure_barbearias_admin_columns()
+        _ensure_barbearias_slug()
+        _ensure_barbeiros_barbershop_column()
+        _ensure_barbeiros_public_columns()
+        _ensure_conversas_multi_tenant()
+        _ensure_agendamentos_barbearia_column()
+        _ensure_agendamentos_public_columns()
 
 
 def _run_best_effort(statements: list[str]):
