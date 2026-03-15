@@ -1,0 +1,59 @@
+.cell {
+  display: grid;
+  gap: 4px;
+  align-content: center;
+  min-height: 88px;
+  padding: 12px;
+  border-radius: 18px;
+  border: 1px solid var(--theme-line);
+  text-align: left;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+.cellLivre {
+  cursor: pointer;
+  background: var(--theme-panel-strong);
+  color: var(--theme-text);
+}
+
+.cellLivre:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 18px rgba(61, 42, 29, 0.08);
+}
+
+.cellConfirmado {
+  cursor: pointer;
+  color: var(--theme-success-text);
+  background: var(--theme-success-soft);
+  border-color: var(--theme-success-soft);
+}
+
+.cellIndisponivel {
+  cursor: not-allowed;
+  color: var(--theme-warning-text);
+  background: var(--theme-warning-soft);
+  border-color: var(--theme-line);
+  opacity: 0.78;
+}
+
+.cellSelected {
+  box-shadow: 0 0 0 3px rgba(195, 107, 45, 0.18);
+  border-color: rgba(195, 107, 45, 0.4);
+}
+
+.hour {
+  font-size: 1rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.caption {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}

@@ -87,15 +87,15 @@ export default function FormInput(props: FormInputProps) {
   };
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="form-field">
       {label && (
-        <label className="text-sm font-medium text-gray-700">
+        <label className="field-label">
           {label}
-          {required && <span className="ml-1 text-red-500">*</span>}
+          {required && <span className="field-required">*</span>}
         </label>
       )}
       {renderField()}
-      {error && <span className="text-xs text-red-500">{error}</span>}
+      {error && <span className="field-error">{error}</span>}
     </div>
   );
 }

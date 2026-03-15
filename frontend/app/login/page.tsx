@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Eye, Headset, Laptop, MessageCircle, User, X } from "lucide-react";
 import { login } from "@/services/auth";
 import { loginUsuario } from "@/services/api";
+import styles from "./page.module.css";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -69,128 +70,130 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-dvh items-center justify-center bg-[#f5f5f7] px-4 py-10">
-      <div className="w-full max-w-sm text-center">
-        <div className="mx-auto -translate-y-8 flex flex-col items-center">
-          <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-slate-900 text-white">
+    <main className={styles.page}>
+      <div className={styles.shell}>
+        <div className={styles.brand}>
+          <div className={styles.brandIcon}>
             <Laptop size={20} />
+          </div>
+          <div className={styles.heading}>
+            <h1 className={styles.title}>Login</h1>
+            <p className={styles.subtitle}>Acesse o painel da sua barbearia.</p>
           </div>
         </div>
 
-        <h1 className="mt-10 text-4xl font-semibold tracking-tight text-slate-900">Login</h1>
-
-        <form onSubmit={handleSubmit} className="mt-12 flex flex-col gap-6 text-left">
-          <div className="space-y-2">
-            <label htmlFor="email" className="block text-sm font-semibold text-slate-700">
-              Usuario
-            </label>
-            <div className="relative">
+        <div className={styles.card}>
+          <form onSubmit={handleSubmit} className={styles.form}>
+            <div className={styles.field}>
+              <label htmlFor="email" className={styles.label}>
+                Usuario
+              </label>
+              <div className={styles.inputWrap}>
               <input
                 id="email"
                 type="text"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="h-12 w-full rounded-lg border border-slate-200 bg-white px-4 pr-11 text-base text-slate-800 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                className={styles.input}
                 placeholder="Digite seu usuario"
                 autoComplete="username"
               />
-              <User size={17} className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                <User size={17} className={styles.inputIcon} />
+              </div>
             </div>
-          </div>
 
-          <div className="space-y-2">
-            <label htmlFor="password" className="block text-sm font-semibold text-slate-700">
-              Senha
-            </label>
-            <div className="relative">
+            <div className={styles.field}>
+              <label htmlFor="password" className={styles.label}>
+                Senha
+              </label>
+              <div className={styles.inputWrap}>
               <input
                 id="password"
                 type={showPassword ? "text" : "password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="h-12 w-full rounded-lg border border-slate-200 bg-white px-4 pr-11 text-base text-slate-800 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                className={styles.input}
                 placeholder="Digite sua senha"
                 autoComplete="current-password"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword((prev) => !prev)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 rounded p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+                className={styles.ghostButton}
                 aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
               >
                 <Eye size={17} />
               </button>
+              </div>
             </div>
-          </div>
 
-          {error && (
-            <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
-              {error}
-            </div>
-          )}
+            {error && <div className={styles.error}>{error}</div>}
 
-          <div className="pt-2">
             <button
               type="submit"
-              className="h-12 w-full rounded-lg bg-[#4f80d9] text-base font-semibold text-white shadow-[0_6px_14px_rgba(79,128,217,0.25)] transition hover:brightness-105 disabled:opacity-60"
+              className={`btn btn-primary btn-lg ${styles.submit}`}
               disabled={loading}
             >
-              {loading ? "Entrando..." : "Sign in"}
+              {loading ? "Entrando..." : "Entrar"}
             </button>
-          </div>
-        </form>
+          </form>
+        </div>
 
         <button
           type="button"
           onClick={() => setShowSupportCard(true)}
-          className="mt-6 text-sm font-medium text-slate-400 transition hover:text-slate-600"
+          className={styles.supportLink}
         >
           Esqueceu a senha?
         </button>
       </div>
 
       {showSupportCard && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 px-4 backdrop-blur-[2px]">
-          <div className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl">
-            <div className="mb-4 flex items-start justify-between">
-              <div className="flex items-center gap-2">
-                <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-blue-50 text-blue-600">
+        <div className={styles.overlay}>
+          <div className={styles.supportCard}>
+            <div className={styles.supportHeader}>
+              <div className={styles.supportIntro}>
+                <span className={styles.supportIcon}>
                   <Headset size={18} />
                 </span>
                 <div>
-                  <p className="text-base font-semibold text-slate-900">Contate o suporte</p>
-                  <p className="text-xs text-slate-500">Recuperacao de acesso</p>
+                  <p className={styles.supportTitle}>Contate o suporte</p>
+                  <p className={styles.supportSub}>Recuperacao de acesso</p>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setShowSupportCard(false)}
-                className="rounded-md p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+                className="icon-button"
                 aria-label="Fechar card de suporte"
               >
                 <X size={16} />
               </button>
             </div>
 
-            <p className="text-sm text-slate-600">Para recuperar sua senha, fale com nosso atendimento.</p>
+            <p className={styles.supportText}>
+              Para recuperar sua senha, fale com nosso atendimento.
+            </p>
 
-            <a
-              href="https://wa.me/5582999627481"
-              target="_blank"
-              rel="noreferrer"
-              className="mt-5 inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-green-600 text-sm font-semibold text-white transition hover:bg-green-700"
-            >
-              <MessageCircle size={16} />
-              Falar no WhatsApp
-            </a>
+            <div className={styles.supportActions}>
+              <a
+                href="https://wa.me/5582999627481"
+                target="_blank"
+                rel="noreferrer"
+                className={styles.whatsButton}
+              >
+                <MessageCircle size={16} />
+                Falar no WhatsApp
+              </a>
 
-            <button
-              type="button"
-              onClick={() => setShowSupportCard(false)}
-              className="mt-3 h-10 w-full rounded-lg border border-slate-200 bg-white text-sm font-medium text-slate-700 transition hover:bg-slate-50"
-            >
-              Fechar
-            </button>
+              <button
+                type="button"
+                onClick={() => setShowSupportCard(false)}
+                className={styles.closeButton}
+              >
+                Fechar
+              </button>
+            </div>
           </div>
         </div>
       )}

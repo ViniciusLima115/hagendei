@@ -1,4 +1,5 @@
 import { AgendaSlot } from "@/services/api";
+import styles from "./AgendaCell.module.css";
 
 type AgendaCellProps = {
   hora: string;
@@ -8,6 +9,10 @@ type AgendaCellProps = {
   isSelected?: boolean;
   onSelect: () => void;
 };
+
+function cx(...values: Array<string | false | null | undefined>) {
+  return values.filter(Boolean).join(" ");
+}
 
 export default function AgendaCell({
   hora,
@@ -25,37 +30,22 @@ export default function AgendaCell({
       type="button"
       onClick={onSelect}
       disabled={bloqueado}
-      className={`relative aspect-square w-full rounded-lg border p-2 text-left transition-all ${
-        bloqueado
-          ? "cursor-not-allowed border-amber-200 bg-amber-50 text-amber-900 opacity-70"
-          : confirmado
-          ? "border-green-400 bg-green-100 text-green-900 hover:bg-green-200"
-          : "border-gray-300 bg-white text-gray-900 hover:border-gray-400 hover:bg-gray-50"
-      } ${isSelected ? "ring-2 ring-blue-500 ring-offset-1" : ""} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500`}
+      className={cx(
+        styles.cell,
+        confirmado && styles.cellConfirmado,
+        bloqueado && styles.cellIndisponivel,
+        !confirmado && !bloqueado && styles.cellLivre,
+        isSelected && styles.cellSelected
+      )}
       aria-label={`${barbeiroNome} as ${hora}`}
     >
-      <div className="flex h-full flex-col justify-between">
-        <p className="text-sm font-bold">{hora}</p>
+      <span className={styles.hour}>{hora}</span>
 
-        {agendamento ? (
-          <div>
-            <p className="line-clamp-2 text-xs font-semibold">
-              {agendamento.cliente}
-            </p>
-            <p className="mt-1 text-[11px] font-medium uppercase opacity-80">
-              {confirmado ? "Confirmado" : "Agendado"}
-            </p>
-          </div>
-        ) : bloqueado ? (
-          <p className="text-[11px] font-medium uppercase text-amber-700">
-            Indisponivel
-          </p>
-        ) : (
-          <p className="text-[11px] font-medium uppercase text-gray-500">
-            Livre
-          </p>
-        )}
-      </div>
+      {agendamento ? (
+        <span className={styles.caption}>{agendamento.cliente}</span>
+      ) : (
+        <span className={styles.caption}>{bloqueado ? "Indisponivel" : "Livre"}</span>
+      )}
     </button>
   );
 }

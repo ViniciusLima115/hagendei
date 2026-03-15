@@ -3,6 +3,7 @@
 import { ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import Header from "./Header";
+import ThemeToggle from "./ThemeToggle";
 
 type AppShellProps = {
   children: ReactNode;
@@ -20,6 +21,7 @@ export default function AppShell({ children }: AppShellProps) {
   return (
     <>
       {!inLogin && !isPublicBookingPath && !isPublicBookingById && <Header />}
+      {(inLogin || isPublicBookingPath || isPublicBookingById) && <ThemeToggle floating />}
       {children}
     </>
   );
