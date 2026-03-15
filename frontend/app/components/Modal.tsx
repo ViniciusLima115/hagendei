@@ -25,19 +25,19 @@ export default function Modal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className={`${sizeClasses[size]} w-full mx-4 rounded-lg bg-white shadow-lg animate-in fade-in zoom-in-95`}>
-        <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
-          <h2 className="text-lg font-bold text-gray-900">{title}</h2>
+    <div className="modal-overlay">
+      <div className={`modal-panel ${sizeClasses[size]} w-full mx-4 animate-in fade-in zoom-in-95`}>
+        <div className="modal-header">
+          <h2 className="modal-title">{title}</h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600"
+            className="icon-button"
             aria-label="Fechar"
           >
             <X size={24} />
           </button>
         </div>
-        <div className="px-6 py-4">{children}</div>
+        <div className="modal-content">{children}</div>
       </div>
     </div>
   );

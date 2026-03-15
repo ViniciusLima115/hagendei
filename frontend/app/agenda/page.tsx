@@ -2,14 +2,10 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { CalendarDays, CheckCircle2, Clock3, TrendingUp, Users } from "lucide-react";
 import AgendaGrid, { SelectedAgendamento } from "../components/AgendaGrid";
 import { AgendaDiaResponse, getAgendaDia } from "@/services/api";
-import Alert from "../components/Alert";
-import Loading from "../components/Loading";
-import StatCard from "../components/StatCard";
-import Card from "../components/Card";
-import Modal from "../components/Modal";
-import { Calendar, Users, Clock, TrendingUp } from "lucide-react";
+import styles from "./page.module.css";
 
 function getLocalISODate(): string {
   const now = new Date();
@@ -19,17 +15,65 @@ function getLocalISODate(): string {
   return `${year}-${month}-${day}`;
 }
 
+function formatDateLabel(value: string) {
+  return new Date(value).toLocaleDateString("pt-BR", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+}
+
 function calcularDuracaoEmMinutos(inicio?: string, fim?: string): string {
   if (!inicio || !fim) return "Nao informado";
 
   const inicioDate = new Date(inicio);
   const fimDate = new Date(fim);
   const diffMs = fimDate.getTime() - inicioDate.getTime();
-
   if (Number.isNaN(diffMs) || diffMs <= 0) return "Nao informado";
+  return `${Math.round(diffMs / 60000)} min`;
+}
 
-  const minutos = Math.round(diffMs / 60000);
-  return `${minutos} min`;
+function cx(...values: Array<string | false | null | undefined>) {
+  return values.filter(Boolean).join(" ");
+}
+
+function StatCard({
+  label,
+  value,
+  helper,
+  icon,
+}: {
+  label: string;
+  value: string;
+  helper: string;
+  icon: React.ReactNode;
+}) {
+  return (
+    <article className={styles.statCard}>
+      <div className={styles.statIcon}>{icon}</div>
+      <div className={styles.statContent}>
+        <span className={styles.statLabel}>{label}</span>
+        <strong className={styles.statValue}>{value}</strong>
+        <span className={styles.statHelper}>{helper}</span>
+      </div>
+    </article>
+  );
+}
+
+function DetailBlock({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className={styles.detailBlock}>
+      <span className={styles.detailLabel}>{label}</span>
+      <strong className={styles.detailValue}>{value}</strong>
+    </div>
+  );
 }
 
 export default function AgendaPage() {
@@ -37,7 +81,6 @@ export default function AgendaPage() {
   const [selectedBarbeiroId, setSelectedBarbeiroId] = useState("all");
   const [data, setData] = useState<AgendaDiaResponse | null>(null);
   const [selected, setSelected] = useState<SelectedAgendamento | null>(null);
-  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -50,11 +93,9 @@ export default function AgendaPage() {
         const resposta = await getAgendaDia(selectedDate);
         setData(resposta);
         setSelected(null);
-        setIsDetailsOpen(false);
       } catch {
         setData(null);
         setSelected(null);
-        setIsDetailsOpen(false);
         setError("Falha ao buscar agenda. Confirme se o backend esta acessivel.");
       } finally {
         setLoading(false);
@@ -82,194 +123,192 @@ export default function AgendaPage() {
     data?.barbeiros.filter(
       (barbeiro) => selectedBarbeiroId === "all" || String(barbeiro.id) === selectedBarbeiroId
     ) ?? [];
+
   const filteredData = data ? { ...data, barbeiros: barbeirosVisiveis } : null;
   const selectedKey = selected ? `${selected.barbeiroId}-${selected.hora}` : undefined;
   const totalSlots = filteredData
     ? filteredData.barbeiros.reduce((acc, barbeiro) => acc + barbeiro.horarios.length, 0)
     : 0;
   const totalOcupados = filteredData
-    ? filteredData.barbeiros.reduce((acc, b) => acc + b.agendamentos.length, 0)
+    ? filteredData.barbeiros.reduce((acc, barbeiro) => acc + barbeiro.agendamentos.length, 0)
     : 0;
   const totalLivres = Math.max(totalSlots - totalOcupados, 0);
   const taxaOcupacao = totalSlots > 0 ? Math.round((totalOcupados / totalSlots) * 100) : 0;
 
-  const abrirDetalhes = (item: SelectedAgendamento) => {
-    setSelected(item);
-    setIsDetailsOpen(true);
-  };
-
   return (
-    <main className="min-h-screen bg-gray-50">
-      <div className="py-8">
-        <div className="app-container space-y-6">
-          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">Agenda</h1>
-              <p className="mt-1 text-gray-600">
-                Visualize e gerencie os agendamentos da barbearia
-              </p>
-            </div>
-            <div className="flex gap-3">
+    <main className={styles.page}>
+      <div className={styles.shell}>
+        <header className={styles.hero}>
+          <div className={styles.heroCopy}>
+            <span className={styles.eyebrow}>Agenda</span>
+            <h1 className={styles.heroTitle}>Controle visual do dia</h1>
+            <p className={styles.heroText}>
+              Veja a disponibilidade por barbeiro, acompanhe bloqueios individuais e abra a gestao
+              quando precisar ajustar a operacao.
+            </p>
+          </div>
+
+          <div className={styles.heroControls}>
+            <label className={styles.controlGroup}>
+              <span className={styles.controlLabel}>Data</span>
               <input
                 type="date"
                 value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-                className="input"
+                onChange={(event) => setSelectedDate(event.target.value)}
+                className={styles.control}
               />
-              <Link href="/gestao">
-                <button className="btn btn-secondary">Ir para Gestao</button>
-              </Link>
-            </div>
+            </label>
+            <Link href="/gestao" className={styles.linkButton}>
+              Ir para gestao
+            </Link>
           </div>
+        </header>
 
-          {data && !loading && (
-            <div className="grid gap-4 md:grid-cols-4">
-              <StatCard
-                label="Total de Slots"
-                value={totalSlots}
-                icon={<Calendar size={24} />}
-                color="blue"
-              />
-              <StatCard
-                label="Ocupados"
-                value={totalOcupados}
-                icon={<Users size={24} />}
-                color="green"
-              />
-              <StatCard
-                label="Livres"
-                value={totalLivres}
-                icon={<Clock size={24} />}
-                color="amber"
-              />
-              <StatCard
-                label="Taxa de Ocupacao"
-                value={`${taxaOcupacao}%`}
-                icon={<TrendingUp size={24} />}
-                color="blue"
-                trend={taxaOcupacao > 70 ? "up" : "down"}
-              />
-            </div>
-          )}
+        <section className={styles.statsGrid}>
+          <StatCard
+            label="Slots do dia"
+            value={loading ? "..." : String(totalSlots)}
+            helper="Todos os horarios validos na agenda"
+            icon={<CalendarDays size={20} />}
+          />
+          <StatCard
+            label="Ocupados"
+            value={loading ? "..." : String(totalOcupados)}
+            helper="Horarios com atendimento marcado"
+            icon={<Users size={20} />}
+          />
+          <StatCard
+            label="Livres"
+            value={loading ? "..." : String(totalLivres)}
+            helper="Espacos ainda disponiveis"
+            icon={<Clock3 size={20} />}
+          />
+          <StatCard
+            label="Ocupacao"
+            value={loading ? "..." : `${taxaOcupacao}%`}
+            helper="Percentual do dia preenchido"
+            icon={<TrendingUp size={20} />}
+          />
+        </section>
 
-          {error && (
-            <Alert type="error" message={error} onClose={() => setError(null)} />
-          )}
+        {error ? <div className={styles.notice}>{error}</div> : null}
 
-          {loading && <Loading />}
-
-          {!loading && !error && filteredData && (
-            <Card
-              title="Grade de Agendamentos"
-              subtitle={`Verde: agendamento confirmado. Data: ${new Date(selectedDate).toLocaleDateString("pt-BR", {
-                weekday: "long",
-                year: "numeric",
-                month: "long",
-                day: "numeric",
-              })}`}
-            >
-              <div className="mb-4 flex flex-col gap-2 sm:max-w-sm">
-                <label htmlFor="barbeiro-filter" className="text-sm font-semibold text-gray-700">
+        <div className={styles.contentGrid}>
+          <section className={styles.panel}>
+            <div className={styles.panelHeader}>
+              <div>
+                <p className={styles.panelEyebrow}>Grade</p>
+                <h2 className={styles.panelTitle}>Mapa de horarios</h2>
+                <p className={styles.panelDescription}>
+                  {selectedDate ? `Data selecionada: ${formatDateLabel(selectedDate)}` : "Escolha uma data"}
+                </p>
+              </div>
+              <div className={styles.filterBox}>
+                <label htmlFor="barbeiro-filter" className={styles.controlLabel}>
                   Barbeiro
                 </label>
                 <select
                   id="barbeiro-filter"
                   value={selectedBarbeiroId}
-                  onChange={(e) => {
-                    setSelectedBarbeiroId(e.target.value);
+                  onChange={(event) => {
+                    setSelectedBarbeiroId(event.target.value);
                     setSelected(null);
-                    setIsDetailsOpen(false);
                   }}
-                  className="input"
+                  className={styles.control}
                 >
                   <option value="all">Todos os barbeiros</option>
-                  {data && data.barbeiros.map((barbeiro) => (
+                  {data?.barbeiros.map((barbeiro) => (
                     <option key={barbeiro.id} value={String(barbeiro.id)}>
                       {barbeiro.nome}
                     </option>
                   ))}
                 </select>
               </div>
-              <AgendaGrid
-                data={filteredData}
-                selectedKey={selectedKey}
-                onSelect={abrirDetalhes}
-              />
-            </Card>
-          )}
-        </div>
-      </div>
-
-      <Modal
-        isOpen={isDetailsOpen}
-        onClose={() => setIsDetailsOpen(false)}
-        title="Detalhes"
-        size="md"
-      >
-        {!selected && (
-          <p className="text-sm text-gray-600">Selecione um horario para ver os detalhes.</p>
-        )}
-
-        {selected && (
-          <div className="space-y-4">
-            <div className="rounded-lg bg-gray-50 p-4">
-              <p className="mb-1 text-xs font-semibold uppercase text-gray-600">Profissional</p>
-              <p className="text-lg font-bold text-gray-900">{selected.barbeiroNome}</p>
             </div>
 
-            <div className="rounded-lg bg-gray-50 p-4">
-              <p className="mb-1 text-xs font-semibold uppercase text-gray-600">Horario</p>
-              <p className="text-lg font-bold text-gray-900">{selected.hora}</p>
-            </div>
-
-            {!selected.agendamento && (
-              <div className="rounded-lg border border-gray-200 bg-white p-4">
-                <p className="mb-1 text-xs font-semibold uppercase text-gray-600">Status</p>
-                <p className="font-bold text-gray-900">Livre para novo agendamento</p>
+            {loading ? (
+              <div className={styles.loadingState}>
+                <div className={styles.loadingPulse} />
+                <p>Carregando agenda...</p>
               </div>
+            ) : filteredData ? (
+              <AgendaGrid data={filteredData} selectedKey={selectedKey} onSelect={setSelected} />
+            ) : (
+              <div className={styles.emptyState}>Nenhum dado de agenda disponivel.</div>
             )}
+          </section>
 
-            {selected.agendamento && (
-              <div className="space-y-3 rounded-lg border border-blue-200 bg-blue-50 p-4">
+          <aside className={styles.sidePanel}>
+            <section className={styles.panel}>
+              <div className={styles.panelHeader}>
                 <div>
-                  <p className="text-xs font-semibold uppercase text-blue-700">Cliente</p>
-                  <p className="font-bold text-gray-900">{selected.agendamento.cliente}</p>
+                  <p className={styles.panelEyebrow}>Legenda</p>
+                  <h2 className={styles.panelTitle}>Leitura rapida</h2>
                 </div>
+              </div>
+              <div className={styles.legendList}>
+                <div className={styles.legendItem}>
+                  <span className={cx(styles.legendSwatch, styles.legendLivre)} />
+                  <span>Livre para novo agendamento</span>
+                </div>
+                <div className={styles.legendItem}>
+                  <span className={cx(styles.legendSwatch, styles.legendConfirmado)} />
+                  <span>Horario confirmado</span>
+                </div>
+                <div className={styles.legendItem}>
+                  <span className={cx(styles.legendSwatch, styles.legendIndisponivel)} />
+                  <span>Fora do expediente do barbeiro</span>
+                </div>
+              </div>
+            </section>
+
+            <section className={styles.panel}>
+              <div className={styles.panelHeader}>
                 <div>
-                  <p className="text-xs font-semibold uppercase text-blue-700">Telefone</p>
-                  <p className="font-bold text-gray-900">
-                    {selected.agendamento.telefone || "Nao informado"}
-                  </p>
+                  <p className={styles.panelEyebrow}>Detalhes</p>
+                  <h2 className={styles.panelTitle}>
+                    {selected ? `${selected.barbeiroNome} as ${selected.hora}` : "Selecione um horario"}
+                  </h2>
                 </div>
-                <div>
-                  <p className="text-xs font-semibold uppercase text-blue-700">Servico</p>
-                  <p className="font-bold text-gray-900">{selected.agendamento.servico}</p>
+              </div>
+
+              {!selected ? (
+                <div className={styles.emptyState}>
+                  Clique em um slot da grade para ver os dados do atendimento ou do horario livre.
                 </div>
-                <div className="border-t border-blue-200 pt-2">
-                  <p className="text-xs font-semibold uppercase text-blue-700">Duracao</p>
-                  <p className="font-bold text-gray-900">
-                    {calcularDuracaoEmMinutos(
+              ) : selected.agendamento ? (
+                <div className={styles.detailStack}>
+                  <DetailBlock label="Profissional" value={selected.barbeiroNome} />
+                  <DetailBlock label="Horario" value={selected.hora} />
+                  <DetailBlock label="Cliente" value={selected.agendamento.cliente} />
+                  <DetailBlock
+                    label="Telefone"
+                    value={selected.agendamento.telefone || "Nao informado"}
+                  />
+                  <DetailBlock label="Servico" value={selected.agendamento.servico} />
+                  <DetailBlock
+                    label="Duracao"
+                    value={calcularDuracaoEmMinutos(
                       selected.agendamento.inicio,
                       selected.agendamento.fim
                     )}
-                  </p>
-                </div>
-                <div className="pt-2">
-                  <span
-                    className={`inline-block rounded-full px-3 py-1 text-xs font-bold ${
-                      selected.agendamento.status === "confirmado"
-                        ? "bg-green-100 text-green-700"
-                        : "bg-gray-100 text-gray-700"
-                    }`}
-                  >
+                  />
+                  <div className={styles.statusBadge}>
+                    <CheckCircle2 size={14} />
                     {selected.agendamento.status === "confirmado" ? "Confirmado" : "Agendado"}
-                  </span>
+                  </div>
                 </div>
-              </div>
-            )}
-          </div>
-        )}
-      </Modal>
+              ) : (
+                <div className={styles.detailStack}>
+                  <DetailBlock label="Profissional" value={selected.barbeiroNome} />
+                  <DetailBlock label="Horario" value={selected.hora} />
+                  <div className={styles.emptyState}>Esse horario esta livre para novo agendamento.</div>
+                </div>
+              )}
+            </section>
+          </aside>
+        </div>
+      </div>
     </main>
   );
 }

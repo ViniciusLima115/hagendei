@@ -5,6 +5,7 @@ import { CalendarDays, LayoutDashboard, Scissors, Settings2, Shield, LogOut } fr
 import { usePathname, useRouter } from "next/navigation";
 import { logout, useAuthSession } from "@/services/auth";
 import styles from "./Header.module.css";
+import ThemeToggle from "./ThemeToggle";
 
 function cx(...values: Array<string | false | null | undefined>) {
   return values.filter(Boolean).join(" ");
@@ -62,6 +63,8 @@ export default function Header() {
               })}
             </nav>
           ) : null}
+
+          <ThemeToggle />
 
           <button type="button" className={styles.logoutButton} onClick={handleLogout}>
             <LogOut size={16} />

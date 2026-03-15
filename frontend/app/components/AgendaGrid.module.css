@@ -1,0 +1,40 @@
+.grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+.column {
+  padding: 18px;
+  border-radius: 24px;
+  border: 1px solid var(--theme-line);
+  background: var(--theme-panel-soft);
+}
+
+.columnHeader {
+  margin-bottom: 14px;
+}
+
+.columnTitle {
+  margin: 0;
+  font-size: 1.05rem;
+  line-height: 1.1;
+}
+
+.columnMeta {
+  margin: 6px 0 0;
+  color: var(--theme-muted);
+  font-size: 0.84rem;
+}
+
+.slotGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+@media (max-width: 560px) {
+  .slotGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
