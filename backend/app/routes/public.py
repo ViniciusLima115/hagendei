@@ -1,6 +1,6 @@
 from datetime import date
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -19,6 +19,8 @@ from app.services.public_booking_service import (
     obter_lookup_publico,
     obter_lookup_publico_por_id,
 )
+from app.services.agendamento_service import obter_payload_email_confirmacao
+from app.services.email_service import send_email_payload
 
 
 router = APIRouter(prefix="/public", tags=["public"])
@@ -100,20 +102,26 @@ def horarios_disponiveis_public(
 @router.post("/agendamentos", response_model=PublicAgendamentoResponse)
 def criar_agendamento_public(
     dados: PublicAgendamentoCreate,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
 ):
     try:
-        return criar_agendamento_publico(
+        agendamento = criar_agendamento_publico(
             db,
             slug=dados.slug,
             barbearia_id=dados.barbearia_id,
             cliente_nome=dados.cliente_nome,
             cliente_telefone=dados.cliente_telefone,
+            cliente_email=dados.cliente_email,
             barbeiro_id=dados.barbeiro_id,
             servico_id=dados.servico_id,
             data=dados.data,
             hora_inicio=dados.hora_inicio,
         )
+        payload = obter_payload_email_confirmacao(db, agendamento_id=agendamento["id"])
+        if payload:
+            background_tasks.add_task(send_email_payload, payload)
+        return agendamento
     except ValueError as exc:
         mensagem = str(exc)
         status_code = 404 if "nao encontrada" in mensagem.lower() else 400

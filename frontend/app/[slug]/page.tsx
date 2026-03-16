@@ -35,6 +35,7 @@ export default function PublicBookingPage() {
 
   const [nomeCliente, setNomeCliente] = useState("");
   const [telefoneCliente, setTelefoneCliente] = useState("");
+  const [emailCliente, setEmailCliente] = useState("");
   const [barbeiroId, setBarbeiroId] = useState<number | null>(null);
   const [servicoId, setServicoId] = useState<number | null>(null);
   const [data, setData] = useState(hojeISO());
@@ -115,6 +116,10 @@ export default function PublicBookingPage() {
       setErro("Preencha todos os campos e selecione um horario disponivel.");
       return;
     }
+    if (!nomeCliente.trim() || !normalizarTelefone(telefoneCliente) || !emailCliente.trim()) {
+      setErro("Preencha nome, telefone e email.");
+      return;
+    }
 
     setSubmitting(true);
     setErro(null);
@@ -124,13 +129,14 @@ export default function PublicBookingPage() {
         slug,
         cliente_nome: nomeCliente.trim(),
         cliente_telefone: normalizarTelefone(telefoneCliente),
+        cliente_email: emailCliente.trim().toLowerCase(),
         barbeiro_id: barbeiroId,
         servico_id: servicoId,
         data,
         hora_inicio: horaInicio,
       });
 
-      setSucesso("Agendamento confirmado. Enviamos a confirmacao no WhatsApp.");
+      setSucesso("Agendamento criado. Enviamos a confirmacao por email.");
       setHoraInicio(null);
 
       const atualizado = await lookupPublicBarbershop({
@@ -191,7 +197,7 @@ export default function PublicBookingPage() {
 
         <section className="rounded-2xl bg-white p-6 shadow-xl">
           <form className="space-y-4" onSubmit={onSubmit}>
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-4 md:grid-cols-3">
               <label className="block">
                 <span className="mb-1 block text-sm font-medium text-slate-700">Nome do cliente</span>
                 <input
@@ -210,6 +216,17 @@ export default function PublicBookingPage() {
                   value={telefoneCliente}
                   onChange={(event) => setTelefoneCliente(event.target.value)}
                   placeholder="Ex.: (82) 99999-0000"
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-sm font-medium text-slate-700">Email</span>
+                <input
+                  className="input"
+                  required
+                  type="email"
+                  value={emailCliente}
+                  onChange={(event) => setEmailCliente(event.target.value)}
+                  placeholder="Ex.: cliente@email.com"
                 />
               </label>
             </div>

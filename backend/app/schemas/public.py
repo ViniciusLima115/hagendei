@@ -40,6 +40,7 @@ class PublicAgendamentoCreate(BaseModel):
     barbearia_id: int | None = None
     cliente_nome: str
     cliente_telefone: str
+    cliente_email: str | None = None
     barbeiro_id: int
     servico_id: int
     data: date
@@ -59,9 +60,11 @@ class PublicAgendamentoResponse(BaseModel):
     slug: str
     cliente_nome: str
     cliente_telefone: str
+    cliente_email: str | None = None
     barbeiro_id: int
     servico_id: int
     data_hora_inicio: datetime
     data_hora_fim: datetime
     status: str
+    confirmation_token: str
     lembretes_agendados: int

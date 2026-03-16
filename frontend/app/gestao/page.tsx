@@ -437,7 +437,7 @@ export default function GestaoPage() {
     barbeiroId: "",
     servicoId: "",
     dataHora: "",
-    status: "confirmado" as "pendente" | "confirmado" | "cancelado",
+    status: "confirmado" as "pendente" | "confirmado" | "cancelado" | "reagendamento_solicitado",
   });
   const [editAgendamentoId, setEditAgendamentoId] = useState<number | null>(null);
 
@@ -1533,13 +1533,18 @@ export default function GestaoPage() {
                 onChange={(e) =>
                   setFormAgendamento((prev) => ({
                     ...prev,
-                    status: e.target.value as "pendente" | "confirmado" | "cancelado",
+                    status: e.target.value as
+                      | "pendente"
+                      | "confirmado"
+                      | "cancelado"
+                      | "reagendamento_solicitado",
                   }))
                 }
               >
                 <option value="confirmado">Confirmado</option>
                 <option value="pendente">Pendente</option>
                 <option value="cancelado">Cancelado</option>
+                <option value="reagendamento_solicitado">Reagendamento solicitado</option>
               </select>
             </Field>
           </div>

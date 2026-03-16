@@ -19,6 +19,7 @@ from app.services.notificacao_service import (
 
 
 BOOKING_PUBLIC_BASE_URL = os.getenv("BOOKING_PUBLIC_BASE_URL", "https://app.virtualbarber.shop")
+STATUS_VALIDOS = {"pendente", "confirmado", "cancelado", "reagendamento_solicitado"}
 
 
 def _normalizar_texto(texto: str) -> str:
@@ -34,6 +35,13 @@ def _normalizar_telefone(telefone: str) -> str:
 
 def _eh_saudacao(texto: str) -> bool:
     return _normalizar_texto(texto) in {"oi", "ola", "olá", "bom dia", "boa tarde", "boa noite", "menu"}
+
+
+def _normalizar_status_saida(status: str | None) -> str:
+    valor = (status or "").strip().lower()
+    if valor in STATUS_VALIDOS:
+        return valor
+    return "pendente"
 
 
 def montar_link_agendamento(slug: str) -> str:
@@ -205,6 +213,7 @@ def criar_agendamento_publico(
     barbearia_id: int | None = None,
     cliente_nome: str,
     cliente_telefone: str,
+    cliente_email: str | None = None,
     barbeiro_id: int,
     servico_id: int,
     data: date,
@@ -254,11 +263,12 @@ def criar_agendamento_publico(
         cliente_id=cliente.id,
         cliente_nome=cliente.nome,
         cliente_telefone=cliente.telefone,
+        cliente_email=(cliente_email or "").strip().lower() or None,
         barbeiro_id=barbeiro.id,
         servico_id=servico.id,
         inicio=inicio,
         fim=fim,
-        status="confirmado",
+        status="pendente",
     )
 
     lembretes = agendar_lembretes_agendamento(
@@ -289,10 +299,12 @@ def criar_agendamento_publico(
         "slug": barbearia.slug,
         "cliente_nome": agendamento.cliente_nome,
         "cliente_telefone": agendamento.cliente_telefone,
+        "cliente_email": agendamento.cliente_email,
         "barbeiro_id": agendamento.barbeiro_id,
         "servico_id": agendamento.servico_id,
         "data_hora_inicio": agendamento.data_hora_inicio,
         "data_hora_fim": agendamento.data_hora_fim,
-        "status": agendamento.status,
+        "status": _normalizar_status_saida(agendamento.status),
+        "confirmation_token": agendamento.confirmation_token,
         "lembretes_agendados": lembretes,
     }

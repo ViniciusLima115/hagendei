@@ -2,6 +2,7 @@ import os
 import re
 import unicodedata
 from datetime import datetime
+from uuid import uuid4
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import declarative_base, sessionmaker
@@ -51,6 +52,8 @@ def init_db():
         Base.metadata.create_all(bind=engine)
     _ensure_barbearias_working_hours_column()
     _ensure_barbeiros_working_hours_column()
+    _ensure_agendamentos_public_columns()
+    _ensure_agendamentos_notification_columns()
     if IS_MYSQL:
         _ensure_clientes_contexto_column()
         _ensure_clientes_tenant_indexes()
@@ -60,7 +63,7 @@ def init_db():
         _ensure_barbeiros_public_columns()
         _ensure_conversas_multi_tenant()
         _ensure_agendamentos_barbearia_column()
-        _ensure_agendamentos_public_columns()
+    _backfill_agendamentos_notification_defaults()
 
 
 def _ensure_barbearias_working_hours_column():
@@ -300,6 +303,52 @@ def _ensure_agendamentos_public_columns():
                         "WHERE id = :id"
                     ),
                     payload,
+                )
+    except Exception:
+        pass
+
+
+def _ensure_agendamentos_notification_columns():
+    _run_best_effort(
+        [
+            "ALTER TABLE agendamentos ADD COLUMN cliente_email VARCHAR(255) NULL",
+            "ALTER TABLE agendamentos ADD COLUMN confirmation_token VARCHAR(36) NULL",
+            "ALTER TABLE agendamentos ADD COLUMN lembrete_24h_enviado BOOLEAN NOT NULL DEFAULT FALSE",
+            "ALTER TABLE agendamentos ADD COLUMN lembrete_2h_enviado BOOLEAN NOT NULL DEFAULT FALSE",
+            "CREATE INDEX ix_agendamentos_cliente_email ON agendamentos (cliente_email)",
+            "CREATE UNIQUE INDEX ux_agendamentos_confirmation_token ON agendamentos (confirmation_token)",
+        ]
+    )
+
+
+def _backfill_agendamentos_notification_defaults():
+    try:
+        with engine.begin() as conn:
+            conn.execute(
+                text(
+                    "UPDATE agendamentos SET lembrete_24h_enviado = FALSE "
+                    "WHERE lembrete_24h_enviado IS NULL"
+                )
+            )
+            conn.execute(
+                text(
+                    "UPDATE agendamentos SET lembrete_2h_enviado = FALSE "
+                    "WHERE lembrete_2h_enviado IS NULL"
+                )
+            )
+
+            rows = conn.execute(
+                text(
+                    "SELECT id FROM agendamentos "
+                    "WHERE confirmation_token IS NULL OR confirmation_token = ''"
+                )
+            ).mappings().all()
+            for row in rows:
+                conn.execute(
+                    text(
+                        "UPDATE agendamentos SET confirmation_token = :token WHERE id = :id"
+                    ),
+                    {"id": int(row["id"]), "token": str(uuid4())},
                 )
     except Exception:
         pass

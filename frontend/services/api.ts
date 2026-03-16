@@ -55,11 +55,12 @@ export type Agendamento = {
   id: number;
   cliente_nome: string;
   telefone: string;
+  cliente_email?: string | null;
   barbeiro_nome: string;
   servico_nome: string;
   data_hora_inicio: string;
   data_hora_fim: string;
-  status: "pendente" | "confirmado" | "cancelado";
+  status: "pendente" | "confirmado" | "cancelado" | "reagendamento_solicitado";
 };
 
 export type AdminCheckResponse = {
@@ -110,12 +111,30 @@ export type PublicAgendamentoResponse = {
   slug: string;
   cliente_nome: string;
   cliente_telefone: string;
+  cliente_email?: string | null;
   barbeiro_id: number;
   servico_id: number;
   data_hora_inicio: string;
   data_hora_fim: string;
   status: string;
+  confirmation_token: string;
   lembretes_agendados: number;
+};
+
+export type PublicAgendamentoTokenResponse = {
+  id: number;
+  barbearia_id: number;
+  slug?: string | null;
+  confirmation_token: string;
+  cliente_nome: string;
+  cliente_email?: string | null;
+  barbeiro_id: number;
+  barbeiro_nome: string;
+  servico_id: number;
+  servico_nome: string;
+  data_hora_inicio: string;
+  data_hora_fim: string;
+  status: "pendente" | "confirmado" | "cancelado" | "reagendamento_solicitado";
 };
 
 export type WorkingDayKey = "seg" | "ter" | "qua" | "qui" | "sex" | "sab" | "dom";
@@ -302,10 +321,11 @@ export async function listAgendamentos(params?: {
 export async function createAgendamento(payload: {
   telefone: string;
   nome_cliente: string;
+  cliente_email?: string;
   barbeiro_id: number;
   servico_id: number;
   data_hora_inicio: string;
-  status: "pendente" | "confirmado" | "cancelado";
+  status: "pendente" | "confirmado" | "cancelado" | "reagendamento_solicitado";
 }): Promise<Agendamento> {
   const res = await apiFetch("/agendamentos/", {
     method: "POST",
@@ -321,7 +341,8 @@ export async function updateAgendamento(
     barbeiro_id: number;
     servico_id: number;
     data_hora_inicio: string;
-    status: "pendente" | "confirmado" | "cancelado";
+    cliente_email?: string;
+    status: "pendente" | "confirmado" | "cancelado" | "reagendamento_solicitado";
   }
 ): Promise<Agendamento> {
   const res = await apiFetch(`/agendamentos/${id}`, {
@@ -466,6 +487,7 @@ export async function createPublicBooking(payload: {
   barbearia_id?: number;
   cliente_nome: string;
   cliente_telefone: string;
+  cliente_email?: string;
   barbeiro_id: number;
   servico_id: number;
   data: string;
@@ -477,4 +499,44 @@ export async function createPublicBooking(payload: {
     body: JSON.stringify(payload),
   });
   return parseOrThrow(res, "Falha ao criar agendamento publico.");
+}
+
+export async function getBookingByToken(token: string): Promise<PublicAgendamentoTokenResponse> {
+  const res = await fetch(`${API_URL}/agendamentos/${token}/dados`, {
+    cache: "no-store",
+  });
+  return parseOrThrow(res, "Falha ao carregar dados do agendamento.");
+}
+
+export async function confirmBookingByToken(token: string): Promise<PublicAgendamentoTokenResponse> {
+  const res = await fetch(`${API_URL}/agendamentos/${token}/confirmar`, {
+    method: "POST",
+  });
+  return parseOrThrow(res, "Falha ao confirmar presenca.");
+}
+
+export async function cancelBookingByToken(token: string): Promise<PublicAgendamentoTokenResponse> {
+  const res = await fetch(`${API_URL}/agendamentos/${token}/cancelar`, {
+    method: "POST",
+  });
+  return parseOrThrow(res, "Falha ao cancelar agendamento.");
+}
+
+export async function requestRescheduleByToken(token: string): Promise<PublicAgendamentoTokenResponse> {
+  const res = await fetch(`${API_URL}/agendamentos/${token}/reagendar`, {
+    method: "POST",
+  });
+  return parseOrThrow(res, "Falha ao solicitar reagendamento.");
+}
+
+export async function rescheduleBookingByToken(
+  token: string,
+  data_hora_inicio: string,
+): Promise<PublicAgendamentoTokenResponse> {
+  const res = await fetch(`${API_URL}/agendamentos/${token}/remarcar`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ data_hora_inicio }),
+  });
+  return parseOrThrow(res, "Falha ao reagendar agendamento.");
 }

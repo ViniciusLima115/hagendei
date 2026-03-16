@@ -47,6 +47,7 @@ export default function PublicBookingByIdPage() {
 
   const [nomeCliente, setNomeCliente] = useState("");
   const [telefoneCliente, setTelefoneCliente] = useState("");
+  const [emailCliente, setEmailCliente] = useState("");
   const [barbeiroId, setBarbeiroId] = useState<number | null>(null);
   const [servicoId, setServicoId] = useState<number | null>(null);
   const [today, setToday] = useState("");
@@ -137,8 +138,8 @@ export default function PublicBookingByIdPage() {
       return;
     }
 
-    if (!nomeCliente.trim() || !normalizarTelefone(telefoneCliente)) {
-      setErro("Preencha nome e telefone.");
+    if (!nomeCliente.trim() || !normalizarTelefone(telefoneCliente) || !emailCliente.trim()) {
+      setErro("Preencha nome, telefone e email.");
       return;
     }
 
@@ -151,14 +152,23 @@ export default function PublicBookingByIdPage() {
         barbearia_id: barbeariaId,
         cliente_nome: nomeCliente.trim(),
         cliente_telefone: normalizarTelefone(telefoneCliente),
+        cliente_email: emailCliente.trim().toLowerCase(),
         barbeiro_id: barbeiroId,
         servico_id: servicoId,
         data,
         hora_inicio: horaInicio,
       });
 
-      setSucesso("Agendamento confirmado.");
+      setSucesso("Agendamento criado. Enviamos a confirmacao para seu email.");
       setHoraInicio(null);
+
+      const atualizado = await lookupPublicBarbershopById({
+        barbearia_id: barbeariaId,
+        data,
+        barbeiro_id: barbeiroId,
+        servico_id: servicoId,
+      });
+      setLookup(atualizado);
     } catch (err) {
       setErro(err instanceof Error ? err.message : "Nao foi possivel concluir o agendamento.");
     } finally {
@@ -169,6 +179,7 @@ export default function PublicBookingByIdPage() {
   function limparFormulario() {
     setNomeCliente("");
     setTelefoneCliente("");
+    setEmailCliente("");
     setBarbeiroId(lookup?.barbeiros[0]?.id ?? null);
     setServicoId(lookup?.servicos[0]?.id ?? null);
     setData(today);
@@ -214,7 +225,7 @@ export default function PublicBookingByIdPage() {
           </div>
         </div>
 
-        <div className={styles.gridTwo}>
+        <div className={styles.gridThree}>
           <label className={styles.field}>
             <span className={styles.label}>Nome</span>
             <input
@@ -234,6 +245,18 @@ export default function PublicBookingByIdPage() {
               value={telefoneCliente}
               onChange={(event) => setTelefoneCliente(event.target.value)}
               placeholder="(82) 99999-0000"
+            />
+          </label>
+
+          <label className={styles.field}>
+            <span className={styles.label}>Email</span>
+            <input
+              className={styles.control}
+              required
+              type="email"
+              value={emailCliente}
+              onChange={(event) => setEmailCliente(event.target.value)}
+              placeholder="voce@email.com"
             />
           </label>
         </div>

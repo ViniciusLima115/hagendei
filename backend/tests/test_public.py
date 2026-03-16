@@ -154,6 +154,7 @@ def test_public_agendamento_cria_confirma_e_agenda_lembretes(monkeypatch, client
         "barbearia_id": barbearia.id,
         "cliente_nome": "Vinicius",
         "cliente_telefone": "558298373869",
+        "cliente_email": "vinicius@example.com",
         "barbeiro_id": barbeiro.id,
         "servico_id": servico.id,
         "data": data_hora.date().isoformat(),
@@ -163,15 +164,19 @@ def test_public_agendamento_cria_confirma_e_agenda_lembretes(monkeypatch, client
     assert resp.status_code == 200
 
     body = resp.json()
-    assert body["status"] == "confirmado"
+    assert body["status"] == "pendente"
     assert body["tenant_id"] == barbearia.id
     assert body["barbearia_id"] == barbearia.id
+    assert body["cliente_email"] == "vinicius@example.com"
+    assert body["confirmation_token"]
     assert body["lembretes_agendados"] == 2
 
     agendamento = db_session.query(Agendamento).filter(Agendamento.id == body["id"]).first()
     assert agendamento is not None
     assert agendamento.cliente_nome == "Vinicius"
     assert agendamento.cliente_telefone == "558298373869"
+    assert agendamento.cliente_email == "vinicius@example.com"
+    assert agendamento.confirmation_token == body["confirmation_token"]
 
     lembretes = (
         db_session.query(ReminderJob)

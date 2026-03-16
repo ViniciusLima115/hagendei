@@ -6,6 +6,7 @@ def test_criar_agendamento_com_sucesso(client, dados_base, tenant_headers):
     payload = {
         "telefone": "5582999999999",
         "nome_cliente": "Vinicius",
+        "cliente_email": "vinicius@example.com",
         "barbeiro_id": dados_base["barbeiro"].id,
         "servico_id": dados_base["servico"].id,
         "data_hora_inicio": inicio,
@@ -18,6 +19,7 @@ def test_criar_agendamento_com_sucesso(client, dados_base, tenant_headers):
     assert body["status"] == "confirmado"
     assert body["servico_nome"] == "corte social"
     assert body["cliente_nome"] == "Vinicius"
+    assert body["cliente_email"] == "vinicius@example.com"
 
 
 def test_criar_agendamento_com_conflito(client, dados_base, tenant_headers):
@@ -202,6 +204,57 @@ def test_patch_agendamento_altera_status(client, dados_base, tenant_headers):
     )
     assert patch.status_code == 200
     assert patch.json()["status"] == "cancelado"
+
+
+def test_fluxo_por_token_confirma_cancela_e_reagenda(client, db_session):
+    from app.models.barbeiro import Barbeiro
+    from app.models.barbearia import Barbearia
+    from app.models.servico import Servico
+
+    barbearia = Barbearia(nome="Barbearia Token", slug="barbearia-token", endereco="Rua Token")
+    db_session.add(barbearia)
+    db_session.commit()
+    db_session.refresh(barbearia)
+
+    barbeiro = Barbeiro(nome="Leo", barbershop_id=barbearia.id, ativo=True)
+    servico = Servico(nome="Corte premium", duracao_minutos=45, preco=70.0, barbearia_id=barbearia.id)
+    db_session.add_all([barbeiro, servico])
+    db_session.commit()
+    db_session.refresh(barbeiro)
+    db_session.refresh(servico)
+
+    inicio = (datetime.now() + timedelta(days=2)).replace(hour=11, minute=0, second=0, microsecond=0)
+    payload = {
+        "barbearia_id": barbearia.id,
+        "cliente_nome": "Cliente Token",
+        "cliente_telefone": "5582991111111",
+        "cliente_email": "token@example.com",
+        "barbeiro_id": barbeiro.id,
+        "servico_id": servico.id,
+        "data": inicio.date().isoformat(),
+        "hora_inicio": inicio.strftime("%H:%M"),
+    }
+
+    criado = client.post("/public/agendamentos", json=payload)
+    assert criado.status_code == 200
+    token = criado.json()["confirmation_token"]
+
+    dados = client.get(f"/agendamentos/{token}/dados")
+    assert dados.status_code == 200
+    assert dados.json()["cliente_email"] == "token@example.com"
+    assert dados.json()["status"] == "pendente"
+
+    confirmado = client.post(f"/agendamentos/{token}/confirmar")
+    assert confirmado.status_code == 200
+    assert confirmado.json()["status"] == "confirmado"
+
+    reagendado = client.post(f"/agendamentos/{token}/reagendar")
+    assert reagendado.status_code == 200
+    assert reagendado.json()["status"] == "reagendamento_solicitado"
+
+    cancelado = client.post(f"/agendamentos/{token}/cancelar")
+    assert cancelado.status_code == 200
+    assert cancelado.json()["status"] == "cancelado"
 
 
 def test_remover_agendamento_remove_reminders_relacionados(
