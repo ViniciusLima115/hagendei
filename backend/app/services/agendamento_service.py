@@ -1,3 +1,4 @@
+import logging
 from datetime import date, datetime, time, timedelta
 
 from sqlalchemy.orm import Session
@@ -9,6 +10,29 @@ from app.models.cliente import Cliente
 from app.models.reminder_job import ReminderJob
 from app.models.servico import Servico
 from app.services.barbershop_hours_service import is_within_working_hours
+from app.services.email_service import (
+    AgendamentoEmailContext,
+    build_confirmation_email,
+    build_status_email,
+)
+
+
+logger = logging.getLogger(__name__)
+
+STATUS_ATIVOS = ["pendente", "confirmado"]
+STATUS_VALIDOS = {"pendente", "confirmado", "cancelado", "reagendamento_solicitado"}
+
+
+def _normalizar_email(email: str | None) -> str | None:
+    valor = (email or "").strip().lower()
+    return valor or None
+
+
+def _normalizar_status_saida(status: str | None) -> str:
+    valor = (status or "").strip().lower()
+    if valor in STATUS_VALIDOS:
+        return valor
+    return "pendente"
 
 
 def _serializar_agendamento(agendamento: Agendamento):
@@ -18,11 +42,30 @@ def _serializar_agendamento(agendamento: Agendamento):
         "id": agendamento.id,
         "cliente_nome": cliente_nome,
         "telefone": cliente_telefone,
+        "cliente_email": _normalizar_email(agendamento.cliente_email),
         "barbeiro_nome": agendamento.barbeiro.nome,
         "servico_nome": agendamento.servico.nome,
         "data_hora_inicio": agendamento.data_hora_inicio,
         "data_hora_fim": agendamento.data_hora_fim,
-        "status": agendamento.status,
+        "status": _normalizar_status_saida(agendamento.status),
+    }
+
+
+def _serializar_dados_token(agendamento: Agendamento):
+    return {
+        "id": agendamento.id,
+        "barbearia_id": agendamento.barbearia_id,
+        "slug": agendamento.barbearia.slug if agendamento.barbearia else None,
+        "confirmation_token": agendamento.confirmation_token,
+        "cliente_nome": agendamento.cliente_nome or "",
+        "cliente_email": _normalizar_email(agendamento.cliente_email),
+        "barbeiro_id": agendamento.barbeiro_id,
+        "barbeiro_nome": agendamento.barbeiro.nome,
+        "servico_id": agendamento.servico_id,
+        "servico_nome": agendamento.servico.nome,
+        "data_hora_inicio": agendamento.data_hora_inicio,
+        "data_hora_fim": agendamento.data_hora_fim,
+        "status": _normalizar_status_saida(agendamento.status),
     }
 
 
@@ -46,6 +89,19 @@ def _validar_funcionamento_barbeiro(
 ):
     if not is_within_working_hours(barbearia, inicio, fim, barbeiro=barbeiro):
         raise ValueError("Horário fora do funcionamento do barbeiro")
+
+
+def _obter_agendamento_por_token(db: Session, token: str) -> Agendamento | None:
+    return (
+        db.query(Agendamento)
+        .filter(Agendamento.confirmation_token == token)
+        .first()
+    )
+
+
+def _resetar_flags_lembrete(agendamento: Agendamento):
+    agendamento.lembrete_24h_enviado = False
+    agendamento.lembrete_2h_enviado = False
 
 
 def criar_agendamento(db: Session, dados, tenant_id: int):
@@ -90,7 +146,7 @@ def criar_agendamento(db: Session, dados, tenant_id: int):
         Agendamento.barbearia_id == tenant_id,
         Agendamento.data_hora_inicio < fim,
         Agendamento.data_hora_fim > dados.data_hora_inicio,
-        Agendamento.status.in_(["pendente", "confirmado"]),
+        Agendamento.status.in_(STATUS_ATIVOS),
     )
     conflito = conflito_query.first()
 
@@ -104,6 +160,7 @@ def criar_agendamento(db: Session, dados, tenant_id: int):
         barbearia_id=tenant_id,
         cliente_nome=cliente.nome,
         cliente_telefone=cliente.telefone,
+        cliente_email=_normalizar_email(getattr(dados, "cliente_email", None)),
         data=dados.data_hora_inicio.date(),
         hora_inicio=dados.data_hora_inicio.time().replace(microsecond=0),
         data_hora_inicio=dados.data_hora_inicio,
@@ -208,7 +265,7 @@ def remarcar_agendamento(
         Agendamento.barbearia_id == tenant_id,
         Agendamento.data_hora_inicio < nova_data_hora_fim,
         Agendamento.data_hora_fim > nova_data_hora_inicio,
-        Agendamento.status.in_(["pendente", "confirmado"]),
+        Agendamento.status.in_(STATUS_ATIVOS),
     )
     conflito = conflito_query.first()
 
@@ -220,6 +277,7 @@ def remarcar_agendamento(
     agendamento.data = nova_data_hora_inicio.date()
     agendamento.hora_inicio = nova_data_hora_inicio.time().replace(microsecond=0)
     agendamento.status = "confirmado"
+    _resetar_flags_lembrete(agendamento)
     db.commit()
     db.refresh(agendamento)
 
@@ -267,13 +325,14 @@ def atualizar_agendamento(
         Agendamento.barbearia_id == tenant_id,
         Agendamento.data_hora_inicio < novo_fim,
         Agendamento.data_hora_fim > dados.data_hora_inicio,
-        Agendamento.status.in_(["pendente", "confirmado"]),
+        Agendamento.status.in_(STATUS_ATIVOS),
     )
     conflito = conflito_query.first()
 
     if conflito:
         raise ValueError("Horário indisponível")
 
+    houve_remarcacao = agendamento.data_hora_inicio != dados.data_hora_inicio
     agendamento.barbeiro_id = dados.barbeiro_id
     agendamento.servico_id = dados.servico_id
     agendamento.data_hora_inicio = dados.data_hora_inicio
@@ -281,7 +340,10 @@ def atualizar_agendamento(
     agendamento.data = dados.data_hora_inicio.date()
     agendamento.hora_inicio = dados.data_hora_inicio.time().replace(microsecond=0)
     agendamento.status = dados.status
+    agendamento.cliente_email = _normalizar_email(getattr(dados, "cliente_email", agendamento.cliente_email))
     agendamento.barbearia_id = tenant_id
+    if houve_remarcacao:
+        _resetar_flags_lembrete(agendamento)
     db.commit()
     db.refresh(agendamento)
 
@@ -294,7 +356,7 @@ def aplicar_patch_agendamento(
     dados,
     tenant_id: int,
 ):
-    if dados.status and not (dados.barbeiro_id or dados.servico_id or dados.data_hora_inicio):
+    if dados.status and not (dados.barbeiro_id or dados.servico_id or dados.data_hora_inicio or dados.cliente_email):
         return atualizar_status_agendamento(
             db,
             agendamento_id=agendamento_id,
@@ -315,6 +377,7 @@ def aplicar_patch_agendamento(
         servico_id = dados.servico_id or existente.servico_id
         data_hora_inicio = dados.data_hora_inicio or existente.data_hora_inicio
         status = dados.status or existente.status
+        cliente_email = dados.cliente_email if dados.cliente_email is not None else existente.cliente_email
 
     return atualizar_agendamento(
         db,
@@ -333,8 +396,6 @@ def remover_agendamento(db: Session, agendamento_id: int, tenant_id: int):
     if not agendamento:
         raise ValueError("Agendamento não encontrado")
 
-    # Remove lembretes pendentes/enviados vinculados antes do DELETE do agendamento
-    # para evitar violação de chave estrangeira no Postgres/Neon.
     db.query(ReminderJob).filter(
         ReminderJob.agendamento_id == agendamento.id,
         ReminderJob.tenant_id == tenant_id,
@@ -342,3 +403,149 @@ def remover_agendamento(db: Session, agendamento_id: int, tenant_id: int):
 
     db.delete(agendamento)
     db.commit()
+
+
+def obter_contexto_email_agendamento(
+    db: Session,
+    *,
+    agendamento_id: int | None = None,
+    token: str | None = None,
+) -> AgendamentoEmailContext | None:
+    query = db.query(Agendamento)
+    if agendamento_id is not None:
+        query = query.filter(Agendamento.id == agendamento_id)
+    elif token:
+        query = query.filter(Agendamento.confirmation_token == token)
+    else:
+        return None
+
+    agendamento = query.first()
+    if not agendamento or not agendamento.cliente_email:
+        return None
+
+    barbearia = agendamento.barbearia or db.query(Barbearia).filter(Barbearia.id == agendamento.barbearia_id).first()
+    barbeiro = agendamento.barbeiro or db.query(Barbeiro).filter(Barbeiro.id == agendamento.barbeiro_id).first()
+    servico = agendamento.servico or db.query(Servico).filter(Servico.id == agendamento.servico_id).first()
+    if not barbearia or not barbeiro or not servico:
+        return None
+
+    return AgendamentoEmailContext(
+        agendamento_id=agendamento.id,
+        confirmation_token=agendamento.confirmation_token,
+        cliente_nome=agendamento.cliente_nome or "",
+        cliente_email=agendamento.cliente_email,
+        barbearia_nome=barbearia.nome,
+        barbearia_id=barbearia.id,
+        slug=barbearia.slug,
+        servico_nome=servico.nome,
+        barbeiro_nome=barbeiro.nome,
+        data_hora_inicio=agendamento.data_hora_inicio,
+    )
+
+
+def obter_payload_email_confirmacao(db: Session, *, agendamento_id: int) -> dict[str, str] | None:
+    contexto = obter_contexto_email_agendamento(db, agendamento_id=agendamento_id)
+    if not contexto:
+        return None
+    return build_confirmation_email(contexto)
+
+
+def obter_payload_email_status(
+    db: Session,
+    *,
+    token: str,
+    tipo: str,
+) -> dict[str, str] | None:
+    contexto = obter_contexto_email_agendamento(db, token=token)
+    if not contexto:
+        return None
+    return build_status_email(contexto, tipo=tipo)
+
+
+def obter_dados_agendamento_por_token(db: Session, token: str):
+    agendamento = _obter_agendamento_por_token(db, token)
+    if not agendamento:
+        raise ValueError("Token de agendamento inválido")
+    return _serializar_dados_token(agendamento)
+
+
+def atualizar_status_agendamento_por_token(db: Session, token: str, status: str):
+    agendamento = _obter_agendamento_por_token(db, token)
+    if not agendamento:
+        raise ValueError("Token de agendamento inválido")
+
+    if agendamento.status == status:
+        return _serializar_dados_token(agendamento)
+
+    if agendamento.status == "cancelado" and status != "cancelado":
+        raise ValueError("Agendamento cancelado não pode ser alterado por este link")
+
+    agendamento.status = status
+    if status == "reagendamento_solicitado":
+        _resetar_flags_lembrete(agendamento)
+    db.commit()
+    db.refresh(agendamento)
+
+    logger.info(
+        "Status do agendamento %s atualizado para %s via token.",
+        agendamento.id,
+        status,
+    )
+    return _serializar_dados_token(agendamento)
+
+
+def remarcar_agendamento_por_token(db: Session, token: str, nova_data_hora_inicio: datetime):
+    agendamento = _obter_agendamento_por_token(db, token)
+    if not agendamento:
+        raise ValueError("Token de agendamento inválido")
+
+    if agendamento.status == "cancelado":
+        raise ValueError("Agendamento cancelado não pode ser reagendado por este link")
+
+    tenant_id = agendamento.barbearia_id
+    barbearia = _obter_barbearia(db, tenant_id)
+
+    servico = db.query(Servico).filter(
+        Servico.id == agendamento.servico_id,
+        Servico.barbearia_id == tenant_id,
+    ).first()
+    if not servico:
+        raise ValueError("Serviço não encontrado")
+
+    barbeiro = db.query(Barbeiro).filter(
+        Barbeiro.id == agendamento.barbeiro_id,
+        Barbeiro.barbershop_id == tenant_id,
+    ).first()
+    if not barbeiro:
+        raise ValueError("Barbeiro não encontrado")
+
+    nova_fim = nova_data_hora_inicio + timedelta(minutes=servico.duracao_minutos)
+    _validar_funcionamento(barbearia, nova_data_hora_inicio, nova_fim)
+    _validar_funcionamento_barbeiro(barbearia, barbeiro, nova_data_hora_inicio, nova_fim)
+
+    conflito = db.query(Agendamento).filter(
+        Agendamento.id != agendamento.id,
+        Agendamento.barbeiro_id == agendamento.barbeiro_id,
+        Agendamento.barbearia_id == tenant_id,
+        Agendamento.data_hora_inicio < nova_fim,
+        Agendamento.data_hora_fim > nova_data_hora_inicio,
+        Agendamento.status.in_(STATUS_ATIVOS),
+    ).first()
+    if conflito:
+        raise ValueError("Horário indisponível")
+
+    agendamento.data_hora_inicio = nova_data_hora_inicio
+    agendamento.data_hora_fim = nova_fim
+    agendamento.data = nova_data_hora_inicio.date()
+    agendamento.hora_inicio = nova_data_hora_inicio.time().replace(microsecond=0)
+    agendamento.status = "confirmado"
+    _resetar_flags_lembrete(agendamento)
+    db.commit()
+    db.refresh(agendamento)
+
+    logger.info(
+        "Agendamento %s reagendado para %s via token.",
+        agendamento.id,
+        nova_data_hora_inicio,
+    )
+    return _serializar_dados_token(agendamento)

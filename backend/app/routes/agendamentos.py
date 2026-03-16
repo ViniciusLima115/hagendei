@@ -1,6 +1,6 @@
 from datetime import date
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -8,18 +8,27 @@ from app.routes.deps import tenant_id_from_header
 from app.schemas.agendamento import (
     AgendamentoCreate,
     AgendamentoPatch,
+    AgendamentoRemarcacaoRequest,
     AgendamentoResponse,
-    AgendamentoUpdate,
     AgendamentoStatusUpdate,
+    AgendamentoTokenDataResponse,
+    AgendamentoUpdate,
 )
 from app.services.agendamento_service import (
     aplicar_patch_agendamento,
-    criar_agendamento,
-    listar_agendamentos,
     atualizar_agendamento,
     atualizar_status_agendamento,
+    atualizar_status_agendamento_por_token,
+    criar_agendamento,
+    listar_agendamentos,
+    obter_dados_agendamento_por_token,
+    obter_payload_email_confirmacao,
+    obter_payload_email_status,
+    remarcar_agendamento_por_token,
     remover_agendamento,
 )
+from app.services.email_service import send_email_payload
+
 
 router = APIRouter(prefix="/agendamentos")
 
@@ -27,11 +36,16 @@ router = APIRouter(prefix="/agendamentos")
 @router.post("/", response_model=AgendamentoResponse)
 def criar(
     dados: AgendamentoCreate,
+    background_tasks: BackgroundTasks,
     tenant_id: int = Depends(tenant_id_from_header),
     db: Session = Depends(get_db),
 ):
     try:
-        return criar_agendamento(db, dados, tenant_id=tenant_id)
+        agendamento = criar_agendamento(db, dados, tenant_id=tenant_id)
+        payload = obter_payload_email_confirmacao(db, agendamento_id=agendamento["id"])
+        if payload:
+            background_tasks.add_task(send_email_payload, payload)
+        return agendamento
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -49,6 +63,90 @@ def listar(
         data=data,
         barbeiro_id=barbeiro_id,
     )
+
+
+@router.get("/{token}/dados", response_model=AgendamentoTokenDataResponse)
+def dados_por_token(
+    token: str,
+    db: Session = Depends(get_db),
+):
+    try:
+        return obter_dados_agendamento_por_token(db, token)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.post("/{token}/confirmar", response_model=AgendamentoTokenDataResponse)
+def confirmar_por_token(
+    token: str,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+):
+    try:
+        dados = atualizar_status_agendamento_por_token(db, token, "confirmado")
+        payload = obter_payload_email_status(db, token=token, tipo="confirmado")
+        if payload:
+            background_tasks.add_task(send_email_payload, payload)
+        return dados
+    except ValueError as exc:
+        mensagem = str(exc)
+        status_code = 404 if "inválido" in mensagem.lower() else 400
+        raise HTTPException(status_code=status_code, detail=mensagem) from exc
+
+
+@router.post("/{token}/cancelar", response_model=AgendamentoTokenDataResponse)
+def cancelar_por_token(
+    token: str,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+):
+    try:
+        dados = atualizar_status_agendamento_por_token(db, token, "cancelado")
+        payload = obter_payload_email_status(db, token=token, tipo="cancelado")
+        if payload:
+            background_tasks.add_task(send_email_payload, payload)
+        return dados
+    except ValueError as exc:
+        mensagem = str(exc)
+        status_code = 404 if "inválido" in mensagem.lower() else 400
+        raise HTTPException(status_code=status_code, detail=mensagem) from exc
+
+
+@router.post("/{token}/reagendar", response_model=AgendamentoTokenDataResponse)
+def reagendar_por_token(
+    token: str,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+):
+    try:
+        dados = atualizar_status_agendamento_por_token(db, token, "reagendamento_solicitado")
+        payload = obter_payload_email_status(db, token=token, tipo="reagendamento_solicitado")
+        if payload:
+            background_tasks.add_task(send_email_payload, payload)
+        return dados
+    except ValueError as exc:
+        mensagem = str(exc)
+        status_code = 404 if "inválido" in mensagem.lower() else 400
+        raise HTTPException(status_code=status_code, detail=mensagem) from exc
+
+
+@router.put("/{token}/remarcar", response_model=AgendamentoTokenDataResponse)
+def remarcar_por_token(
+    token: str,
+    dados: AgendamentoRemarcacaoRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+):
+    try:
+        resultado = remarcar_agendamento_por_token(db, token, dados.data_hora_inicio)
+        payload = obter_payload_email_status(db, token=token, tipo="confirmado")
+        if payload:
+            background_tasks.add_task(send_email_payload, payload)
+        return resultado
+    except ValueError as exc:
+        mensagem = str(exc)
+        status_code = 404 if "inválido" in mensagem.lower() else 400
+        raise HTTPException(status_code=status_code, detail=mensagem) from exc
 
 
 @router.put("/{agendamento_id}", response_model=AgendamentoResponse)

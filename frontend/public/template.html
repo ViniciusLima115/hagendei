@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>{{email_title}}</title>
+</head>
+
+<body style="margin:0;padding:0;background:#f5f6fa;font-family:Arial, Helvetica, sans-serif;">
+
+<table width="100%" cellpadding="0" cellspacing="0">
+<tr>
+<td align="center">
+
+<table width="600" style="background:#ffffff;border-radius:10px;overflow:hidden">
+
+<!-- HEADER -->
+<tr>
+<td style="background:#111;color:white;padding:30px;text-align:center">
+
+<h1 style="margin:0;font-size:24px">
+✂️ Virtual Barber
+</h1>
+
+<p style="margin:5px 0 0 0;font-size:14px;opacity:0.8">
+{{email_subtitle}}
+</p>
+
+</td>
+</tr>
+
+<!-- BODY -->
+<tr>
+<td style="padding:30px">
+
+<h2 style="margin-top:0;color:#111">
+{{headline}}
+</h2>
+
+<p style="color:#555;font-size:15px">
+{{intro}}
+</p>
+
+<br>
+
+<table width="100%" style="background:#f9f9f9;border-radius:8px;padding:20px">
+
+<tr>
+<td style="padding:5px 0"><strong>Barbearia:</strong></td>
+<td>{{barbearia_nome}}</td>
+</tr>
+
+<tr>
+<td style="padding:5px 0"><strong>Serviço:</strong></td>
+<td>{{servico_nome}}</td>
+</tr>
+
+<tr>
+<td style="padding:5px 0"><strong>Barbeiro:</strong></td>
+<td>{{barbeiro_nome}}</td>
+</tr>
+
+<tr>
+<td style="padding:5px 0"><strong>Data:</strong></td>
+<td>{{data}}</td>
+</tr>
+
+<tr>
+<td style="padding:5px 0"><strong>Horário:</strong></td>
+<td>{{horario}}</td>
+</tr>
+
+</table>
+
+<br>
+
+<p style="font-size:14px;color:#666">
+{{help_text}}
+</p>
+
+<br>
+
+<!-- BOTÕES -->
+
+<table width="100%">
+<tr>
+
+<td align="center">
+
+<a href="{{confirmar_link}}"
+style="background:#27ae60;
+color:white;
+padding:12px 22px;
+text-decoration:none;
+border-radius:6px;
+font-weight:bold;
+display:inline-block;">
+Confirmar presença
+</a>
+
+</td>
+
+<td align="center">
+
+<a href="{{reagendar_link}}"
+style="background:#f39c12;
+color:white;
+padding:12px 22px;
+text-decoration:none;
+border-radius:6px;
+font-weight:bold;
+display:inline-block;">
+Reagendar
+</a>
+
+</td>
+
+<td align="center">
+
+<a href="{{cancelar_link}}"
+style="background:#e74c3c;
+color:white;
+padding:12px 22px;
+text-decoration:none;
+border-radius:6px;
+font-weight:bold;
+display:inline-block;">
+Cancelar
+</a>
+
+</td>
+
+</tr>
+</table>
+
+<br><br>
+
+<p style="font-size:13px;color:#888">
+Caso não consiga clicar nos botões, utilize este link:
+</p>
+
+<p style="font-size:13px">
+{{link_agendamento}}
+</p>
+
+</td>
+</tr>
+
+<!-- FOOTER -->
+
+<tr>
+<td style="background:#f1f1f1;padding:20px;text-align:center;font-size:12px;color:#777">
+
+<p style="margin:5px 0">
+Este email foi enviado automaticamente pelo sistema Virtual Barber
+</p>
+
+<p style="margin:5px 0">
+© {{ano}} Virtual Barber
+</p>
+
+</td>
+</tr>
+
+</table>
+
+</td>
+</tr>
+</table>
+
+</body>
+</html>
