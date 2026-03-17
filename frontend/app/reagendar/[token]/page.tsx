@@ -127,11 +127,7 @@ export default function ReagendarPage() {
     }
   }
 
-  const linkBarbearia = booking?.slug
-    ? `/${booking.slug}`
-    : booking
-      ? `/agendar/${booking.barbearia_id}`
-      : "/";
+  const linkBarbearia = booking ? `/agendar/${booking.barbearia_id}` : "/";
 
   const inputStyle: React.CSSProperties = {
     width: "100%",

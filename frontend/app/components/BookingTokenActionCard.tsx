@@ -43,7 +43,6 @@ function labelStatus(status: PublicAgendamentoTokenResponse["status"]) {
 
 function montarLinkAgendamento(dados: PublicAgendamentoTokenResponse | null) {
   if (!dados) return "/";
-  if (dados.slug) return `/${dados.slug}`;
   return `/agendar/${dados.barbearia_id}`;
 }
 
