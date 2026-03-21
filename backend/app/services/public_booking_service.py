@@ -225,7 +225,7 @@ def buscar_cliente_publico(db: Session, *, barbearia_id: int, telefone: str) -> 
         return None
     return {
         "nome": cliente.nome,
-        "email": getattr(cliente, "email", None),
+        "email": cliente.email,
         "telefone": cliente.telefone,
     }
 

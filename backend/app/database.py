@@ -56,6 +56,7 @@ def init_db():
     _ensure_agendamentos_notification_columns()
     if IS_MYSQL:
         _ensure_clientes_contexto_column()
+        _ensure_clientes_email_column()
         _ensure_clientes_tenant_indexes()
         _ensure_barbearias_admin_columns()
         _ensure_barbearias_slug()
@@ -98,6 +99,15 @@ def _ensure_clientes_contexto_column():
             conn.execute(text("ALTER TABLE clientes ADD COLUMN contexto JSON NULL"))
     except Exception:
         # Ignore if the column already exists or if DB dialect does not support JSON ALTER syntax.
+        pass
+
+
+def _ensure_clientes_email_column():
+    # Backward-compatible schema fix for deployments created before `clientes.email`.
+    try:
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE clientes ADD COLUMN email VARCHAR(255) NULL"))
+    except Exception:
         pass
 
 

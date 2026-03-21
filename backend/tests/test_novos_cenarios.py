@@ -6,8 +6,8 @@ Bugs identificados:
   etapa_atual="aguardando_nome!!!!!!" (com exclamações), mas o handler verifica
   == "aguardando_nome". Resultado: novos clientes nunca viam o formulário de cadastro.
 
-- Bug #2 (EXPOSTO AQUI): buscar_cliente_publico usa getattr(cliente, "email", None)
-  mas o model Cliente não possui campo `email`. Retorna sempre None.
+- Bug #2 (CORRIGIDO): campo `email` adicionado ao model Cliente.
+  buscar_cliente_publico agora retorna o email armazenado corretamente.
 
 Inconsistências:
 - Endpoint /agendamentos/{token}/reagendar define status "reagendamento_solicitado"

@@ -14,6 +14,7 @@ class ClienteResponse(BaseModel):
 
     id: int
     telefone: str
+    email: str | None = None
     nome: str
     etapa_atual: str
     data_criacao: datetime

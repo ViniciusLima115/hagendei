@@ -118,7 +118,7 @@ def agendar_lembretes_agendamento(
 
 
 def processar_lembretes_pendentes(db: Session, limite: int = 100) -> dict[str, int]:
-    agora = datetime.utcnow()
+    agora = datetime.now(timezone.utc).replace(tzinfo=None)
     pendentes = (
         db.query(ReminderJob)
         .filter(
@@ -146,7 +146,7 @@ def processar_lembretes_pendentes(db: Session, limite: int = 100) -> dict[str, i
         job.tentativas += 1
         if ok:
             job.status = "enviado"
-            job.enviado_em = datetime.utcnow()
+            job.enviado_em = datetime.now(timezone.utc).replace(tzinfo=None)
             enviados += 1
         else:
             job.status = "falha"
