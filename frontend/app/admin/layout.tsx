@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode, useEffect } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
 import Loading from "../components/Loading";
@@ -16,8 +16,15 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   const pathname = usePathname();
   const router = useRouter();
   const session = useAuthSession();
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!mounted) return;
+
     if (!session) {
       router.replace("/login");
       return;
@@ -26,9 +33,9 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     if (pathname.startsWith("/admin/master") && session.tenantId !== "admin") {
       router.replace("/admin");
     }
-  }, [pathname, router, session]);
+  }, [mounted, pathname, router, session]);
 
-  if (!session) {
+  if (!mounted || !session) {
     return <Loading />;
   }
 
