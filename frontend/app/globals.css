@@ -224,6 +224,26 @@ h4 { font-size: 1.05rem; }
   border-color: var(--line);
 }
 
+/* ─── APP CONTAINER ─────────────────────────────────────── */
+.app-container {
+  width: 100%;
+  max-width: 1360px;
+  margin-inline: auto;
+  padding-inline: 1rem;
+}
+
+@media (min-width: 640px) {
+  .app-container {
+    padding-inline: 1.5rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .app-container {
+    padding-inline: 2rem;
+  }
+}
+
 /* ─── ICON BUTTON ────────────────────────────────────────── */
 .icon-button {
   display: inline-flex;

@@ -873,3 +873,38 @@
     padding: 14px;
   }
 }
+
+@media (max-width: 480px) {
+  .shell {
+    padding: 16px 12px 48px;
+  }
+
+  .hero,
+  .panel,
+  .sidebar {
+    padding: 16px;
+  }
+
+  .modalOverlay {
+    padding: 12px;
+    align-items: flex-end;
+  }
+
+  .modalCard {
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+    max-height: 92vh;
+  }
+
+  .modalHeader {
+    padding: 18px 18px 0;
+  }
+
+  .modalBody {
+    padding: 18px;
+  }
+
+  .heroTitle {
+    font-size: 1.75rem;
+  }
+}

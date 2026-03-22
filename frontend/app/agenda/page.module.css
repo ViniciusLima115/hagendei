@@ -293,6 +293,11 @@
     flex-direction: column;
   }
 
+  .heroControls {
+    min-width: 0;
+    width: 100%;
+  }
+
   .shell {
     padding-inline: 14px;
   }
@@ -312,5 +317,21 @@
 
   .linkButton {
     width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .shell {
+    padding: 16px 12px 48px;
+  }
+
+  .hero,
+  .panel,
+  .statCard {
+    padding: 16px;
+  }
+
+  .heroTitle {
+    font-size: 2rem;
   }
 }
