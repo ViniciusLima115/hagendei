@@ -2,10 +2,9 @@
   position: sticky;
   top: 0;
   z-index: 40;
-  padding: 14px 0;
-  background: var(--header-bg);
-  backdrop-filter: blur(14px);
-  border-bottom: 1px solid var(--header-line);
+  padding: 12px 0;
+  background: var(--canvas);
+  border-bottom: 1px solid var(--line);
 }
 
 .shell {
@@ -18,9 +17,9 @@
 .brand {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
   min-width: 0;
-  color: var(--header-text);
+  color: var(--ink);
   text-decoration: none;
 }
 
@@ -28,13 +27,12 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 48px;
-  height: 48px;
+  width: 40px;
+  height: 40px;
   flex-shrink: 0;
-  border-radius: 18px;
-  color: var(--theme-on-accent);
-  background: linear-gradient(135deg, var(--theme-accent), var(--theme-accent-strong));
-  box-shadow: var(--shadow-accent);
+  border-radius: var(--radius-md);
+  background: #1a1a1a;
+  color: var(--accent);
 }
 
 .brandCopy {
@@ -43,86 +41,88 @@
 }
 
 .brandEyebrow {
-  font-size: 0.72rem;
+  font-size: 9px;
   font-weight: 700;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: var(--theme-accent-strong);
+  color: var(--ink-subtle);
+  line-height: 1;
+  margin-bottom: 2px;
 }
 
 .brandTitle {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 1.08rem;
-  font-weight: 800;
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 700;
   letter-spacing: -0.02em;
+  color: var(--ink);
 }
 
 .actions {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 
 .nav {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px;
-  border-radius: 999px;
-  border: 1px solid var(--header-line);
-  background: var(--header-chip-bg);
-  box-shadow: inset 0 1px 0 var(--header-chip-highlight);
+  gap: 4px;
+  padding: 4px;
+  border-radius: 10px;
+  background: var(--surface-alt);
 }
 
 .navLink {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  min-height: 42px;
-  padding: 0 14px;
-  border-radius: 999px;
-  color: var(--header-text-muted);
+  gap: 7px;
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: 8px;
+  color: var(--ink-muted);
   text-decoration: none;
-  font-size: 0.92rem;
-  font-weight: 700;
-  transition: background 0.18s ease, color 0.18s ease, transform 0.18s ease;
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 600;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
 .navLink:hover {
-  background: var(--header-chip-hover);
-  color: var(--header-text);
-  transform: translateY(-1px);
+  background: var(--surface);
+  color: var(--ink);
 }
 
 .navLinkActive {
-  color: var(--theme-on-accent);
-  background: linear-gradient(135deg, var(--theme-accent), var(--theme-accent-strong));
-  box-shadow: var(--shadow-accent);
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: var(--shadow-sm);
 }
 
 .logoutButton {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  min-height: 44px;
-  padding: 0 16px;
-  border: 1px solid var(--header-line);
-  border-radius: 16px;
-  background: var(--header-card-bg);
-  color: var(--header-text);
-  font: inherit;
-  font-size: 0.92rem;
-  font-weight: 700;
+  min-height: 38px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--ink-muted);
+  font-family: var(--font-body);
+  font-size: 0.88rem;
+  font-weight: 600;
   cursor: pointer;
-  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+  transition: transform 0.15s ease, border-color 0.15s ease;
 }
 
 .logoutButton:hover {
   transform: translateY(-1px);
-  border-color: var(--header-line-strong);
-  box-shadow: var(--shadow-soft);
+  border-color: var(--ink-subtle);
+  color: var(--ink);
 }
 
 @media (max-width: 980px) {
@@ -130,17 +130,14 @@
     flex-direction: column;
     align-items: stretch;
   }
-
   .actions {
     flex-direction: column;
     align-items: stretch;
   }
-
   .nav {
     flex-wrap: wrap;
-    border-radius: 24px;
+    border-radius: var(--radius-lg);
   }
-
   .logoutButton {
     justify-content: center;
   }
@@ -148,21 +145,18 @@
 
 @media (max-width: 640px) {
   .header {
-    padding: 10px 0;
+    padding: 8px 0;
   }
-
   .brandTitle {
-    font-size: 0.98rem;
+    font-size: 13px;
   }
-
   .nav {
-    gap: 6px;
+    gap: 4px;
     padding: 4px;
   }
-
   .navLink {
-    flex: 1 1 calc(50% - 6px);
+    flex: 1 1 calc(50% - 4px);
     justify-content: center;
-    min-width: 120px;
+    min-width: 100px;
   }
 }
