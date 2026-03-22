@@ -27,7 +27,7 @@ export default function AppShell({ children }: AppShellProps) {
   return (
     <>
       {!hideHeader && <Header />}
-      {(inLogin || isPublicBookingPath || isPublicBookingById) && <ThemeToggle floating />}
+      {(isPublicBookingPath || isPublicBookingById) && <ThemeToggle floating />}
       {children}
     </>
   );

@@ -1,13 +1,11 @@
 .group {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px;
+  gap: 4px;
+  padding: 4px;
   border-radius: 999px;
-  border: 1px solid var(--header-line);
-  background: var(--header-chip-bg);
-  box-shadow: var(--shadow-soft);
-  backdrop-filter: blur(14px);
+  border: 1px solid var(--line);
+  background: var(--surface-alt);
 }
 
 .floating {
@@ -20,38 +18,37 @@
 .button {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  min-height: 40px;
-  padding: 0 12px;
+  gap: 7px;
+  min-height: 36px;
+  padding: 0 10px;
   border: 0;
   border-radius: 999px;
   background: transparent;
-  color: var(--header-text-muted);
-  font: inherit;
-  font-size: 0.84rem;
+  color: var(--ink-subtle);
+  font-family: var(--font-body);
+  font-size: 0.82rem;
   font-weight: 700;
   cursor: pointer;
-  transition: background 0.18s ease, color 0.18s ease, transform 0.18s ease;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
 .button:hover {
-  color: var(--header-text);
-  background: var(--header-chip-hover);
-  transform: translateY(-1px);
+  color: var(--ink);
+  background: var(--surface);
 }
 
 .buttonActive {
-  color: var(--theme-on-accent);
-  background: linear-gradient(135deg, var(--theme-accent), var(--theme-accent-strong));
-  box-shadow: var(--shadow-accent);
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: var(--shadow-sm);
 }
 
 .status {
   display: inline-flex;
   align-items: center;
-  min-height: 32px;
-  padding: 0 8px;
-  color: var(--text-secondary);
+  min-height: 30px;
+  padding: 0 6px;
+  color: var(--ink-subtle);
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.12em;
@@ -60,16 +57,14 @@
 
 @media (max-width: 640px) {
   .group {
-    gap: 4px;
+    gap: 2px;
   }
-
   .button span,
   .status {
     display: none;
   }
-
   .button {
-    width: 38px;
+    width: 36px;
     padding: 0;
     justify-content: center;
   }
