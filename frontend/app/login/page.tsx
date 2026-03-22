@@ -71,42 +71,61 @@ export default function LoginPage() {
 
   return (
     <main className={styles.page}>
-      <div className={styles.shell}>
-        <div className={styles.brand}>
-          <div className={styles.brandIcon}>
-            <Laptop size={20} />
+      {/* PAINEL ESQUERDO — branding */}
+      <div className={styles.left}>
+        <div className={styles.leftBrand}>
+          <div className={styles.leftIcon}>
+            {/* Laptop já é o ícone usado no login atual — mantido por consistência */}
+            <Laptop size={18} color="white" />
           </div>
-          <div className={styles.heading}>
-            <h1 className={styles.title}>Login</h1>
-            <p className={styles.subtitle}>Acesse o painel da sua barbearia.</p>
+          <div>
+            <div className={styles.leftEyebrow}>Sistema de gestão</div>
+            <div className={styles.leftBrandName}>VirtualBarber</div>
           </div>
         </div>
 
-        <div className={styles.card}>
-          <form onSubmit={handleSubmit} className={styles.form}>
-            <div className={styles.field}>
-              <label htmlFor="email" className={styles.label}>
-                Usuario
-              </label>
-              <div className={styles.inputWrap}>
+        <div className={styles.leftCopy}>
+          <h1 className={styles.leftTitle}>Sua barbearia,<br />bem gerida.</h1>
+          <div className={styles.leftDivider} />
+          <div className={styles.socialProof}>
+            <div className={styles.avatars}>
+              <div className={styles.avatar}>CA</div>
+              <div className={styles.avatar}>MB</div>
+              <div className={styles.avatar}>+</div>
+            </div>
+            <div className={styles.socialText}>
+              <strong>+50 barbearias</strong><br />já usam o sistema
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* PAINEL DIREITO — formulário */}
+      <div className={styles.right}>
+        <p className={styles.formEyebrow}>Área restrita</p>
+        <h2 className={styles.formTitle}>Bem-vindo<br />de volta.</h2>
+        <p className={styles.formSub}>Acesse o painel da sua barbearia.</p>
+
+        <form onSubmit={handleSubmit} className={styles.form}>
+          <div className={styles.field}>
+            <label htmlFor="email" className={styles.label}>Usuário</label>
+            <div className={styles.inputWrap}>
               <input
                 id="email"
                 type="text"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className={styles.input}
-                placeholder="Digite seu usuario"
+                placeholder="Digite seu usuário"
                 autoComplete="username"
               />
-                <User size={17} className={styles.inputIcon} />
-              </div>
+              <User size={16} className={styles.inputIcon} />
             </div>
+          </div>
 
-            <div className={styles.field}>
-              <label htmlFor="password" className={styles.label}>
-                Senha
-              </label>
-              <div className={styles.inputWrap}>
+          <div className={styles.field}>
+            <label htmlFor="password" className={styles.label}>Senha</label>
+            <div className={styles.inputWrap}>
               <input
                 id="password"
                 type={showPassword ? "text" : "password"}
@@ -122,32 +141,32 @@ export default function LoginPage() {
                 className={styles.ghostButton}
                 aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
               >
-                <Eye size={17} />
+                <Eye size={16} />
               </button>
-              </div>
             </div>
+          </div>
 
-            {error && <div className={styles.error}>{error}</div>}
+          {error && <div className={styles.error}>{error}</div>}
 
-            <button
-              type="submit"
-              className={`btn btn-primary btn-lg ${styles.submit}`}
-              disabled={loading}
-            >
-              {loading ? "Entrando..." : "Entrar"}
-            </button>
-          </form>
-        </div>
+          <button
+            type="submit"
+            className={styles.submit}
+            disabled={loading}
+          >
+            {loading ? "Entrando..." : "Entrar"}
+          </button>
+        </form>
 
         <button
           type="button"
           onClick={() => setShowSupportCard(true)}
           className={styles.supportLink}
         >
-          Esqueceu a senha?
+          Esqueceu a senha? Fale com o suporte
         </button>
       </div>
 
+      {/* SUPPORT CARD OVERLAY */}
       {showSupportCard && (
         <div className={styles.overlay}>
           <div className={styles.supportCard}>
@@ -158,7 +177,7 @@ export default function LoginPage() {
                 </span>
                 <div>
                   <p className={styles.supportTitle}>Contate o suporte</p>
-                  <p className={styles.supportSub}>Recuperacao de acesso</p>
+                  <p className={styles.supportSub}>Recuperação de acesso</p>
                 </div>
               </div>
               <button
@@ -170,11 +189,9 @@ export default function LoginPage() {
                 <X size={16} />
               </button>
             </div>
-
             <p className={styles.supportText}>
               Para recuperar sua senha, fale com nosso atendimento.
             </p>
-
             <div className={styles.supportActions}>
               <a
                 href="https://wa.me/5582999627481"
@@ -185,7 +202,6 @@ export default function LoginPage() {
                 <MessageCircle size={16} />
                 Falar no WhatsApp
               </a>
-
               <button
                 type="button"
                 onClick={() => setShowSupportCard(false)}
