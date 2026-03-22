@@ -150,13 +150,35 @@
   .brandTitle {
     font-size: 13px;
   }
+  /* Nav rola horizontalmente — evita 2×2 que deixa o header muito alto */
   .nav {
+    order: -1;
+    flex: 1 1 100%;
+    overflow-x: auto;
+    flex-wrap: nowrap;
     gap: 4px;
     padding: 4px;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .nav::-webkit-scrollbar {
+    display: none;
   }
   .navLink {
-    flex: 1 1 calc(50% - 4px);
+    flex: 0 0 auto;
+    min-width: unset;
+    white-space: nowrap;
     justify-content: center;
-    min-width: 100px;
+  }
+  /* ThemeToggle + logout lado a lado */
+  .actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+  }
+  .logoutButton {
+    flex: 1 1 0;
+    min-width: 0;
   }
 }
