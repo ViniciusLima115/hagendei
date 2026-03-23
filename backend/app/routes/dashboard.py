@@ -76,7 +76,7 @@ def _financeiro(db: Session, tenant_id: int) -> FinanceiroResponse:
 
     # Histórico dos últimos 12 meses (agrupado por mês)
     data_12m = hoje - timedelta(days=365)
-    mes_col = func.date_format(Agendamento.data, "%Y-%m").label("mes")
+    mes_col = func.to_char(Agendamento.data, "YYYY-MM").label("mes")
     historico_rows = (
         db.query(
             mes_col,
