@@ -10,6 +10,7 @@ from app.routes import (
     barbeiros,
     chatbot,
     clientes,
+    dashboard,
     internal,
     public,
     servicos,
@@ -136,6 +137,7 @@ app.include_router(barbearia_funcionamento.router)
 app.include_router(barbeiros.router)
 app.include_router(servicos.router)
 app.include_router(agenda.router)
+app.include_router(dashboard.router)
 app.include_router(chatbot.router)
 app.include_router(whatsapp.router, prefix="/whatsapp")
 app.include_router(webhooks.router)
