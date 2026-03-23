@@ -568,3 +568,62 @@ export async function rescheduleBookingByToken(
   });
   return parseOrThrow(res, "Falha ao reagendar agendamento.");
 }
+
+// ─── DASHBOARD PREMIUM ───────────────────────────────────────────────────────
+
+export type HistoricoMes = {
+  mes: string;
+  faturamento: number;
+  total_agendamentos: number;
+};
+
+export type FinanceiroResponse = {
+  faturamento_mes_atual: number;
+  faturamento_mes_anterior: number;
+  variacao_percentual: number | null;
+  ticket_medio: number;
+  total_agendamentos: number;
+  historico_12_meses: HistoricoMes[];
+};
+
+export type ServicoMaisVendido = {
+  nome: string;
+  preco: number;
+  total_vendas: number;
+  receita_total: number;
+};
+
+export type ServicosMaisVendidosResponse = {
+  servicos: ServicoMaisVendido[];
+};
+
+export type TopCliente = {
+  nome: string;
+  telefone: string;
+  total_visitas: number;
+  valor_total_gasto: number;
+  ultima_visita: string;
+};
+
+export type ClientesResponse = {
+  total_clientes: number;
+  clientes_novos: number;
+  clientes_recorrentes: number;
+  taxa_cancelamento: number;
+  top_5_clientes: TopCliente[];
+};
+
+export async function getDashboardFinanceiro(barbeariaId: string): Promise<FinanceiroResponse> {
+  const res = await apiFetch(`/dashboard/${barbeariaId}/financeiro`);
+  return parseOrThrow(res, "Falha ao carregar dados financeiros do dashboard.");
+}
+
+export async function getDashboardServicos(barbeariaId: string): Promise<ServicosMaisVendidosResponse> {
+  const res = await apiFetch(`/dashboard/${barbeariaId}/servicos-mais-vendidos`);
+  return parseOrThrow(res, "Falha ao carregar servicos mais vendidos.");
+}
+
+export async function getDashboardClientes(barbeariaId: string): Promise<ClientesResponse> {
+  const res = await apiFetch(`/dashboard/${barbeariaId}/clientes`);
+  return parseOrThrow(res, "Falha ao carregar dados de clientes do dashboard.");
+}
