@@ -195,6 +195,34 @@ def test_barbearias_crud_atualiza_com_senha_hasheada(client, db_session, make_te
     assert verificar_senha("senha_nova", barbearia.senha)
 
 
+def test_logout_invalida_token(client):
+    # Login to get token
+    import app.routes.auth as auth_module
+    resp_login = client.post(
+        "/auth/login",
+        json={"usuario": auth_module.ADMIN_USUARIO, "senha": auth_module.ADMIN_SENHA},
+    )
+    token = resp_login.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # Before logout: access is ok
+    resp_antes = client.get("/barbearias/", headers=headers)
+    assert resp_antes.status_code == 200
+
+    # Logout
+    resp_logout = client.post("/auth/logout", headers=headers)
+    assert resp_logout.status_code == 200
+
+    # After logout: token rejected
+    resp_depois = client.get("/barbearias/", headers=headers)
+    assert resp_depois.status_code == 401
+
+
+def test_logout_sem_token_retorna_401(client):
+    resp = client.post("/auth/logout")
+    assert resp.status_code == 401
+
+
 def test_tenant_header_mismatch_retorna_403(client, dados_base, make_tenant_headers):
     token_tenant_correto = make_tenant_headers(dados_base["barbearia"].id)
     headers_mismatch = {
