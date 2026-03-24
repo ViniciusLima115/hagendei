@@ -1,10 +1,11 @@
 import secrets
 import os
 from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.limiter import limiter, RATE_LIMIT_LOGIN
 from app.models.barbearia import Barbearia
 from app.models.token_blacklist import TokenBlacklist
 from app.routes.deps import get_current_claims
@@ -25,7 +26,8 @@ def admin_check(payload: AdminCheckRequest):
 
 
 @router.post("/login", response_model=LoginResponse)
-def login(payload: LoginRequest, db: Session = Depends(get_db)):
+@limiter.limit(RATE_LIMIT_LOGIN)
+def login(request: Request, payload: LoginRequest, db: Session = Depends(get_db)):
     usuario = payload.usuario.strip().lower()
     senha = payload.senha
 
