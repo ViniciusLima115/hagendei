@@ -1,12 +1,15 @@
 import secrets
 import os
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.barbearia import Barbearia
+from app.models.token_blacklist import TokenBlacklist
+from app.routes.deps import get_current_claims
 from app.schemas.auth import AdminCheckRequest, AdminCheckResponse, LoginRequest, LoginResponse
-from app.security import create_access_token, verificar_senha
+from app.security import TokenClaims, create_access_token, verificar_senha
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -63,3 +66,16 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
         access_token=token,
         token_type="bearer",
     )
+
+
+@router.post("/logout", status_code=200)
+def logout(
+    claims: TokenClaims = Depends(get_current_claims),
+    db: Session = Depends(get_db),
+):
+    if claims.jti:
+        expires_at = datetime.utcfromtimestamp(claims.exp)  # UTC naive, consistent with utcnow()
+        blacklisted = TokenBlacklist(jti=claims.jti, expires_at=expires_at)
+        db.merge(blacklisted)  # merge to avoid error if jti already exists
+        db.commit()
+    return {"detail": "Logout realizado com sucesso."}
