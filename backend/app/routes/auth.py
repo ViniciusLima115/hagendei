@@ -9,7 +9,8 @@ from app.limiter import limiter, RATE_LIMIT_LOGIN
 from app.models.barbearia import Barbearia
 from app.models.token_blacklist import TokenBlacklist
 from app.routes.deps import get_current_claims
-from app.schemas.auth import AdminCheckRequest, AdminCheckResponse, LoginRequest, LoginResponse
+from app.models.estabelecimento import Estabelecimento
+from app.schemas.auth import AdminCheckRequest, AdminCheckResponse, LoginRequest, LoginResponse, MeResponse
 from app.security import TokenClaims, create_access_token, verificar_senha
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -67,6 +68,27 @@ def login(request: Request, payload: LoginRequest, db: Session = Depends(get_db)
         plano=(barbearia.plano or "basico").lower(),
         access_token=token,
         token_type="bearer",
+    )
+
+
+@router.get("/me", response_model=MeResponse)
+def me(
+    claims: TokenClaims = Depends(get_current_claims),
+    db: Session = Depends(get_db),
+):
+    if claims.is_admin:
+        return MeResponse(nome="Administrador", plano="premium", is_admin=True)
+
+    est = db.query(Estabelecimento).filter(Estabelecimento.id == claims.tenant_id).first()
+    if not est:
+        raise HTTPException(status_code=404, detail="Estabelecimento nao encontrado.")
+
+    return MeResponse(
+        id=est.id,
+        nome=est.nome,
+        plano=(est.plano or "basico").lower(),
+        is_admin=False,
+        tipo_servico=getattr(est, "tipo_servico", "barbearia") or "barbearia",
     )
 
 
