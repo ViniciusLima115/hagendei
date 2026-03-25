@@ -212,6 +212,9 @@ def obter_lookup_publico_por_id(
         "servicos": servicos,
         "horarios_disponiveis": horarios_disponiveis,
         "horarios_grade": horarios_grade,
+        "accent_color": getattr(barbearia, "accent_color", None) or "#d4930a",
+        "bg_color": getattr(barbearia, "bg_color", None) or "#ffffff",
+        "logo_url": getattr(barbearia, "logo_url", None),
     }
 
 
