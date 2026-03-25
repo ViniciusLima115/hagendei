@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.barbearia import Barbearia
+from app.models.estabelecimento import Estabelecimento
 from app.models.token_blacklist import TokenBlacklist
 from app.security import TokenClaims, decode_access_token
 
@@ -71,6 +72,20 @@ def tenant_id_from_header(
         raise HTTPException(status_code=404, detail="Barbearia nao encontrada.")
 
     return tenant_id
+
+
+def get_current_estabelecimento(
+    tenant_id: int = Depends(tenant_id_from_header),
+    db: Session = Depends(get_db),
+) -> Estabelecimento:
+    est = db.query(Estabelecimento).filter(Estabelecimento.id == tenant_id).first()
+    if not est:
+        raise HTTPException(status_code=404, detail="Estabelecimento nao encontrado.")
+    return est
+
+
+# Manter alias antigo para código legado
+get_current_barbearia = get_current_estabelecimento
 
 
 def verificar_plano_premium(

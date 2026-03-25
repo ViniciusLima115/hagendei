@@ -88,3 +88,11 @@ class BarbeariaFuncionamento(BaseModel):
             if item.ativo and item.inicio >= item.fim:
                 raise ValueError(f"{dia}: horario inicial precisa ser menor que o final.")
         return self
+
+
+# Aliases de compatibilidade — usar os novos nomes em código novo
+EstabelecimentoAdminCreate = BarbeariaAdminCreate
+EstabelecimentoAdminUpdate = BarbeariaAdminUpdate
+EstabelecimentoAdminResponse = BarbeariaAdminResponse
+EstabelecimentoFuncionamentoDia = BarbeariaFuncionamentoDia
+EstabelecimentoFuncionamento = BarbeariaFuncionamento
