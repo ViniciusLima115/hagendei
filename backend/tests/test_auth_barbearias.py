@@ -232,3 +232,41 @@ def test_tenant_header_mismatch_retorna_403(client, dados_base, make_tenant_head
     }
     resp = client.get("/clientes/", headers=headers_mismatch)
     assert resp.status_code == 403
+
+
+def test_me_retorna_dados_do_tenant(client, db_session, make_tenant_headers):
+    from app.security import hash_senha
+    from app.models.estabelecimento import Estabelecimento
+    b = Estabelecimento(
+        nome="Tenant Me",
+        login="tenant.me",
+        senha=hash_senha("senha"),
+        plano="premium",
+        endereco="Rua Me",
+    )
+    db_session.add(b)
+    db_session.commit()
+    db_session.refresh(b)
+
+    headers = make_tenant_headers(tenant_id=b.id)
+    resp = client.get("/auth/me", headers=headers)
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["nome"] == "Tenant Me"
+    assert body["plano"] == "premium"
+    assert body["is_admin"] is False
+    assert "tipo_servico" in body
+
+
+def test_me_admin_retorna_dados_admin(client):
+    import app.routes.auth as auth_module
+    resp_login = client.post(
+        "/auth/login",
+        json={"usuario": auth_module.ADMIN_USUARIO, "senha": auth_module.ADMIN_SENHA},
+    )
+    token = resp_login.json()["access_token"]
+    resp = client.get("/auth/me", headers={"Authorization": f"Bearer {token}"})
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["is_admin"] is True
+    assert body["tipo_servico"] is None

@@ -22,3 +22,11 @@ class LoginResponse(BaseModel):
     plano: str | None = None
     access_token: str
     token_type: str = "bearer"
+
+
+class MeResponse(BaseModel):
+    id: int | None = None
+    nome: str
+    plano: str
+    is_admin: bool
+    tipo_servico: str | None = None  # None para admin
