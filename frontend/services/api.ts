@@ -20,6 +20,9 @@ export type AgendaBarbeiro = {
   agendamentos: AgendaSlot[];
 };
 
+/** Alias genérico para AgendaBarbeiro */
+export type AgendaProfissional = AgendaBarbeiro;
+
 export type AgendaDiaResponse = {
   data?: string;
   horarios: string[];

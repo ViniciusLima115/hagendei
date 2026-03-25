@@ -79,7 +79,7 @@ function DetailBlock({
 
 export default function AgendaPage() {
   const [selectedDate, setSelectedDate] = useState(getLocalISODate());
-  const [selectedBarbeiroId, setSelectedBarbeiroId] = useState("all");
+  const [selectedProfissionalId, setSelectedProfissionalId] = useState("all");
   const [data, setData] = useState<AgendaDiaResponse | null>(null);
   const [selected, setSelected] = useState<SelectedAgendamento | null>(null);
   const [loading, setLoading] = useState(false);
@@ -108,25 +108,25 @@ export default function AgendaPage() {
 
   useEffect(() => {
     if (!data) {
-      setSelectedBarbeiroId("all");
+      setSelectedProfissionalId("all");
       return;
     }
 
     if (
-      selectedBarbeiroId !== "all" &&
-      !data.barbeiros.some((barbeiro) => String(barbeiro.id) === selectedBarbeiroId)
+      selectedProfissionalId !== "all" &&
+      !data.barbeiros.some((barbeiro) => String(barbeiro.id) === selectedProfissionalId)
     ) {
-      setSelectedBarbeiroId("all");
+      setSelectedProfissionalId("all");
     }
-  }, [data, selectedBarbeiroId]);
+  }, [data, selectedProfissionalId]);
 
   const barbeirosVisiveis =
     data?.barbeiros.filter(
-      (barbeiro) => selectedBarbeiroId === "all" || String(barbeiro.id) === selectedBarbeiroId
+      (barbeiro) => selectedProfissionalId === "all" || String(barbeiro.id) === selectedProfissionalId
     ) ?? [];
 
   const filteredData = data ? { ...data, barbeiros: barbeirosVisiveis } : null;
-  const selectedKey = selected ? `${selected.barbeiroId}-${selected.hora}` : undefined;
+  const selectedKey = selected ? `${selected.profissionalId}-${selected.hora}` : undefined;
   const totalSlots = filteredData
     ? filteredData.barbeiros.reduce((acc, barbeiro) => acc + barbeiro.horarios.length, 0)
     : 0;
@@ -144,7 +144,7 @@ export default function AgendaPage() {
             <span className={styles.eyebrow}>Agenda</span>
             <h1 className={styles.heroTitle}>Controle visual do dia</h1>
             <p className={styles.heroText}>
-              Veja a disponibilidade por barbeiro, acompanhe bloqueios individuais e abra a gestao
+              Veja a disponibilidade por profissional, acompanhe bloqueios individuais e abra a gestao
               quando precisar ajustar a operacao.
             </p>
           </div>
@@ -205,19 +205,19 @@ export default function AgendaPage() {
                 </p>
               </div>
               <div className={styles.filterBox}>
-                <label htmlFor="barbeiro-filter" className={styles.controlLabel}>
-                  Barbeiro
+                <label htmlFor="profissional-filter" className={styles.controlLabel}>
+                  Profissional
                 </label>
                 <select
-                  id="barbeiro-filter"
-                  value={selectedBarbeiroId}
+                  id="profissional-filter"
+                  value={selectedProfissionalId}
                   onChange={(event) => {
-                    setSelectedBarbeiroId(event.target.value);
+                    setSelectedProfissionalId(event.target.value);
                     setSelected(null);
                   }}
                   className={styles.control}
                 >
-                  <option value="all">Todos os barbeiros</option>
+                  <option value="all">Todos os profissionais</option>
                   {data?.barbeiros.map((barbeiro) => (
                     <option key={barbeiro.id} value={String(barbeiro.id)}>
                       {barbeiro.nome}
@@ -258,7 +258,7 @@ export default function AgendaPage() {
                 </div>
                 <div className={styles.legendItem}>
                   <span className={cx(styles.legendSwatch, styles.legendIndisponivel)} />
-                  <span>Fora do expediente do barbeiro</span>
+                  <span>Fora do expediente do profissional</span>
                 </div>
               </div>
             </section>
@@ -268,7 +268,7 @@ export default function AgendaPage() {
                 <div>
                   <p className={styles.panelEyebrow}>Detalhes</p>
                   <h2 className={styles.panelTitle}>
-                    {selected ? `${selected.barbeiroNome} as ${selected.hora}` : "Selecione um horario"}
+                    {selected ? `${selected.profissionalNome} as ${selected.hora}` : "Selecione um horario"}
                   </h2>
                 </div>
               </div>
@@ -279,7 +279,7 @@ export default function AgendaPage() {
                 </div>
               ) : selected.agendamento ? (
                 <div className={styles.detailStack}>
-                  <DetailBlock label="Profissional" value={selected.barbeiroNome} />
+                  <DetailBlock label="Profissional" value={selected.profissionalNome} />
                   <DetailBlock label="Horario" value={selected.hora} />
                   <DetailBlock label="Cliente" value={selected.agendamento.cliente} />
                   <DetailBlock
@@ -301,7 +301,7 @@ export default function AgendaPage() {
                 </div>
               ) : (
                 <div className={styles.detailStack}>
-                  <DetailBlock label="Profissional" value={selected.barbeiroNome} />
+                  <DetailBlock label="Profissional" value={selected.profissionalNome} />
                   <DetailBlock label="Horario" value={selected.hora} />
                   <div className={styles.emptyState}>Esse horario esta livre para novo agendamento.</div>
                 </div>

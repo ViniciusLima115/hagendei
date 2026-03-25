@@ -3,7 +3,7 @@ import styles from "./AgendaCell.module.css";
 
 type AgendaCellProps = {
   hora: string;
-  barbeiroNome: string;
+  profissionalNome: string;
   agendamento?: AgendaSlot;
   disponivel?: boolean;
   isSelected?: boolean;
@@ -16,7 +16,7 @@ function cx(...values: Array<string | false | null | undefined>) {
 
 export default function AgendaCell({
   hora,
-  barbeiroNome,
+  profissionalNome,
   agendamento,
   disponivel = true,
   isSelected = false,
@@ -37,7 +37,7 @@ export default function AgendaCell({
         !confirmado && !bloqueado && styles.cellLivre,
         isSelected && styles.cellSelected
       )}
-      aria-label={`${barbeiroNome} as ${hora}`}
+      aria-label={`${profissionalNome} as ${hora}`}
     >
       <span className={styles.hour}>{hora}</span>
 

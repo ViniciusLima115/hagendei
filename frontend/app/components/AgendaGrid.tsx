@@ -4,8 +4,8 @@ import styles from "./AgendaGrid.module.css";
 
 export type SelectedAgendamento = {
   hora: string;
-  barbeiroId: number;
-  barbeiroNome: string;
+  profissionalId: number;
+  profissionalNome: string;
   agendamento?: AgendaSlot;
 };
 
@@ -35,7 +35,7 @@ export default function AgendaGrid({ data, selectedKey, onSelect }: AgendaGridPr
                 <AgendaCell
                   key={key}
                   hora={hora}
-                  barbeiroNome={barbeiro.nome}
+                  profissionalNome={barbeiro.nome}
                   agendamento={agendamento}
                   disponivel={disponivel}
                   isSelected={selectedKey === key}
@@ -43,8 +43,8 @@ export default function AgendaGrid({ data, selectedKey, onSelect }: AgendaGridPr
                     if (!disponivel && !agendamento) return;
                     onSelect({
                       hora,
-                      barbeiroId: barbeiro.id,
-                      barbeiroNome: barbeiro.nome,
+                      profissionalId: barbeiro.id,
+                      profissionalNome: barbeiro.nome,
                       agendamento,
                     });
                   }}

@@ -284,7 +284,7 @@ export default function PublicBookingByIdPage() {
 
         <div className={styles.gridThree}>
           <label className={styles.field}>
-            <span className={styles.label}>Barbeiro</span>
+            <span className={styles.label}>Profissional</span>
             <select
               className={styles.control}
               value={barbeiroId ?? ""}
@@ -345,12 +345,12 @@ export default function PublicBookingByIdPage() {
         <div className={styles.legendRow}>
           <span className={cx(styles.legendPill, styles.legendAvailable)}>Livre</span>
           <span className={cx(styles.legendPill, styles.legendSelected)}>Selecionado</span>
-          <span className={cx(styles.legendPill, styles.legendUnavailable)}>Barbeiro indisponivel</span>
+          <span className={cx(styles.legendPill, styles.legendUnavailable)}>Profissional indisponivel</span>
         </div>
 
         {lookup.horarios_grade.length === 0 ? (
           <div className={styles.emptySlots}>
-            Nenhum horario aparece nesta data. Esse barbeiro pode estar indisponivel hoje.
+            Nenhum horario aparece nesta data. Esse profissional pode estar indisponivel hoje.
           </div>
         ) : (
           <div className={styles.slotGrid}>
