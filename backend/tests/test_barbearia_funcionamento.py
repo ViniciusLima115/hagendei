@@ -133,3 +133,29 @@ def test_agendamento_bloqueia_horario_fora_do_funcionamento_do_barbeiro(
     resp = client.post("/agendamentos/", json=payload, headers=tenant_headers)
     assert resp.status_code == 400
     assert resp.json()["detail"] == "Horário fora do funcionamento do barbeiro"
+
+
+def test_obter_funcionamento(client, dados_base, tenant_headers, db_session):
+    dados_base["barbearia"].horarios_funcionamento = _funcionamento_seg_a_sab()
+    db_session.commit()
+
+    resp = client.get("/barbearias/me/funcionamento", headers=tenant_headers)
+    assert resp.status_code == 200
+    assert resp.json()["seg"]["ativo"] is True
+    assert resp.json()["dom"]["ativo"] is False
+
+
+def test_obter_funcionamento_nao_encontrado(client, make_tenant_headers):
+    headers = make_tenant_headers(tenant_id=99999)
+    resp = client.get("/barbearias/me/funcionamento", headers=headers)
+    assert resp.status_code == 404
+
+
+def test_atualizar_funcionamento_nao_encontrado(client, make_tenant_headers):
+    headers = make_tenant_headers(tenant_id=99999)
+    resp = client.put(
+        "/barbearias/me/funcionamento",
+        json=_funcionamento_seg_a_sab(),
+        headers=headers,
+    )
+    assert resp.status_code == 404
