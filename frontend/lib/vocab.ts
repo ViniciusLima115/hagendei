@@ -24,7 +24,11 @@ const vocabMap: Record<string, VocabEntry> = {
   },
 };
 
-const defaultVocab: VocabEntry = vocabMap["barbearia"];
+const defaultVocab: VocabEntry = {
+  profissional: "Profissional",
+  estabelecimento: "Estabelecimento",
+  profissionalPlural: "Profissionais",
+};
 
 export function getVocab(tipo: TipoServico | null | undefined): VocabEntry {
   if (!tipo) return defaultVocab;
