@@ -32,4 +32,10 @@ class Estabelecimento(Base):
 
     tipo_servico = Column(String(50), nullable=False, server_default="barbearia")
 
+    accent_color = Column(String(7), nullable=False, server_default="#d4930a")
+    bg_color = Column(String(7), nullable=False, server_default="#ffffff")
+    logo_url = Column(String(500), nullable=True)
+    notif_ativo = Column(Boolean, nullable=False, default=True)
+    notif_horas_antes = Column(Integer, nullable=False, default=2)
+
     profissionais = relationship("Profissional", back_populates="estabelecimento")
