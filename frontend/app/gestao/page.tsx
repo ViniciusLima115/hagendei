@@ -423,6 +423,7 @@ export default function GestaoPage() {
     defaultBarbershopWorkingHours()
   );
   const [savingFuncionamento, setSavingFuncionamento] = useState(false);
+  const [intervaloMinutos, setIntervaloMinutos] = useState<number>(30);
 
   const [novoCliente, setNovoCliente] = useState(initialCliente);
   const [editClienteId, setEditClienteId] = useState<number | null>(null);
@@ -460,6 +461,7 @@ export default function GestaoPage() {
       setBarbeiros(bs);
       setAgendamentos(ags);
       setFuncionamento(workingHours);
+      setIntervaloMinutos(workingHours.intervalo_minutos ?? 30);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Falha ao carregar dados.");
     } finally {
@@ -537,7 +539,10 @@ export default function GestaoPage() {
     setSavingFuncionamento(true);
 
     try {
-      const atualizado = await updateBarbershopWorkingHours(funcionamento);
+      const atualizado = await updateBarbershopWorkingHours({
+        ...funcionamento,
+        intervalo_minutos: intervaloMinutos,
+      });
       setFuncionamento(atualizado);
       setSuccess("Horarios de funcionamento salvos com sucesso!");
     } catch (e) {
@@ -1195,6 +1200,20 @@ export default function GestaoPage() {
                   description="Ative cada dia de trabalho e defina a janela de horarios em que a agenda pode aceitar reservas."
                 >
                   <form onSubmit={salvarFuncionamento} className={styles.workingForm}>
+                    <Field
+                      label="Intervalo entre horários (minutos)"
+                      hint="Define o espaçamento entre os slots disponíveis. Ex: 30 min gera 09:00, 09:30, 10:00..."
+                    >
+                      <input
+                        type="number"
+                        min={5}
+                        max={120}
+                        step={5}
+                        value={intervaloMinutos}
+                        onChange={(e) => setIntervaloMinutos(Number(e.target.value))}
+                        className={styles.input}
+                      />
+                    </Field>
                     <div className={styles.workingDaysGrid}>
                       {workingDays.map((day) => {
                         const item = funcionamento[day.key];

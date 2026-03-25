@@ -148,7 +148,9 @@ export type WorkingHoursDay = {
   fim: string;
 };
 
-export type BarbershopWorkingHours = Record<WorkingDayKey, WorkingHoursDay>;
+export type BarbershopWorkingHours = Record<WorkingDayKey, WorkingHoursDay> & {
+  intervalo_minutos?: number;
+};
 
 function getAccessToken(): string | null {
   const accessToken = getAuthSession()?.accessToken ?? null;
