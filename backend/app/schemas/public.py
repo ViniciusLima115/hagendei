@@ -33,6 +33,10 @@ class PublicBarbeariaLookupResponse(BaseModel):
     servicos: list[PublicServicoItem]
     horarios_disponiveis: list[str]
     horarios_grade: list[PublicHorarioItem] = []
+    # Tema por tenant
+    accent_color: str = "#d4930a"
+    bg_color: str = "#ffffff"
+    logo_url: str | None = None
 
 
 class PublicClienteLookupResponse(BaseModel):
