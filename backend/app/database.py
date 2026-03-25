@@ -85,6 +85,18 @@ def init_db():
     _ensure_token_blacklist_table()
     _ensure_rename_para_estabelecimentos()
     _ensure_tipo_servico_column()
+    _ensure_configuracoes_columns()
+
+
+def _ensure_configuracoes_columns():
+    """Adiciona colunas de configuração (tema, notificações) em estabelecimentos."""
+    _run_best_effort([
+        "ALTER TABLE estabelecimentos ADD COLUMN accent_color VARCHAR(7) NOT NULL DEFAULT '#d4930a'",
+        "ALTER TABLE estabelecimentos ADD COLUMN bg_color VARCHAR(7) NOT NULL DEFAULT '#ffffff'",
+        "ALTER TABLE estabelecimentos ADD COLUMN logo_url VARCHAR(500)",
+        "ALTER TABLE estabelecimentos ADD COLUMN notif_ativo BOOLEAN NOT NULL DEFAULT TRUE",
+        "ALTER TABLE estabelecimentos ADD COLUMN notif_horas_antes INTEGER NOT NULL DEFAULT 2",
+    ])
 
 
 def _ensure_barbearias_working_hours_column():
