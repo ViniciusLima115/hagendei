@@ -46,6 +46,10 @@ def lookup_barbearia_publica(
         )
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail="Erro interno ao carregar estabelecimento.") from exc
 
 
 @router.get("/barbearia-id/{barbearia_id}", response_model=PublicBarbeariaLookupResponse)
@@ -66,6 +70,10 @@ def lookup_barbearia_publica_por_id(
         )
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail="Erro interno ao carregar estabelecimento.") from exc
 
 
 @router.get("/servicos", response_model=list[PublicServicoItem])
@@ -140,3 +148,7 @@ def criar_agendamento_public(
         mensagem = str(exc)
         status_code = 404 if "nao encontrada" in mensagem.lower() else 400
         raise HTTPException(status_code=status_code, detail=mensagem) from exc
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail="Erro interno ao criar agendamento.") from exc
