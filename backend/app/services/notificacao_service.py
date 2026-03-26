@@ -96,7 +96,7 @@ def agendar_lembretes_agendamento(
             continue
 
         reminder = ReminderJob(
-            tenant_id=tenant_id,
+            estabelecimento_id=tenant_id,
             agendamento_id=agendamento_id,
             tipo=tipo,
             canal="whatsapp",
