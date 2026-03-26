@@ -2,7 +2,7 @@
 
 /* ─── TIPOGRAFIA ─────────────────────────────────────────── */
 :root {
-  --font-display: "Libre Baskerville", Georgia, serif;
+  --font-display: "Plus Jakarta Sans", system-ui, sans-serif;
   --font-body: "Jost", system-ui, sans-serif;
 }
 
@@ -88,15 +88,15 @@ body {
 /* ─── TIPOGRAFIA — HEADINGS ──────────────────────────────── */
 h1, h2, h3, h4 {
   font-family: var(--font-display);
-  font-weight: 700;
-  letter-spacing: -0.03em;
-  line-height: 1.1;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
 }
 
-h1 { font-size: clamp(2rem, 4vw, 3.5rem); }
-h2 { font-size: clamp(1.5rem, 3vw, 2.25rem); }
-h3 { font-size: 1.25rem; }
-h4 { font-size: 1.05rem; }
+h1 { font-size: clamp(1.75rem, 3.5vw, 3rem); }
+h2 { font-size: clamp(1.35rem, 2.5vw, 2rem); }
+h3 { font-size: 1.2rem; }
+h4 { font-size: 1rem; }
 
 /* ─── EYEBROW LABELS ─────────────────────────────────────── */
 /* .eyebrow-section: 11px — eyebrows de seção de página */

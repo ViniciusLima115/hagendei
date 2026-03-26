@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
-import { Libre_Baskerville, Jost } from "next/font/google";
+import { Plus_Jakarta_Sans, Jost } from "next/font/google";
 import "./globals.css";
 import AppShell from "./components/AppShell";
 import { ThemeProvider } from "./components/ThemeProvider";
 
-const libreBaskerville = Libre_Baskerville({
+const plusJakartaSans = Plus_Jakarta_Sans({
   subsets: ["latin"],
-  weight: ["400", "700"],
+  weight: ["400", "500", "600", "700", "800"],
   style: ["normal", "italic"],
   variable: "--font-display",
   display: "swap",
@@ -20,7 +20,7 @@ const jost = Jost({
 });
 
 export const metadata: Metadata = {
-  title: "VirtualBarber — Painel de Gestão",
+  title: "Painel de Gestão",
   description: "Plataforma de gestão de agendamentos para estabelecimentos",
 };
 
@@ -55,7 +55,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pt-BR" suppressHydrationWarning>
-      <body className={`antialiased ${libreBaskerville.variable} ${jost.variable}`} suppressHydrationWarning>
+      <body className={`antialiased ${plusJakartaSans.variable} ${jost.variable}`} suppressHydrationWarning>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
         <ThemeProvider>
           <AppShell>{children}</AppShell>
