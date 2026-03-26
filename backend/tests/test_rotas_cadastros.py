@@ -43,7 +43,7 @@ def test_barbeiros_exige_header_tenant(client, make_tenant_headers):
         headers=make_tenant_headers(tenant_id=1, include_tenant_header=False),
     )
     assert criar.status_code == 400
-    assert criar.json()["detail"] == "X-Barbearia-Id obrigatorio."
+    assert criar.json()["detail"] == "X-Tenant-Id obrigatorio."
 
 
 def test_barbeiros_basico_permite_um_e_bloqueia_mais_com_upgrade(client, db_session, make_tenant_headers):
@@ -69,7 +69,7 @@ def test_barbeiros_basico_permite_um_e_bloqueia_mais_com_upgrade(client, db_sess
     assert criar_segundo.status_code == 403
     assert (
         criar_segundo.json()["detail"]
-        == "Deseja adicionar mais barbeiros? Faca o upgrade para o plano premium."
+        == "Deseja adicionar mais profissionais? Faca o upgrade para o plano premium."
     )
 
 
@@ -88,7 +88,7 @@ def test_barbeiros_premium_limite_edicao_e_exclusao(client, db_session, make_ten
 
     excedente = client.post("/barbeiros/", json={"nome": "Quarto"}, headers=headers)
     assert excedente.status_code == 400
-    assert excedente.json()["detail"] == "Limite de 3 barbeiros ativos atingido."
+    assert excedente.json()["detail"] == "Limite de 3 profissionais ativos atingido."
 
     listar = client.get("/barbeiros/", headers=headers)
     assert listar.status_code == 200
