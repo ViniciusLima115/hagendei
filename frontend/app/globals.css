@@ -17,9 +17,9 @@
   --line:         #e0e0dc;
   --overlay:      rgba(0,0,0,0.48);
 
-  --accent:       #d4930a;
-  --accent-dark:  #a36f06;
-  --accent-soft:  #fef3dc;
+  --accent:       #4f46e5;
+  --accent-dark:  #3730a3;
+  --accent-soft:  #eef2ff;
 
   --success:      #166534;
   --success-soft: #f0fdf4;
@@ -53,9 +53,9 @@
   --line:         rgba(255,255,255,0.10);
   --overlay:      rgba(0,0,0,0.68);
 
-  --accent:       #e5a820;
-  --accent-dark:  #c98f10;
-  --accent-soft:  rgba(212,147,10,0.18);
+  --accent:       #818cf8;
+  --accent-dark:  #6366f1;
+  --accent-soft:  rgba(79,70,229,0.20);
 
   --success:      #4ade80;
   --success-soft: rgba(74,222,128,0.12);
@@ -185,7 +185,7 @@ h4 { font-size: 1rem; }
 }
 .input:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(212,147,10,0.12);
+  box-shadow: 0 0 0 3px rgba(79,70,229,0.14);
 }
 .input::placeholder {
   color: var(--ink-subtle);
