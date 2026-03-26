@@ -31,8 +31,8 @@
   height: 40px;
   flex-shrink: 0;
   border-radius: var(--radius-md);
-  background: #1a1a1a;
-  color: var(--accent);
+  background: var(--accent);
+  color: #ffffff;
 }
 
 .brandCopy {

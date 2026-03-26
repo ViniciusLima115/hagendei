@@ -1,7 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { BarChart2, CalendarDays, LayoutDashboard, Scissors, Settings, Settings2, Shield, LogOut } from "lucide-react";
+import {
+  BarChart2,
+  CalendarDays,
+  LayoutDashboard,
+  LayoutGrid,
+  Settings,
+  Settings2,
+  Shield,
+  LogOut,
+} from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { logout, useAuthSession } from "@/services/auth";
 import styles from "./Header.module.css";
@@ -37,10 +46,10 @@ export default function Header() {
       <div className={cx("app-container", styles.shell)}>
         <Link href="/" className={styles.brand}>
           <div className={styles.brandIcon}>
-            <Scissors size={18} />
+            <LayoutGrid size={18} />
           </div>
           <div className={styles.brandCopy}>
-            <span className={styles.brandEyebrow}>Sistema interno</span>
+            <span className={styles.brandEyebrow}>Gestão</span>
             <span className={styles.brandTitle}>{tenantName}</span>
           </div>
         </Link>
