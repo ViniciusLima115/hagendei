@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Settings, User, Lock, Palette, Bell } from "lucide-react";
+import { Settings, User, Lock, Palette, Bell, ArrowLeft } from "lucide-react";
 import { useAuthSession, AUTH_STORAGE_KEY } from "@/services/auth";
 import { API_URL } from "@/services/api";
 import styles from "./page.module.css";
@@ -193,6 +193,14 @@ export default function ConfiguracoesPage() {
       <div className={styles.shell}>
         {/* ── Sidebar ── */}
         <aside className={styles.sidebar}>
+          <button
+            type="button"
+            onClick={() => router.back()}
+            className={styles.backButton}
+          >
+            <ArrowLeft size={14} />
+            Voltar
+          </button>
           <div className={styles.sidebarHeader}>
             <Settings size={15} />
             Configurações

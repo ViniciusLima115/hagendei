@@ -26,6 +26,30 @@
   top: 80px;
 }
 
+.backButton {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 10px;
+  margin-bottom: 10px;
+  border-radius: var(--radius-md);
+  border: none;
+  background: transparent;
+  color: var(--ink-muted);
+  font-family: var(--font-body);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.backButton:hover {
+  background: var(--surface-alt);
+  color: var(--ink);
+}
+
 .sidebarHeader {
   display: flex;
   align-items: center;
