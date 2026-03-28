@@ -187,3 +187,65 @@ def test_public_agendamento_cria_confirma_e_agenda_lembretes(monkeypatch, client
     assert len(lembretes) == 2
     assert {item.tipo for item in lembretes} == {"reminder_24h", "reminder_2h"}
     assert enviados["barbearia"] == "Barbearia Agenda"
+
+
+def test_agendamento_nao_sobrescreve_nome_de_cliente_existente(monkeypatch, client, db_session):
+    """Regressão: agendar Vinicius com o mesmo telefone de Marcio não deve renomear Marcio."""
+    import app.services.public_booking_service as public_service
+
+    monkeypatch.setattr(public_service, "enviar_mensagem_whatsapp", lambda *a, **kw: True)
+
+    barbearia = Barbearia(
+        nome="Barbearia Regressao",
+        slug="regressao-nome",
+        endereco="Rua Regressao",
+    )
+    db_session.add(barbearia)
+    db_session.commit()
+    db_session.refresh(barbearia)
+
+    barbeiro = Barbeiro(nome="Joao", barbershop_id=barbearia.id, ativo=True)
+    servico = Servico(nome="Corte", duracao_minutos=30, preco=40.0, barbearia_id=barbearia.id)
+    db_session.add_all([barbeiro, servico])
+    db_session.commit()
+    db_session.refresh(barbeiro)
+    db_session.refresh(servico)
+
+    telefone_compartilhado = "11999990001"
+    data_marcio = (datetime.now() + timedelta(days=1)).date()
+    data_vinicius = (datetime.now() + timedelta(days=2)).date()
+
+    resp_marcio = client.post(
+        "/public/agendamentos",
+        json={
+            "barbearia_id": barbearia.id,
+            "cliente_nome": "Marcio",
+            "cliente_telefone": telefone_compartilhado,
+            "barbeiro_id": barbeiro.id,
+            "servico_id": servico.id,
+            "data": data_marcio.isoformat(),
+            "hora_inicio": "10:00",
+        },
+    )
+    assert resp_marcio.status_code == 200
+    id_marcio = resp_marcio.json()["id"]
+
+    resp_vinicius = client.post(
+        "/public/agendamentos",
+        json={
+            "barbearia_id": barbearia.id,
+            "cliente_nome": "Vinicius",
+            "cliente_telefone": telefone_compartilhado,
+            "barbeiro_id": barbeiro.id,
+            "servico_id": servico.id,
+            "data": data_vinicius.isoformat(),
+            "hora_inicio": "10:00",
+        },
+    )
+    assert resp_vinicius.status_code == 200
+
+    ag_marcio = db_session.query(Agendamento).filter(Agendamento.id == id_marcio).first()
+    db_session.refresh(ag_marcio)
+    assert ag_marcio.cliente_nome == "Marcio", (
+        f"Nome do agendamento do Marcio foi sobrescrito para '{ag_marcio.cliente_nome}'"
+    )

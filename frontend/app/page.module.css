@@ -2,12 +2,14 @@
   min-height: 100vh;
   background: var(--canvas);
   color: var(--ink);
+  overflow-x: clip;
 }
 
 .shell {
   max-width: 1360px;
   margin: 0 auto;
   padding: 32px 20px 72px;
+  overflow-x: hidden;
 }
 
 .hero,
@@ -270,6 +272,15 @@
   .contentGrid,
   .statsGrid {
     grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .statsGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .contentGrid {
+    grid-template-columns: 1fr;
   }
 }
 

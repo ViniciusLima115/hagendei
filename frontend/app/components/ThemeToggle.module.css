@@ -51,7 +51,8 @@
     display: none;
   }
   .button {
-    width: 36px;
+    width: 44px;
+    min-height: 44px;
     padding: 0;
     justify-content: center;
   }

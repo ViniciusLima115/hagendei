@@ -109,8 +109,8 @@ h4 { font-size: 1rem; }
   text-transform: uppercase;
   color: var(--accent);
 }
-.eyebrow-section { font-size: 11px; }
-.eyebrow-card    { font-size: 9px; }
+.eyebrow-section { font-size: 12px; }
+.eyebrow-card    { font-size: 11px; }
 
 /* ─── BOTÕES BASE ────────────────────────────────────────── */
 .btn {
@@ -250,8 +250,8 @@ h4 { font-size: 1rem; }
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
   border: 1px solid var(--line);
   border-radius: var(--radius-md);
   background: transparent;
@@ -262,4 +262,61 @@ h4 { font-size: 1rem; }
 .icon-button:hover {
   background: var(--surface-alt);
   color: var(--ink);
+}
+
+/* ─── MODAL ──────────────────────────────────────────────── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(2px);
+  padding: 16px;
+}
+
+.modal-panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xl);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.18);
+  max-height: calc(100dvh - 32px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid var(--line);
+  flex-shrink: 0;
+}
+
+.modal-title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+
+.modal-content {
+  padding: 24px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+@media (max-width: 480px) {
+  .modal-panel {
+    padding: 16px;
+  }
+  .modal-content {
+    padding: 16px;
+  }
 }

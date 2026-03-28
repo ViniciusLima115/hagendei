@@ -48,9 +48,16 @@ function getSavedTheme(): ThemeMode {
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setThemeState] = useState<ThemeMode>(getSavedTheme);
-  const [systemTheme, setSystemTheme] = useState<ResolvedTheme>(getSystemTheme);
+  const [theme, setThemeState] = useState<ThemeMode>("system");
+  const [systemTheme, setSystemTheme] = useState<ResolvedTheme>("light");
   const resolvedTheme = theme === "system" ? systemTheme : theme;
+
+  useEffect(() => {
+    const saved = getSavedTheme();
+    const system = getSystemTheme();
+    setThemeState(saved);
+    setSystemTheme(system);
+  }, []);
 
   useEffect(() => {
     applyTheme(theme);

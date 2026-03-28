@@ -1,13 +1,11 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { AlertTriangle, BellRing, Building2, KeyRound, Lock, Search, ShieldCheck, Trash2, UserRound } from "lucide-react";
+import { AlertTriangle, BellRing, Building2, CalendarDays, ChevronLeft, ChevronRight, Clock, KeyRound, Lock, RefreshCw, Search, ShieldCheck, Trash2, UserRound, X } from "lucide-react";
 import Alert from "../../components/Alert";
 import Button from "../../components/Button";
-import Card from "../../components/Card";
 import FormInput from "../../components/FormInput";
 import Modal from "../../components/Modal";
-import StatCard from "../../components/StatCard";
 import styles from "./master.module.css";
 import {
   BarbeariaAdmin,
@@ -66,6 +64,9 @@ export default function AdminPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [selected, setSelected] = useState<BarbeariaAdmin | null>(null);
+  const [pagina, setPagina] = useState(1);
+  const [buscaRapida, setBuscaRapida] = useState("");
+  const POR_PAGINA = 15;
   const [editForm, setEditForm] = useState({
     nome: "",
     login: "",
@@ -158,6 +159,24 @@ export default function AdminPage() {
       return matchBusca && matchPlano && matchStatus && matchDataDe && matchDataAte && matchAtividade;
     });
   }, [barbearias, filtros]);
+
+  // reset page when filters or quick-search change
+  useEffect(() => { setPagina(1); }, [filtros, buscaRapida]);
+
+  const listaFiltradaComBusca = useMemo(() => {
+    const q = buscaRapida.trim().toLowerCase();
+    if (!q) return barbeariasFiltradas;
+    return barbeariasFiltradas.filter(
+      (b) => b.nome.toLowerCase().includes(q) || b.login.toLowerCase().includes(q)
+    );
+  }, [barbeariasFiltradas, buscaRapida]);
+
+  const totalPaginas = Math.max(1, Math.ceil(listaFiltradaComBusca.length / POR_PAGINA));
+  const paginaAtual = Math.min(pagina, totalPaginas);
+  const listaVisivelSlice = listaFiltradaComBusca.slice(
+    (paginaAtual - 1) * POR_PAGINA,
+    paginaAtual * POR_PAGINA
+  );
 
   const notificacoes = useMemo(() => {
     const today = plusDaysISO(0);
@@ -320,39 +339,85 @@ export default function AdminPage() {
 
   return (
     <main className={styles.page}>
-      <div className="app-container space-y-6">
-          <div className={styles.header}>
-            <h1>Painel do Administrador</h1>
-            <p className={styles.subtitle}>
-              Gerencie estabelecimentos, planos, login e senha de todos os clientes.
-            </p>
-          </div>
+      <div className={`app-container ${styles.shell}`}>
 
-          <div className="grid gap-4 md:grid-cols-3">
-            <StatCard label="Total de Estabelecimentos" value={barbearias.length} icon={<Building2 size={22} />} color="blue" />
-            <StatCard label="Plano Basico" value={totalBasico} icon={<ShieldCheck size={22} />} color="amber" />
-            <StatCard label="Plano Premium" value={totalPremium} icon={<ShieldCheck size={22} />} color="green" />
-            <StatCard label="Em Trial" value={totalTrial} icon={<ShieldCheck size={22} />} color="blue" />
-            <StatCard label="Bloqueados" value={totalBloqueadas} icon={<Lock size={22} />} color="red" />
-          </div>
+        {/* ── Hero ──────────────────────────────────────────── */}
+        <div className={styles.hero}>
+          <p className={styles.eyebrow}>Master Admin</p>
+          <h1 className={styles.heroTitle}>Painel do Administrador</h1>
+          <p className={styles.heroSubtitle}>
+            Gerencie estabelecimentos, planos, login e senha de todos os clientes.
+          </p>
+        </div>
 
+        {/* ── Stats ─────────────────────────────────────────── */}
+        <div className={styles.statsRow}>
+          <div className={styles.statCard}>
+            <div className={styles.statIcon}><Building2 size={22} /></div>
+            <div className={styles.statContent}>
+              <span className={styles.statLabel}>Total</span>
+              <span className={styles.statValue}>{barbearias.length}</span>
+            </div>
+          </div>
+          <div className={styles.statCard}>
+            <div className={styles.statIcon}><ShieldCheck size={22} /></div>
+            <div className={styles.statContent}>
+              <span className={styles.statLabel}>Plano Basico</span>
+              <span className={styles.statValue}>{totalBasico}</span>
+            </div>
+          </div>
+          <div className={styles.statCard}>
+            <div className={`${styles.statIcon} ${styles.statIconSuccess}`}><ShieldCheck size={22} /></div>
+            <div className={styles.statContent}>
+              <span className={styles.statLabel}>Plano Premium</span>
+              <span className={styles.statValue}>{totalPremium}</span>
+            </div>
+          </div>
+          <div className={styles.statCard}>
+            <div className={`${styles.statIcon} ${styles.statIconWarning}`}><ShieldCheck size={22} /></div>
+            <div className={styles.statContent}>
+              <span className={styles.statLabel}>Em Trial</span>
+              <span className={styles.statValue}>{totalTrial}</span>
+            </div>
+          </div>
+          <div className={styles.statCard}>
+            <div className={`${styles.statIcon} ${styles.statIconDanger}`}><Lock size={22} /></div>
+            <div className={styles.statContent}>
+              <span className={styles.statLabel}>Bloqueados</span>
+              <span className={styles.statValue}>{totalBloqueadas}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Section stack ─────────────────────────────────── */}
+        <div className={styles.sections}>
+
+          {/* Alerts */}
           {error && <Alert type="error" message={error} onClose={() => setError(null)} />}
           {success && <Alert type="success" message={success} onClose={() => setSuccess(null)} />}
 
+          {/* Loading */}
           {loading && (
-            <Card title="Carregando" subtitle="Buscando estabelecimentos no backend">
-              <p className={styles.empty}>Aguarde...</p>
-            </Card>
+            <div className={styles.panel}>
+              <div className={styles.loadingState}>
+                <div className={styles.loadingPulse} />
+                <p className={styles.panelSubtitle}>Buscando estabelecimentos...</p>
+              </div>
+            </div>
           )}
 
-          <Card
-            title="Notificacoes Automaticas"
-            subtitle="Alertas de vencimento, pagamento recusado e baixa atividade"
-          >
+          {/* Notifications */}
+          <div className={styles.panel}>
+            <div className={styles.panelHeader}>
+              <p className={styles.panelTitle}>Notificacoes</p>
+              <p className={styles.panelSubtitle}>
+                Alertas de vencimento, pagamento recusado e baixa atividade.
+              </p>
+            </div>
             {notificacoes.length === 0 ? (
               <p className={styles.empty}>Nenhuma notificacao no momento.</p>
             ) : (
-              <div className="space-y-3">
+              <div className={styles.notifList}>
                 {notificacoes.map((n) => (
                   <div
                     key={n.id}
@@ -369,18 +434,23 @@ export default function AdminPage() {
                 ))}
               </div>
             )}
-          </Card>
+          </div>
 
-          <div className="grid gap-6 lg:grid-cols-2">
-            <Card
-              title="Cadastrar Estabelecimento"
-              subtitle="Crie login/senha e defina o plano do novo estabelecimento"
-            >
-              <form onSubmit={submitCadastro} className="space-y-4">
+          {/* Cadastro + Quick Actions */}
+          <div className={styles.twoCol}>
+            {/* Cadastrar */}
+            <div className={styles.panel}>
+              <div className={styles.panelHeader}>
+                <p className={styles.panelTitle}>Cadastrar Estabelecimento</p>
+                <p className={styles.panelSubtitle}>
+                  Crie login/senha e defina o plano do novo estabelecimento.
+                </p>
+              </div>
+              <form onSubmit={submitCadastro} className={styles.formStack}>
                 <FormInput
                   label="Nome do Estabelecimento"
                   value={form.nome}
-                  placeholder="Ex: Barbearia Central / Salão Beleza"
+                  placeholder="Ex: Barbearia Central / Salao Beleza"
                   onChange={(e) => setForm((prev) => ({ ...prev, nome: e.target.value }))}
                   required
                 />
@@ -444,30 +514,33 @@ export default function AdminPage() {
                   />
                   Pagamento recusado
                 </label>
-
-                <div className="pt-3">
+                <div className={styles.formFooter}>
                   <Button type="submit">
                     <Building2 size={17} />
                     Cadastrar Estabelecimento
                   </Button>
                 </div>
               </form>
-            </Card>
+            </div>
 
-            <Card
-              title="Acoes Rapidas"
-              subtitle="Controle visualizacao de senhas e recarregue a base"
-            >
-              <div className="space-y-3">
+            {/* Quick actions */}
+            <div className={styles.panel}>
+              <div className={styles.panelHeader}>
+                <p className={styles.panelTitle}>Acoes Rapidas</p>
+                <p className={styles.panelSubtitle}>
+                  Controle de senhas e recarregamento da base.
+                </p>
+              </div>
+              <div className={styles.actionsStack}>
                 <Button
                   variant={showPasswords ? "danger" : "secondary"}
                   onClick={() => setShowPasswords((prev) => !prev)}
                 >
-                  <Lock size={17} />
+                  {showPasswords ? <X size={17} /> : <Lock size={17} />}
                   {showPasswords ? "Ocultar Senhas" : "Exibir Senhas"}
                 </Button>
                 <Button variant="secondary" onClick={recarregar}>
-                  <KeyRound size={17} />
+                  <RefreshCw size={17} />
                   Recarregar Lista
                 </Button>
                 <Button
@@ -478,11 +551,18 @@ export default function AdminPage() {
                   Limpar Filtros
                 </Button>
               </div>
-            </Card>
+            </div>
           </div>
 
-          <Card title="Busca e Filtros" subtitle="Filtre por plano, status, nome/login, periodo e atividade">
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {/* Filters */}
+          <div className={styles.panel}>
+            <div className={styles.panelHeader}>
+              <p className={styles.panelTitle}>Busca e Filtros</p>
+              <p className={styles.panelSubtitle}>
+                Filtre por plano, status, nome/login, periodo e atividade.
+              </p>
+            </div>
+            <div className={styles.filtersGrid}>
               <FormInput
                 label="Busca (Estabelecimento)"
                 value={filtros.busca}
@@ -536,90 +616,173 @@ export default function AdminPage() {
                 <option value="nunca">Nunca acessou</option>
               </FormInput>
             </div>
-          </Card>
+          </div>
 
-          <Card title="Estabelecimentos Cadastrados" subtitle="Visualize login/senha e altere senha quando necessario">
-            {barbeariasFiltradas.length === 0 ? (
-              <p className={styles.empty}>Nenhum estabelecimento cadastrado ainda.</p>
-            ) : (
-              <div className="table-wrapper">
-                <table className="table">
-                  <thead>
-                    <tr>
-                      <th>Estabelecimento</th>
-                      <th>Login</th>
-                      <th>Senha</th>
-                      <th>Plano</th>
-                      <th>Status</th>
-                      <th>Vencimento</th>
-                      <th>Trial</th>
-                      <th>Atividade</th>
-                      <th className="text-right">Acoes</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {barbeariasFiltradas.map((item) => {
-                      const status = getStatusAssinaturaBarbearia(item);
-                      return (
-                      <tr key={item.id}>
-                        <td className="font-medium">{item.nome}</td>
-                        <td>{item.login}</td>
-                        <td>{showPasswords ? item.senha : "••••••••"}</td>
-                        <td>
-                          <span
-                            className={`badge ${
-                              item.plano === "premium" ? "badge-confirmado" : "badge-livre"
-                            }`}
-                          >
-                            {item.plano === "premium" ? "Premium" : "Basico"}
-                          </span>
-                        </td>
-                        <td>
-                          <span
-                            className={`badge ${
-                              status === "bloqueado_atraso"
-                                ? "badge-cancelado"
-                                : status === "trial"
-                                  ? "badge-pendente"
-                                  : status === "inativo"
-                                    ? "badge-cancelado"
-                                    : "badge-confirmado"
-                            }`}
-                          >
-                            {statusLabel(status)}
-                          </span>
-                        </td>
-                        <td>{item.vencimentoEm}</td>
-                        <td>{item.trialAtivo ? item.trialFimEm ?? "Sem data" : "Nao"}</td>
-                        <td>{item.ultimoAcessoEm ? item.ultimoAcessoEm.slice(0, 10) : "Nunca"}</td>
-                        <td className="text-right">
-                          <div className="flex justify-end gap-2">
-                            <Button variant="secondary" size="sm" onClick={() => abrirModalSenha(item)}>
-                              Editar
-                            </Button>
-                            <Button variant="danger" size="sm" onClick={() => excluirBarbearia(item)}>
-                              <Trash2 size={14} />
-                              Excluir
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+          {/* Establishments list */}
+          <div className={styles.panel}>
+            <div className={styles.panelHeaderRow}>
+              <div className={styles.panelHeaderText}>
+                <p className={styles.panelTitle}>
+                  Estabelecimentos Cadastrados
+                  {!loading && (
+                    <> —{" "}
+                      <span style={{ fontWeight: 400, color: "var(--ink-muted)" }}>
+                        {listaFiltradaComBusca.length} resultado{listaFiltradaComBusca.length !== 1 ? "s" : ""}
+                      </span>
+                    </>
+                  )}
+                </p>
+                <p className={styles.panelSubtitle}>
+                  Visualize login/senha e altere dados quando necessario.
+                </p>
               </div>
-            )}
-          </Card>
+              <label className={styles.inlineSearch}>
+                <Search size={15} />
+                <input
+                  className={styles.inlineSearchInput}
+                  placeholder="Buscar por nome ou login..."
+                  value={buscaRapida}
+                  onChange={(e) => setBuscaRapida(e.target.value)}
+                />
+                {buscaRapida && (
+                  <button
+                    onClick={() => setBuscaRapida("")}
+                    style={{ background: "none", border: "none", cursor: "pointer", display: "flex", color: "var(--ink-subtle)", padding: 0 }}
+                    aria-label="Limpar busca"
+                  >
+                    <X size={14} />
+                  </button>
+                )}
+              </label>
+            </div>
+
+            {listaFiltradaComBusca.length === 0 && !loading ? (
+              <p className={styles.empty}>Nenhum estabelecimento encontrado.</p>
+            ) : (
+              <>
+              <div className={styles.estabList}>
+                {listaVisivelSlice.map((item) => {
+                  const status = getStatusAssinaturaBarbearia(item);
+                  return (
+                    <div key={item.id} className={styles.estabRow}>
+                      {/* Avatar */}
+                      <div className={styles.estabAvatar}>
+                        {item.nome.charAt(0).toUpperCase()}
+                      </div>
+
+                      {/* Name + login */}
+                      <div className={styles.estabInfo}>
+                        <p className={styles.estabName}>{item.nome}</p>
+                        <p className={styles.estabLogin}>{item.login}</p>
+                      </div>
+
+                      {/* Badges */}
+                      <div className={styles.estabBadges}>
+                        <span className={`badge ${item.plano === "premium" ? "badge-confirmado" : "badge-livre"}`}>
+                          {item.plano === "premium" ? "Premium" : "Basico"}
+                        </span>
+                        <span className={`badge ${
+                          status === "bloqueado_atraso" || status === "inativo"
+                            ? "badge-cancelado"
+                            : status === "trial"
+                              ? "badge-pendente"
+                              : "badge-confirmado"
+                        }`}>
+                          {statusLabel(status)}
+                        </span>
+                      </div>
+
+                      {/* Meta: vencimento + atividade */}
+                      <div className={styles.estabMeta}>
+                        <span className={styles.estabMetaItem}>
+                          <CalendarDays size={12} />
+                          Vence {item.vencimentoEm}
+                        </span>
+                        <span className={styles.estabMetaItem}>
+                          <Clock size={12} />
+                          {item.ultimoAcessoEm ? item.ultimoAcessoEm.slice(0, 10) : "Nunca acessou"}
+                        </span>
+                      </div>
+
+                      {/* Password */}
+                      <span className={styles.estabSenha}>
+                        {showPasswords ? item.senha : "••••••••"}
+                      </span>
+
+                      {/* Actions */}
+                      <div className={styles.estabActions}>
+                        <Button variant="secondary" size="sm" onClick={() => abrirModalSenha(item)}>
+                          Editar
+                        </Button>
+                        <Button variant="danger" size="sm" onClick={() => excluirBarbearia(item)}>
+                          <Trash2 size={14} />
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {totalPaginas > 1 && (
+                <div className={styles.pagination}>
+                  <span className={styles.paginationInfo}>
+                    {(paginaAtual - 1) * POR_PAGINA + 1}–{Math.min(paginaAtual * POR_PAGINA, listaFiltradaComBusca.length)} de {listaFiltradaComBusca.length}
+                  </span>
+                  <div className={styles.paginationControls}>
+                    <button
+                      className={styles.pageBtn}
+                      onClick={() => setPagina((p) => Math.max(1, p - 1))}
+                      disabled={paginaAtual === 1}
+                      aria-label="Pagina anterior"
+                    >
+                      <ChevronLeft size={15} />
+                    </button>
+                    {Array.from({ length: totalPaginas }, (_, i) => i + 1)
+                      .filter((p) => p === 1 || p === totalPaginas || Math.abs(p - paginaAtual) <= 1)
+                      .reduce<(number | "…")[]>((acc, p, idx, arr) => {
+                        if (idx > 0 && (p as number) - (arr[idx - 1] as number) > 1) acc.push("…");
+                        acc.push(p);
+                        return acc;
+                      }, [])
+                      .map((p, idx) =>
+                        p === "…" ? (
+                          <span key={`ellipsis-${idx}`} className={styles.paginationInfo} style={{ padding: "0 4px" }}>…</span>
+                        ) : (
+                          <button
+                            key={p}
+                            className={`${styles.pageBtn} ${p === paginaAtual ? styles.pageBtnActive : ""}`}
+                            onClick={() => setPagina(p as number)}
+                          >
+                            {p}
+                          </button>
+                        )
+                      )}
+                    <button
+                      className={styles.pageBtn}
+                      onClick={() => setPagina((p) => Math.min(totalPaginas, p + 1))}
+                      disabled={paginaAtual === totalPaginas}
+                      aria-label="Proxima pagina"
+                    >
+                      <ChevronRight size={15} />
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+          </div>
+
+        </div>
       </div>
 
+      {/* ── Edit Modal ─────────────────────────────────────── */}
       <Modal
         isOpen={Boolean(selected)}
         onClose={() => setSelected(null)}
         title="Editar Estabelecimento"
       >
         {!selected ? null : (
-          <form onSubmit={salvarNovaSenha} className="space-y-4">
+          <form onSubmit={salvarNovaSenha} className={styles.formStack}>
             <div className={styles.modalInfoBox}>
               <p className={styles.modalInfoName}>{selected.nome}</p>
               <p className={styles.modalInfoLogin}>

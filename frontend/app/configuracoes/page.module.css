@@ -3,6 +3,7 @@
   min-height: 100vh;
   background: var(--canvas);
   color: var(--ink);
+  overflow-x: clip;
 }
 
 .shell {
@@ -438,7 +439,8 @@
 /* ─── RESPONSIVE ─────────────────────────────────────────── */
 @media (max-width: 860px) {
   .shell {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
+    overflow-x: hidden;
   }
 
   .sidebar {
@@ -472,5 +474,25 @@
 
   .fieldRow {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .shell {
+    padding: 12px 10px 40px;
+    gap: 16px;
+  }
+
+  .cardHeader,
+  .cardBody {
+    padding-inline: 14px;
+  }
+
+  .cardFooter {
+    padding: 12px 14px 16px;
+  }
+
+  .sidebar {
+    padding: 12px 10px;
   }
 }

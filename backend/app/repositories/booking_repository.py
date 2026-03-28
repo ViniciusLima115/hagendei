@@ -72,7 +72,7 @@ class BookingRepository:
             .first()
         )
         if cliente:
-            if nome and cliente.nome != nome:
+            if nome and cliente.nome in ("Cliente", "", None):
                 cliente.nome = nome
             if email and not cliente.email:
                 cliente.email = email

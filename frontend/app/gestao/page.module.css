@@ -2,12 +2,14 @@
   min-height: 100vh;
   background: var(--canvas);
   color: var(--ink);
+  overflow-x: clip;
 }
 
 .shell {
   max-width: 1360px;
   margin: 0 auto;
   padding: 32px 20px 72px;
+  overflow-x: hidden;
 }
 
 .hero {
@@ -179,6 +181,7 @@
   gap: 20px;
   align-items: start;
   margin-top: 22px;
+  min-width: 0;
 }
 
 .sidebar,
@@ -274,15 +277,18 @@
 .contentArea {
   display: grid;
   gap: 18px;
+  min-width: 0;
 }
 
 .sectionStack {
   display: grid;
   gap: 18px;
+  min-width: 0;
 }
 
 .panel {
   padding: 24px;
+  min-width: 0;
 }
 
 .panelHeader {
@@ -808,7 +814,7 @@
   }
 
   .workspace {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .sidebar {
@@ -816,7 +822,17 @@
   }
 
   .workingDaysGrid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .sidebar {
+    position: static;
   }
 }
 
@@ -869,14 +885,61 @@
     width: 100%;
   }
 
+  /* Tab nav vira carrossel horizontal */
+  .tabList {
+    display: flex;
+    flex-direction: row;
+    overflow-x: auto;
+    gap: 8px;
+    padding-bottom: 4px;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    margin-top: 16px;
+  }
+
+  .tabList::-webkit-scrollbar {
+    display: none;
+  }
+
   .tabButton {
-    padding: 14px;
+    flex-shrink: 0;
+    flex-direction: row;
+    padding: 10px 14px;
+    gap: 8px;
+    border-radius: var(--radius-lg);
+  }
+
+  .tabIcon {
+    width: 32px;
+    height: 32px;
+  }
+
+  .tabDescription {
+    display: none;
+  }
+
+  .tabLabel {
+    font-size: 0.875rem;
+    white-space: nowrap;
+  }
+
+  /* Tabela compacta */
+  .dataTable th,
+  .dataTable td {
+    padding: 10px 12px;
+    font-size: 0.82rem;
   }
 }
 
 @media (max-width: 480px) {
   .shell {
-    padding: 16px 12px 48px;
+    padding: 16px 10px 48px;
+  }
+
+  .dataTable th,
+  .dataTable td {
+    padding: 8px 10px;
+    font-size: 0.78rem;
   }
 
   .hero,

@@ -173,6 +173,7 @@
   .navLink {
     flex: 0 0 auto;
     min-width: unset;
+    min-height: 44px;
     white-space: nowrap;
   }
   .logoutButton {
