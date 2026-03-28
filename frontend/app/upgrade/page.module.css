@@ -1,0 +1,199 @@
+/* ── Shell ────────────────────────────────────────────────── */
+.page {
+  min-height: 100vh;
+  background: var(--canvas);
+  color: var(--ink);
+}
+
+.shell {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 40px 20px 80px;
+}
+
+/* ── Voltar ───────────────────────────────────────────────── */
+.backLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.875rem;
+  color: var(--ink-muted);
+  text-decoration: none;
+  margin-bottom: 40px;
+  transition: color 0.15s;
+}
+
+.backLink:hover {
+  color: var(--ink);
+}
+
+/* ── Header ───────────────────────────────────────────────── */
+.header {
+  text-align: center;
+  margin-bottom: 48px;
+  display: grid;
+  gap: 12px;
+}
+
+.eyebrow {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent-dark);
+  margin: 0;
+}
+
+.title {
+  margin: 0;
+  font-size: clamp(1.8rem, 3vw, 2.8rem);
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+}
+
+.subtitle {
+  margin: 0;
+  color: var(--ink-muted);
+  font-size: 1rem;
+  line-height: 1.65;
+}
+
+/* ── Grid de planos ───────────────────────────────────────── */
+.plansGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+@media (max-width: 600px) {
+  .plansGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Card de plano ────────────────────────────────────────── */
+.planCard {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xl);
+  background: var(--surface);
+  padding: 32px 28px;
+  display: grid;
+  gap: 24px;
+  position: relative;
+}
+
+.planCardHighlight {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft), var(--shadow-md);
+}
+
+/* ── Cabeçalho do card ────────────────────────────────────── */
+.planCardHeader {
+  display: grid;
+  gap: 8px;
+}
+
+.planBadgeRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.planName {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.planBadge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  background: var(--accent);
+  color: #fff;
+  border-radius: 999px;
+  padding: 3px 10px;
+}
+
+.planPrice {
+  margin: 0;
+  font-size: 2rem;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+
+.planPriceSub {
+  font-size: 0.875rem;
+  font-weight: 400;
+  color: var(--ink-muted);
+  margin-left: 4px;
+}
+
+.planDescription {
+  margin: 0;
+  color: var(--ink-muted);
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+/* ── Features ─────────────────────────────────────────────── */
+.featureList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.featureItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 0.9rem;
+  color: var(--ink);
+}
+
+.featureIcon {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.featureIconCheck {
+  color: var(--accent);
+}
+
+.featureIconMissing {
+  color: var(--ink-muted);
+}
+
+/* ── CTA ──────────────────────────────────────────────────── */
+.ctaButton {
+  width: 100%;
+  padding: 12px 20px;
+  border-radius: var(--radius-lg);
+  border: none;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.ctaButtonPrimary {
+  background: var(--accent);
+  color: #fff;
+}
+
+.ctaButtonPrimary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.ctaButtonSecondary {
+  background: var(--surface-raised, var(--surface));
+  color: var(--ink-muted);
+  border: 1px solid var(--line);
+  cursor: not-allowed;
+}
