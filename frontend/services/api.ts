@@ -632,3 +632,47 @@ export async function getDashboardClientes(barbeariaId: string): Promise<Cliente
   const res = await apiFetch(`/dashboard/${barbeariaId}/clientes`);
   return parseOrThrow(res, "Falha ao carregar dados de clientes do dashboard.");
 }
+
+// ─── DASHBOARD ANÁLISE ───────────────────────────────────────────────────────
+
+export type ResumoMes = {
+  agendamentos: number;
+  faturamento: number;
+  ticket_medio: number;
+  ocupacao: number;
+};
+
+export type DiaSemana = {
+  dia: string;
+  clientes: number;
+};
+
+export type HorarioCheio = {
+  hora: string;
+  atendimentos: number;
+};
+
+export type ServicoAnalise = {
+  nome: string;
+  total: number;
+};
+
+export type ClientesAnalise = {
+  novos: number;
+  recorrentes: number;
+  cancelamentos: number;
+  no_show: number;
+};
+
+export type AnaliseResponse = {
+  resumo: ResumoMes;
+  semana: DiaSemana[];
+  horarios: HorarioCheio[];
+  servicos: ServicoAnalise[];
+  clientes: ClientesAnalise;
+};
+
+export async function getDashboardAnalise(barbeariaId: string): Promise<AnaliseResponse> {
+  const res = await apiFetch(`/dashboard/${barbeariaId}/analise`);
+  return parseOrThrow(res, "Falha ao carregar dados de análise do dashboard.");
+}
