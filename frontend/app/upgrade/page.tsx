@@ -11,7 +11,6 @@ type Feature = {
 };
 
 const FEATURES: Feature[] = [
-  { label: "Profissionais ativos", basico: false, premium: false },
   { label: "Agendamentos ilimitados", basico: true, premium: true },
   { label: "Dashboard financeiro", basico: false, premium: true },
   { label: "Análise de clientes", basico: false, premium: true },
@@ -63,7 +62,7 @@ export default function UpgradePage() {
                 <FeatureIcon has={true} />
                 1 profissional ativo
               </li>
-              {FEATURES.slice(1).map((f) => (
+              {FEATURES.map((f) => (
                 <li key={f.label} className={styles.featureItem}>
                   <FeatureIcon has={f.basico} />
                   {f.label}
@@ -96,7 +95,7 @@ export default function UpgradePage() {
                 <FeatureIcon has={true} />
                 Até 3 profissionais ativos
               </li>
-              {FEATURES.slice(1).map((f) => (
+              {FEATURES.map((f) => (
                 <li key={f.label} className={styles.featureItem}>
                   <FeatureIcon has={f.premium} />
                   {f.label}

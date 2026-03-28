@@ -192,8 +192,11 @@
 }
 
 .ctaButtonSecondary {
-  background: var(--surface-raised, var(--surface));
+  background: var(--surface);
   color: var(--ink-muted);
   border: 1px solid var(--line);
+}
+
+.ctaButtonSecondary:disabled {
   cursor: not-allowed;
 }
