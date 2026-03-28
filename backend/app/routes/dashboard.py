@@ -1,5 +1,5 @@
 # backend/app/routes/dashboard.py
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi import status as http_status
@@ -11,9 +11,15 @@ from app.models.agendamento import Agendamento
 from app.models.servico import Servico
 from app.routes.deps import verificar_plano_premium
 from app.schemas.dashboard import (
+    AnaliseResponse,
+    ClientesAnalise,
     ClientesResponse,
+    DiaSemana,
     FinanceiroResponse,
     HistoricoMes,
+    HorarioCheio,
+    ResumoMes,
+    ServicoAnalise,
     ServicoMaisVendido,
     ServicosMaisVendidosResponse,
     TopCliente,
@@ -263,4 +269,177 @@ def _clientes(db: Session, tenant_id: int) -> ClientesResponse:
             )
             for row in top_rows
         ],
+    )
+
+
+# Mapeamento: índice = Python weekday() (0=Seg, ..., 6=Dom)
+_DIA_LABELS = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"]
+
+
+@router.get("/{barbearia_id}/analise", response_model=AnaliseResponse)
+def analise(
+    barbearia_id: int,
+    tenant_id: int = Depends(verificar_plano_premium),
+    db: Session = Depends(get_db),
+):
+    if barbearia_id != tenant_id:
+        raise HTTPException(status_code=http_status.HTTP_403_FORBIDDEN, detail="Acesso negado.")
+    try:
+        return _analise(db, tenant_id)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Erro interno: {exc}") from exc
+
+
+def _analise(db: Session, tenant_id: int) -> AnaliseResponse:
+    hoje = date.today()
+    inicio_mes = hoje.replace(day=1)
+    agora = datetime.now()
+
+    # ── Resumo: confirmados no mês atual ──────────────────────────────────────
+    row = (
+        db.query(
+            func.count(Agendamento.id).label("total"),
+            func.coalesce(func.sum(Servico.preco), 0.0).label("fat"),
+            func.coalesce(func.avg(Servico.preco), 0.0).label("ticket"),
+        )
+        .select_from(Agendamento)
+        .join(Servico, Servico.id == Agendamento.servico_id)
+        .filter(
+            Agendamento.barbearia_id == tenant_id,
+            Agendamento.status == "confirmado",
+            Agendamento.data >= inicio_mes,
+            Agendamento.data <= hoje,
+        )
+        .first()
+    )
+    total_confirmados = int(row.total)
+    faturamento = float(row.fat)
+    ticket_medio = float(row.ticket)
+
+    total_cancelados = (
+        db.query(func.count(Agendamento.id))
+        .filter(
+            Agendamento.barbearia_id == tenant_id,
+            Agendamento.status == "cancelado",
+            Agendamento.data >= inicio_mes,
+            Agendamento.data <= hoje,
+        )
+        .scalar()
+        or 0
+    )
+
+    total_no_show = (
+        db.query(func.count(Agendamento.id))
+        .filter(
+            Agendamento.barbearia_id == tenant_id,
+            Agendamento.status == "pendente",
+            Agendamento.data_hora_inicio < agora,
+            Agendamento.data >= inicio_mes,
+        )
+        .scalar()
+        or 0
+    )
+
+    total_demanda = total_confirmados + total_cancelados + total_no_show
+    ocupacao = round(total_confirmados / total_demanda * 100) if total_demanda > 0 else 0
+
+    resumo = ResumoMes(
+        agendamentos=total_confirmados,
+        faturamento=faturamento,
+        ticket_medio=ticket_medio,
+        ocupacao=ocupacao,
+    )
+
+    # ── Semana: confirmados agrupados por dia da semana ───────────────────────
+    # extract("dow"): 0=Dom, 1=Seg, ..., 6=Sáb (PostgreSQL e SQLite via SQLAlchemy)
+    dow_col = func.extract("dow", Agendamento.data).label("dow")
+    semana_rows = (
+        db.query(dow_col, func.count(Agendamento.id).label("total"))
+        .filter(
+            Agendamento.barbearia_id == tenant_id,
+            Agendamento.status == "confirmado",
+            Agendamento.data >= inicio_mes,
+            Agendamento.data <= hoje,
+        )
+        .group_by(dow_col)
+        .all()
+    )
+    contagem_semana = {int(r.dow): int(r.total) for r in semana_rows}
+    # Ordem Seg→Dom; (dow-1)%7 converte SQL dow para índice de _DIA_LABELS
+    semana = [
+        DiaSemana(dia=_DIA_LABELS[(dow - 1) % 7], clientes=contagem_semana[dow])
+        for dow in [1, 2, 3, 4, 5, 6, 0]
+        if dow in contagem_semana
+    ]
+
+    # ── Horários mais cheios: top 5 ───────────────────────────────────────────
+    hora_col = func.extract("hour", Agendamento.hora_inicio).label("hora")
+    horario_rows = (
+        db.query(hora_col, func.count(Agendamento.id).label("total"))
+        .filter(
+            Agendamento.barbearia_id == tenant_id,
+            Agendamento.status == "confirmado",
+            Agendamento.data >= inicio_mes,
+            Agendamento.data <= hoje,
+        )
+        .group_by(hora_col)
+        .order_by(func.count(Agendamento.id).desc())
+        .limit(5)
+        .all()
+    )
+    horarios = [
+        HorarioCheio(hora=f"{int(r.hora):02d}:00", atendimentos=int(r.total))
+        for r in horario_rows
+    ]
+
+    # ── Serviços mais vendidos: top 5 ─────────────────────────────────────────
+    servico_rows = (
+        db.query(Servico.nome, func.count(Agendamento.id).label("total"))
+        .join(Agendamento, Agendamento.servico_id == Servico.id)
+        .filter(
+            Agendamento.barbearia_id == tenant_id,
+            Agendamento.status == "confirmado",
+            Agendamento.data >= inicio_mes,
+            Agendamento.data <= hoje,
+        )
+        .group_by(Servico.id, Servico.nome)
+        .order_by(func.count(Agendamento.id).desc())
+        .limit(5)
+        .all()
+    )
+    servicos = [ServicoAnalise(nome=r.nome, total=int(r.total)) for r in servico_rows]
+
+    # ── Clientes ──────────────────────────────────────────────────────────────
+    freq_rows = (
+        db.query(
+            Agendamento.cliente_telefone,
+            func.count(Agendamento.id).label("visitas"),
+        )
+        .filter(
+            Agendamento.barbearia_id == tenant_id,
+            Agendamento.status == "confirmado",
+            Agendamento.data >= inicio_mes,
+            Agendamento.data <= hoje,
+        )
+        .group_by(Agendamento.cliente_telefone)
+        .all()
+    )
+    novos = sum(1 for r in freq_rows if r.visitas == 1)
+    recorrentes = sum(1 for r in freq_rows if r.visitas > 1)
+
+    clientes = ClientesAnalise(
+        novos=novos,
+        recorrentes=recorrentes,
+        cancelamentos=total_cancelados,
+        no_show=total_no_show,
+    )
+
+    return AnaliseResponse(
+        resumo=resumo,
+        semana=semana,
+        horarios=horarios,
+        servicos=servicos,
+        clientes=clientes,
     )
