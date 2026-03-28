@@ -208,7 +208,7 @@ export default function AnaliseTab() {
         {/* Bloco 5 — Clientes & Retenção */}
         <section className={styles.panel}>
           <h2 className={styles.panelTitle}>Clientes & Retenção</h2>
-          <div className={styles.clienteStats}>
+          <div className={styles.clienteStats} style={{ gridTemplateColumns: "repeat(2, 1fr)" }}>
             <div className={styles.clienteStatItem}>
               <strong className={styles.clienteStatValue}>{MOCK_CLIENTES.novos}</strong>
               <span className={styles.clienteStatLabel}>Novos</span>
@@ -219,7 +219,7 @@ export default function AnaliseTab() {
             </div>
           </div>
           <hr className={styles.metricDivider} />
-          <div className={styles.clienteStats}>
+          <div className={styles.clienteStats} style={{ gridTemplateColumns: "repeat(2, 1fr)" }}>
             <div className={`${styles.clienteStatItem} ${styles.clienteStatItemDanger}`}>
               <strong
                 className={`${styles.clienteStatValue} ${styles.clienteStatValueDanger}`}
