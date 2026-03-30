@@ -53,6 +53,12 @@ def marcar_lida(db: Session, *, notificacao_id: int, estabelecimento_id: int) ->
 
 
 def marcar_todas_lidas(db: Session, *, estabelecimento_id: int) -> int:
+    """Marca todas as notificações não lidas de um tenant como lidas.
+
+    Nota: usa synchronize_session=False para performance. Instâncias de Notificacao
+    já carregadas na sessão ficam com dados stale após esta chamada — faça re-query
+    se precisar dos objetos atualizados.
+    """
     count = (
         db.query(Notificacao)
         .filter(Notificacao.estabelecimento_id == estabelecimento_id, Notificacao.lida.is_(False))
