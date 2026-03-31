@@ -97,6 +97,11 @@ def processar_pendentes_confirmacao(db: Session) -> int:
     try:
         agendamentos = (
             db.query(Agendamento)
+            .options(
+                joinedload(Agendamento.servico),
+                joinedload(Agendamento.cliente),
+                joinedload(Agendamento.barbeiro),
+            )
             .filter(
                 Agendamento.data_hora_fim < agora,
                 Agendamento.status.in_(["pendente", "confirmado"]),

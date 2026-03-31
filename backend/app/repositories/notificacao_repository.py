@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
 
@@ -47,7 +47,7 @@ def marcar_lida(db: Session, *, notificacao_id: int, estabelecimento_id: int) ->
     )
     if notif and not notif.lida:
         notif.lida = True
-        notif.lida_em = datetime.utcnow()
+        notif.lida_em = datetime.now(timezone.utc)
         db.flush()
     return notif
 
@@ -62,7 +62,7 @@ def marcar_todas_lidas(db: Session, *, estabelecimento_id: int) -> int:
     count = (
         db.query(Notificacao)
         .filter(Notificacao.estabelecimento_id == estabelecimento_id, Notificacao.lida.is_(False))
-        .update({"lida": True, "lida_em": datetime.utcnow()}, synchronize_session=False)
+        .update({"lida": True, "lida_em": datetime.now(timezone.utc)}, synchronize_session=False)
     )
     db.flush()
     return count
@@ -88,5 +88,5 @@ def marcar_lida_por_agendamento_e_tipo(
         Notificacao.agendamento_id == agendamento_id,
         Notificacao.tipo == tipo,
         Notificacao.lida.is_(False),
-    ).update({"lida": True, "lida_em": datetime.utcnow()}, synchronize_session=False)
+    ).update({"lida": True, "lida_em": datetime.now(timezone.utc)}, synchronize_session=False)
     db.flush()

@@ -35,7 +35,7 @@ from app.services.notificacao_inapp_service import (
     task_notificacao_novo_agendamento,
     task_notificacao_confirmado,
 )
-from datetime import datetime as _datetime
+from datetime import datetime as _datetime, timezone as _timezone
 
 from app.repositories import notificacao_repository as notif_repo
 from app.schemas.notificacao import ConfirmarPresencaPayload
@@ -251,7 +251,7 @@ def confirmar_presenca(
         raise HTTPException(status_code=404, detail="Agendamento não encontrado.")
 
     agendamento.status = "compareceu" if dados.compareceu else "no_show"
-    agendamento.compareceu_em = _datetime.utcnow()
+    agendamento.compareceu_em = _datetime.now(_timezone.utc)
 
     notif_repo.marcar_lida_por_agendamento_e_tipo(
         db, agendamento_id=agendamento_id, tipo="pendente_confirmacao"
