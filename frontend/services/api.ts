@@ -75,7 +75,7 @@ export type TipoNotificacao =
   | "agendamento_confirmado"
   | "pendente_confirmacao";
 
-export interface Notificacao {
+export type Notificacao = {
   id: number;
   agendamento_id: number | null;
   tipo: TipoNotificacao;
@@ -84,7 +84,7 @@ export interface Notificacao {
   lida: boolean;
   criada_em: string;
   lida_em: string | null;
-}
+};
 
 export type LoginResponse = {
   is_admin: boolean;
@@ -719,29 +719,30 @@ export async function listNotificacoes(
     apenas_nao_lidas: String(apenas_nao_lidas),
     limite: String(limite),
   });
-  const res = await apiFetch(`/notificacoes/?${params}`);
-  return res.json();
+  const res = await apiFetch(`/notificacoes?${params}`);
+  return parseOrThrow(res, "Falha ao listar notificações.");
 }
 
 export async function marcarNotificacaoLida(id: number): Promise<Notificacao> {
   const res = await apiFetch(`/notificacoes/${id}/lida`, { method: "PATCH" });
-  return res.json();
+  return parseOrThrow(res, "Falha ao marcar notificação como lida.");
 }
 
 export async function marcarTodasNotificacoesLidas(): Promise<{ marcadas: number }> {
   const res = await apiFetch("/notificacoes/marcar-todas-lidas", {
     method: "POST",
   });
-  return res.json();
+  return parseOrThrow(res, "Falha ao marcar todas as notificações como lidas.");
 }
 
 export async function confirmarPresenca(
   agendamentoId: number,
   compareceu: boolean
 ): Promise<void> {
-  await apiFetch(`/agendamentos/${agendamentoId}/confirmar-presenca`, {
+  const res = await apiFetch(`/agendamentos/${agendamentoId}/confirmar-presenca`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ compareceu }),
   });
+  await parseOrThrow(res, "Falha ao confirmar presença.");
 }
