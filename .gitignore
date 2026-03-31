@@ -1,6 +1,12 @@
 .env
+.env.*
+!.env.example
 backend/.env
-
+backend/.env.*
+!backend/.env.example
+frontend/.env.local
+frontend/.env.*.local
 
 .superpowers/
 .worktrees/
+.claude/worktrees/
