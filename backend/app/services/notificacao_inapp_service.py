@@ -66,6 +66,10 @@ def task_notificacao_novo_agendamento(agendamento_id: int) -> None:
         )
         if ag:
             criar_notificacao_novo_agendamento(db, ag)
+        else:
+            logger.warning("task_notificacao_novo_agendamento: agendamento %s nao encontrado.", agendamento_id)
+    except Exception:
+        logger.exception("task_notificacao_novo_agendamento: erro inesperado para agendamento %s.", agendamento_id)
     finally:
         db.close()
 

@@ -1,6 +1,7 @@
 import os
 import re
 from datetime import date, datetime, time, timedelta
+from zoneinfo import ZoneInfo
 
 from sqlalchemy.orm import Session
 
@@ -19,6 +20,7 @@ from app.services.notificacao_service import (
 
 
 BOOKING_PUBLIC_BASE_URL = os.getenv("BOOKING_PUBLIC_BASE_URL", "https://app.virtualbarber.shop")
+_TZ_BRASIL = ZoneInfo("America/Sao_Paulo")
 STATUS_VALIDOS = {"pendente", "confirmado", "cancelado", "reagendamento_solicitado", "compareceu", "no_show"}
 
 
@@ -141,8 +143,12 @@ def listar_horarios_disponiveis_publico(
         tenant_id=barbearia_id,
     )
     horarios_set = set(horarios)
+    agora_br = datetime.now(_TZ_BRASIL).replace(tzinfo=None)
     grade = [
-        {"hora": slot.strftime("%H:%M"), "disponivel": slot.strftime("%H:%M") in horarios_set}
+        {
+            "hora": slot.strftime("%H:%M"),
+            "disponivel": slot.strftime("%H:%M") in horarios_set and slot >= agora_br,
+        }
         for slot in build_day_slots(
             _obter_barbearia(db, barbearia_id=barbearia_id),
             data_referencia,
@@ -260,7 +266,7 @@ def criar_agendamento_publico(
         raise ValueError("Servico nao encontrado.")
 
     inicio = datetime.combine(data, hora_inicio.replace(second=0, microsecond=0))
-    if inicio < datetime.now():
+    if inicio < datetime.now(_TZ_BRASIL).replace(tzinfo=None):
         raise ValueError("Horario no passado nao permitido.")
 
     duracao = _duracao_servico(barbeiro=barbeiro, servico=servico)

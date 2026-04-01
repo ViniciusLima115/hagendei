@@ -40,8 +40,8 @@ export function useNotificacoes(): UseNotificacoesReturn {
           return merged.slice(-3);
         });
       }
-    } catch {
-      // silently ignore polling errors
+    } catch (err) {
+      console.error("[notificacoes] falha ao buscar notificações:", err);
     }
   }, []);
 
