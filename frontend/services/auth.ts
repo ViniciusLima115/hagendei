@@ -99,6 +99,11 @@ export function login(session: AuthSession): void {
 
 export function logout(): void {
   if (typeof window === "undefined") return;
+  // Limpa seenIds das notificações do tenant atual antes de remover a sessão
+  const session = getAuthSession();
+  if (session?.tenantId) {
+    window.localStorage.removeItem(`notif_seen_${session.tenantId}`);
+  }
   window.localStorage.removeItem(AUTH_STORAGE_KEY);
   const secure = window.location.protocol === "https:" ? "; Secure" : "";
   document.cookie = `${TOKEN_COOKIE_NAME}=; Path=/; Max-Age=0; SameSite=Lax${secure}`;

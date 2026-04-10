@@ -8,34 +8,68 @@ import {
   marcarTodasNotificacoesLidas,
   Notificacao,
 } from "@/services/api";
+import { getAuthSession } from "@/services/auth";
 
 const POLL_INTERVAL_MS = 15_000;
+
+function getSeenStorageKey(): string {
+  const tenantId = getAuthSession()?.tenantId ?? "anon";
+  return `notif_seen_${tenantId}`;
+}
+
+function loadSeenIds(): Set<number> {
+  if (typeof window === "undefined") return new Set();
+  try {
+    const raw = localStorage.getItem(getSeenStorageKey());
+    if (!raw) return new Set();
+    return new Set(JSON.parse(raw) as number[]);
+  } catch {
+    return new Set();
+  }
+}
+
+function saveSeenIds(ids: Set<number>): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(getSeenStorageKey(), JSON.stringify([...ids]));
+  } catch {
+    // ignore
+  }
+}
 
 export interface UseNotificacoesReturn {
   notificacoes: Notificacao[];
   naoLidas: number;
-  toastsNovos: Notificacao[];          // notificações novas a exibir como toast
+  toastsNovos: Notificacao[];
   marcarLida: (id: number) => Promise<void>;
   marcarTodasLidas: () => Promise<void>;
   confirmarPresencaNotif: (agendamentoId: number, compareceu: boolean) => Promise<void>;
-  limparToast: (id: number) => void;   // remove toast da fila
+  limparToast: (id: number) => void;
+  marcarNovoAgendamentoLido: () => Promise<void>;
 }
 
 export function useNotificacoes(): UseNotificacoesReturn {
   const [notificacoes, setNotificacoes] = useState<Notificacao[]>([]);
   const [toastsNovos, setToastsNovos] = useState<Notificacao[]>([]);
   const seenIds = useRef<Set<number>>(new Set());
+  const initialized = useRef(false);
 
   const fetchNotificacoes = useCallback(async () => {
     try {
       const data = await listNotificacoes(false, 30);
       setNotificacoes(data);
-      // Detect new unseen notifications → add to toasts queue
+
+      // Inicializa seenIds do localStorage na primeira chamada
+      if (!initialized.current) {
+        initialized.current = true;
+        seenIds.current = loadSeenIds();
+      }
+
       const novas = data.filter((n) => !seenIds.current.has(n.id));
       if (novas.length > 0) {
         seenIds.current = new Set([...seenIds.current, ...novas.map((n) => n.id)]);
+        saveSeenIds(seenIds.current);
         setToastsNovos((prev) => {
-          // max 3 toasts: keep newest 3
           const merged = [...prev, ...novas];
           return merged.slice(-3);
         });
@@ -63,11 +97,29 @@ export function useNotificacoes(): UseNotificacoesReturn {
     setNotificacoes((prev) => prev.map((n) => ({ ...n, lida: true })));
   }, []);
 
+  // Marca como lidas todas as notificações de novo_agendamento não lidas (chamado ao abrir o sino)
+  const marcarNovoAgendamentoLido = useCallback(async () => {
+    const naoLidasNovos = notificacoes.filter(
+      (n) => n.tipo === "novo_agendamento" && !n.lida
+    );
+    await Promise.all(naoLidasNovos.map((n) => marcarNotificacaoLida(n.id)));
+    if (naoLidasNovos.length > 0) {
+      setNotificacoes((prev) =>
+        prev.map((n) =>
+          n.tipo === "novo_agendamento" ? { ...n, lida: true } : n
+        )
+      );
+    }
+  }, [notificacoes]);
+
   const confirmarPresencaNotif = useCallback(
     async (agendamentoId: number, compareceu: boolean) => {
       await confirmarPresenca(agendamentoId, compareceu);
-      // refresh to reflect new status
       await fetchNotificacoes();
+      // Dispara evento para que o dashboard saiba que deve recarregar
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("presenca-confirmada"));
+      }
     },
     [fetchNotificacoes]
   );
@@ -86,5 +138,6 @@ export function useNotificacoes(): UseNotificacoesReturn {
     marcarTodasLidas,
     confirmarPresencaNotif,
     limparToast,
+    marcarNovoAgendamentoLido,
   };
 }

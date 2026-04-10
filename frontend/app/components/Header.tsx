@@ -86,6 +86,7 @@ export default function Header() {
             marcarLida={notif.marcarLida}
             marcarTodasLidas={notif.marcarTodasLidas}
             confirmarPresencaNotif={notif.confirmarPresencaNotif}
+            marcarNovoAgendamentoLido={notif.marcarNovoAgendamentoLido}
           />
 
           <button type="button" className={styles.logoutButton} onClick={handleLogout}>

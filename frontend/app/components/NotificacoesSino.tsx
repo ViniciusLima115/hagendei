@@ -29,6 +29,7 @@ interface NotificacoesSinoProps {
   marcarLida: (id: number) => Promise<void>;
   marcarTodasLidas: () => Promise<void>;
   confirmarPresencaNotif: (agendamentoId: number, compareceu: boolean) => Promise<void>;
+  marcarNovoAgendamentoLido: () => Promise<void>;
 }
 
 export function NotificacoesSino({
@@ -37,6 +38,7 @@ export function NotificacoesSino({
   marcarLida,
   marcarTodasLidas,
   confirmarPresencaNotif,
+  marcarNovoAgendamentoLido,
 }: NotificacoesSinoProps) {
   const [aberto, setAberto] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -62,7 +64,16 @@ export function NotificacoesSino({
   return (
     <div className={styles.wrapper} ref={ref}>
       {/* Bell button */}
-      <button className={styles.sinoBtn} onClick={() => setAberto((v) => !v)} aria-label="Notificações">
+      <button
+        className={styles.sinoBtn}
+        onClick={() => {
+          setAberto((v) => {
+            if (!v) marcarNovoAgendamentoLido();
+            return !v;
+          });
+        }}
+        aria-label="Notificações"
+      >
         <span className={styles.sinoIcon}>🔔</span>
         {naoLidas > 0 && <span className={styles.badge}>{naoLidas}</span>}
       </button>

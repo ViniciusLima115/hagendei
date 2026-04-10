@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Lock, TrendingUp, Users, Scissors, DollarSign, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import {
@@ -64,12 +64,18 @@ function DashboardBasico({ tenantId }: { tenantId: string }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const carregarResumo = useCallback(() => {
     getDashboardResumoBasico(tenantId)
       .then(setResumo)
       .catch(() => setError("Erro ao carregar dados. Tente novamente."))
       .finally(() => setLoading(false));
   }, [tenantId]);
+
+  useEffect(() => {
+    carregarResumo();
+    window.addEventListener("presenca-confirmada", carregarResumo);
+    return () => window.removeEventListener("presenca-confirmada", carregarResumo);
+  }, [carregarResumo]);
 
   if (loading) {
     return (
@@ -172,9 +178,8 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const carregarDadosPremium = useCallback(() => {
     if (!isPremium || !tenantId) return;
-
     setLoading(true);
     Promise.all([
       getDashboardFinanceiro(tenantId),
@@ -189,6 +194,12 @@ export default function DashboardPage() {
       .catch(() => setError("Erro ao carregar dados. Tente novamente."))
       .finally(() => setLoading(false));
   }, [isPremium, tenantId]);
+
+  useEffect(() => {
+    carregarDadosPremium();
+    window.addEventListener("presenca-confirmada", carregarDadosPremium);
+    return () => window.removeEventListener("presenca-confirmada", carregarDadosPremium);
+  }, [carregarDadosPremium]);
 
   if (!session) return null;
   // Plano gratis: pedir upgrade para basico
