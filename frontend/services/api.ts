@@ -1,9 +1,11 @@
 import { getAuthSession, logout } from "./auth";
 
 const DEFAULT_API_URL = "https://api.virtualbarber.shop";
-export const API_URL = (process.env.NEXT_PUBLIC_API_URL?.trim() || DEFAULT_API_URL)
-  .replace(/\/+$/, "")
-  .replace(/^http:\/\//i, "https://");
+const _rawApiUrl = (process.env.NEXT_PUBLIC_API_URL?.trim() || DEFAULT_API_URL).replace(/\/+$/, "");
+// Força HTTPS apenas quando não for localhost/127.0.0.1 (evita quebrar dev local)
+export const API_URL = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(_rawApiUrl)
+  ? _rawApiUrl
+  : _rawApiUrl.replace(/^http:\/\//i, "https://");
 
 export type AgendaSlot = {
   hora: string;
