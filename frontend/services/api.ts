@@ -1,20 +1,11 @@
 import { getAuthSession, logout } from "./auth";
 
 const DEFAULT_API_URL = "https://api.virtualbarber.shop";
-<<<<<<< HEAD
 const _rawApiUrl = (process.env.NEXT_PUBLIC_API_URL?.trim() || DEFAULT_API_URL).replace(/\/+$/, "");
 // Força HTTPS apenas quando não for localhost/127.0.0.1 (evita quebrar dev local)
 export const API_URL = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(_rawApiUrl)
   ? _rawApiUrl
   : _rawApiUrl.replace(/^http:\/\//i, "https://");
-=======
-const _rawApiUrl = process.env.NEXT_PUBLIC_API_URL?.trim() || DEFAULT_API_URL;
-export const API_URL = _rawApiUrl.replace(/\/+$/, "");
-if (typeof window !== "undefined") {
-  console.log("[api] NEXT_PUBLIC_API_URL env:", process.env.NEXT_PUBLIC_API_URL);
-  console.log("[api] API_URL resolvido:", API_URL);
-}
->>>>>>> d1b47bb (add-mercadoPago)
 
 export type AgendaSlot = {
   hora: string;

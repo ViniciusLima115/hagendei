@@ -191,11 +191,7 @@ export default function DashboardPage() {
 
   const carregarDadosPremium = useCallback(() => {
     if (!isPremium || !tenantId) return;
-<<<<<<< HEAD
     setLoading(true);
-=======
-
->>>>>>> d1b47bb (add-mercadoPago)
     Promise.all([
       getDashboardFinanceiro(tenantId),
       getDashboardServicos(tenantId),

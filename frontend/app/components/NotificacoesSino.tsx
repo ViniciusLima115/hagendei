@@ -71,7 +71,6 @@ export function NotificacoesSino({
 
   return (
     <div className={styles.wrapper} ref={ref}>
-<<<<<<< HEAD
       {/* Bell button */}
       <button
         className={styles.sinoBtn}
@@ -84,10 +83,6 @@ export function NotificacoesSino({
         aria-label="Notificações"
       >
         <span className={styles.sinoIcon}>🔔</span>
-=======
-      <button className={styles.sinoBtn} onClick={() => setAberto((v) => !v)} aria-label="Notificacoes">
-        <span className={styles.sinoIcon}>!</span>
->>>>>>> d1b47bb (add-mercadoPago)
         {naoLidas > 0 && <span className={styles.badge}>{naoLidas}</span>}
       </button>
 

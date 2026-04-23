@@ -8,11 +8,7 @@ import {
   marcarTodasNotificacoesLidas,
   Notificacao,
 } from "@/services/api";
-<<<<<<< HEAD
 import { getAuthSession } from "@/services/auth";
-=======
-import { useAuthSession } from "@/services/auth";
->>>>>>> d1b47bb (add-mercadoPago)
 
 const POLL_INTERVAL_MS = 15_000;
 
