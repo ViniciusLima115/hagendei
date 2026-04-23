@@ -8,7 +8,7 @@ import {
   marcarTodasNotificacoesLidas,
   Notificacao,
 } from "@/services/api";
-import { getAuthSession } from "@/services/auth";
+import { getAuthSession, useAuthSession } from "@/services/auth";
 
 const POLL_INTERVAL_MS = 15_000;
 
