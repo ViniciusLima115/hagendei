@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 import { getPublicPaymentStatus, PublicPaymentStatusResponse } from "@/services/api";
@@ -27,7 +27,7 @@ function formatCurrency(value: number) {
   }).format(value);
 }
 
-export function PaymentReturnClient({ variant }: { variant: Variant }) {
+function PaymentReturnInner({ variant }: { variant: Variant }) {
   const searchParams = useSearchParams();
   const externalReference = searchParams.get("external_reference") || "";
 
@@ -104,5 +104,13 @@ export function PaymentReturnClient({ variant }: { variant: Variant }) {
         </div>
       </div>
     </main>
+  );
+}
+
+export function PaymentReturnClient({ variant }: { variant: Variant }) {
+  return (
+    <Suspense fallback={<main className="min-h-screen bg-slate-100" />}>
+      <PaymentReturnInner variant={variant} />
+    </Suspense>
   );
 }
