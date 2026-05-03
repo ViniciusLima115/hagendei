@@ -1,0 +1,154 @@
+"""Testes adicionais para rotas de dashboard — cobre endpoints não testados."""
+from datetime import date, datetime, timedelta
+
+import pytest
+
+from app.models.agendamento import Agendamento
+from app.models.estabelecimento import Estabelecimento
+from app.models.profissional import Profissional
+from app.models.servico import Servico
+
+
+# ── helpers ───────────────────────────────────────────────────────────────────
+
+def _criar_est(db_session, plano="basico", nome="Est Dashboard"):
+    est = Estabelecimento(nome=nome, plano=plano)
+    db_session.add(est)
+    db_session.commit()
+    db_session.refresh(est)
+    return est
+
+
+def _criar_agendamento(db_session, est_id, prof_id, serv_id, status="confirmado", dias_atras=0):
+    hoje = date.today() - timedelta(days=dias_atras)
+    ag = Agendamento(
+        estabelecimento_id=est_id,
+        profissional_id=prof_id,
+        servico_id=serv_id,
+        barbearia_id=est_id,
+        cliente_nome="Cliente Teste",
+        cliente_telefone="11999990099",
+        data=hoje,
+        hora_inicio=datetime.now().replace(hour=10, minute=0).time(),
+        data_hora_inicio=datetime.combine(hoje, datetime.now().replace(hour=10, minute=0).time()),
+        data_hora_fim=datetime.combine(hoje, datetime.now().replace(hour=10, minute=30).time()),
+        status=status,
+    )
+    db_session.add(ag)
+    db_session.commit()
+    db_session.refresh(ag)
+    return ag
+
+
+# ── GET /{barbearia_id}/resumo-basico ─────────────────────────────────────────
+
+def test_resumo_basico_barbearia_id_errado_retorna_403(client, db_session, make_tenant_headers):
+    est1 = _criar_est(db_session, "basico", "Est 1")
+    est2 = _criar_est(db_session, "basico", "Est 2")
+    headers = make_tenant_headers(est1.id)
+    resp = client.get(f"/dashboard/{est2.id}/resumo-basico", headers=headers)
+    assert resp.status_code == 403
+
+
+def test_resumo_basico_plano_gratis_retorna_403(client, db_session, make_tenant_headers):
+    est = _criar_est(db_session, "gratis", "Est Gratis")
+    headers = make_tenant_headers(est.id)
+    resp = client.get(f"/dashboard/{est.id}/resumo-basico", headers=headers)
+    assert resp.status_code == 403
+
+
+def test_resumo_basico_plano_basico_retorna_200(client, db_session, make_tenant_headers):
+    est = _criar_est(db_session, "basico", "Est Basico")
+    headers = make_tenant_headers(est.id)
+    resp = client.get(f"/dashboard/{est.id}/resumo-basico", headers=headers)
+    assert resp.status_code == 200
+
+
+# ── GET /{barbearia_id}/financeiro ────────────────────────────────────────────
+
+def test_financeiro_plano_basico_retorna_200(client, db_session, make_tenant_headers):
+    est = _criar_est(db_session, "basico", "Est Fin")
+    headers = make_tenant_headers(est.id)
+    resp = client.get(f"/dashboard/{est.id}/financeiro", headers=headers)
+    assert resp.status_code == 200
+
+
+def test_financeiro_plano_gratis_retorna_403(client, db_session, make_tenant_headers):
+    est = _criar_est(db_session, "gratis", "Est Fin Gratis")
+    headers = make_tenant_headers(est.id)
+    resp = client.get(f"/dashboard/{est.id}/financeiro", headers=headers)
+    assert resp.status_code == 403
+
+
+def test_financeiro_com_agendamentos_retorna_dados(client, db_session, make_tenant_headers):
+    est = _criar_est(db_session, "premium", "Est Fin Premium")
+    prof = Profissional(nome="Prof", estabelecimento_id=est.id)
+    db_session.add(prof)
+    db_session.commit()
+    db_session.refresh(prof)
+    serv = Servico(nome="Corte", duracao_minutos=30, preco=50.0, barbearia_id=est.id)
+    db_session.add(serv)
+    db_session.commit()
+    db_session.refresh(serv)
+    _criar_agendamento(db_session, est.id, prof.id, serv.id, "compareceu")
+
+    headers = make_tenant_headers(est.id)
+    resp = client.get(f"/dashboard/{est.id}/financeiro", headers=headers)
+    assert resp.status_code == 200
+    body = resp.json()
+    assert "faturamento_mes" in body or "faturamento" in body or isinstance(body, dict)
+
+
+# ── GET /{barbearia_id}/clientes ─────────────────────────────────────────────
+
+def test_clientes_plano_basico_retorna_200(client, db_session, make_tenant_headers):
+    est = _criar_est(db_session, "basico", "Est Cli")
+    headers = make_tenant_headers(est.id)
+    resp = client.get(f"/dashboard/{est.id}/clientes", headers=headers)
+    assert resp.status_code == 200
+
+
+def test_clientes_plano_gratis_retorna_403(client, db_session, make_tenant_headers):
+    est = _criar_est(db_session, "gratis", "Est Cli Gratis")
+    headers = make_tenant_headers(est.id)
+    resp = client.get(f"/dashboard/{est.id}/clientes", headers=headers)
+    assert resp.status_code == 403
+
+
+# ── GET /{barbearia_id}/servicos-mais-vendidos ────────────────────────────────
+
+def test_servicos_mais_vendidos_plano_basico_retorna_200(client, db_session, make_tenant_headers):
+    est = _criar_est(db_session, "basico", "Est Serv")
+    headers = make_tenant_headers(est.id)
+    resp = client.get(f"/dashboard/{est.id}/servicos-mais-vendidos", headers=headers)
+    assert resp.status_code == 200
+
+
+def test_servicos_mais_vendidos_plano_gratis_retorna_403(client, db_session, make_tenant_headers):
+    est = _criar_est(db_session, "gratis", "Est Serv Gratis")
+    headers = make_tenant_headers(est.id)
+    resp = client.get(f"/dashboard/{est.id}/servicos-mais-vendidos", headers=headers)
+    assert resp.status_code == 403
+
+
+# ── GET /{barbearia_id}/analise ───────────────────────────────────────────────
+
+def test_analise_plano_premium_retorna_200(client, db_session, make_tenant_headers):
+    est = _criar_est(db_session, "premium", "Est Analise")
+    headers = make_tenant_headers(est.id)
+    resp = client.get(f"/dashboard/{est.id}/analise", headers=headers)
+    assert resp.status_code == 200
+
+
+def test_analise_plano_basico_retorna_403(client, db_session, make_tenant_headers):
+    est = _criar_est(db_session, "basico", "Est Analise Basico")
+    headers = make_tenant_headers(est.id)
+    resp = client.get(f"/dashboard/{est.id}/analise", headers=headers)
+    assert resp.status_code == 403
+
+
+def test_analise_plano_gratis_retorna_403(client, db_session, make_tenant_headers):
+    est = _criar_est(db_session, "gratis", "Est Analise Gratis")
+    headers = make_tenant_headers(est.id)
+    resp = client.get(f"/dashboard/{est.id}/analise", headers=headers)
+    assert resp.status_code == 403

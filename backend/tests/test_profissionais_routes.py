@@ -159,13 +159,13 @@ def test_remover_profissional(client, db_session, make_tenant_headers):
     p = Profissional(nome="Para Remover", estabelecimento_id=est.id)
     db_session.add(p)
     db_session.commit()
-    db_session.refresh(p)
+    p_id = p.id
 
-    resp = client.delete(f"/profissionais/{p.id}", headers=_headers(est.id, make_tenant_headers))
+    resp = client.delete(f"/profissionais/{p_id}", headers=_headers(est.id, make_tenant_headers))
     assert resp.status_code == 204
 
-    db_session.expire_all()
-    assert db_session.query(Profissional).filter(Profissional.id == p.id).first() is None
+    db_session.expunge_all()
+    assert db_session.query(Profissional).filter(Profissional.id == p_id).first() is None
 
 
 def test_remover_profissional_inexistente_retorna_404(client, db_session, make_tenant_headers):
