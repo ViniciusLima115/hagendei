@@ -134,8 +134,8 @@ def test_criar_notificacao_confirmado(db_session, dados_base):
 
 
 def test_processar_pendentes_apenas_horario_passado(db_session, dados_base):
-    futuro = _criar_agendamento(db_session, dados_base, hora_inicio=datetime.now() + timedelta(hours=2))
-    passado = _criar_agendamento(db_session, dados_base, hora_inicio=datetime.now() - timedelta(hours=2))
+    futuro = _criar_agendamento(db_session, dados_base, hora_inicio=datetime.now() + timedelta(hours=6))
+    passado = _criar_agendamento(db_session, dados_base, hora_inicio=datetime.now() - timedelta(days=1))
 
     count = processar_pendentes_confirmacao(db_session)
     assert count == 1
@@ -147,7 +147,7 @@ def test_processar_pendentes_apenas_horario_passado(db_session, dados_base):
 
 
 def test_processar_pendentes_idempotente(db_session, dados_base):
-    _criar_agendamento(db_session, dados_base, hora_inicio=datetime.now() - timedelta(hours=2))
+    _criar_agendamento(db_session, dados_base, hora_inicio=datetime.now() - timedelta(days=1))
 
     count1 = processar_pendentes_confirmacao(db_session)
     count2 = processar_pendentes_confirmacao(db_session)
@@ -156,7 +156,7 @@ def test_processar_pendentes_idempotente(db_session, dados_base):
 
 
 def test_processar_pendentes_ignora_status_invalido(db_session, dados_base):
-    _criar_agendamento(db_session, dados_base, hora_inicio=datetime.now() - timedelta(hours=2), status="cancelado")
+    _criar_agendamento(db_session, dados_base, hora_inicio=datetime.now() - timedelta(days=1), status="cancelado")
     count = processar_pendentes_confirmacao(db_session)
     assert count == 0
 

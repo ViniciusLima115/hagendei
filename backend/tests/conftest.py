@@ -48,6 +48,10 @@ def db_session(session_factory):
 
 @pytest.fixture
 def app(session_factory):
+    import app.database as _db_module
+    original_session_local = _db_module.SessionLocal
+    _db_module.SessionLocal = session_factory
+
     test_app = FastAPI()
     test_app.include_router(agendamentos.router)
     test_app.include_router(agenda.router)
@@ -80,7 +84,10 @@ def app(session_factory):
             db.close()
 
     test_app.dependency_overrides[get_db] = override_get_db
-    return test_app
+
+    yield test_app
+
+    _db_module.SessionLocal = original_session_local
 
 
 @pytest.fixture
