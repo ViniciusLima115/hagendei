@@ -1,0 +1,10 @@
+virtualbarber.shop {
+    reverse_proxy frontend:3000
+}
+
+api.virtualbarber.shop {
+    @deploy path /deploy
+    reverse_proxy @deploy webhook:9000
+
+    reverse_proxy backend:8000
+}
