@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Settings, User, Lock, Palette, Bell, ArrowLeft } from "lucide-react";
 
@@ -54,7 +54,7 @@ async function patchConfiguracao(
   }
 }
 
-export default function ConfiguracoesPage() {
+function ConfiguracoesContent() {
   const session = useAuthSession();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -441,5 +441,13 @@ export default function ConfiguracoesPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function ConfiguracoesPage() {
+  return (
+    <Suspense fallback={<div>Carregando...</div>}>
+      <ConfiguracoesContent />
+    </Suspense>
   );
 }
