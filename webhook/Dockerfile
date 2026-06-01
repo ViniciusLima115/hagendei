@@ -2,7 +2,7 @@ FROM docker:27-cli
 
 RUN apk add --no-cache git bash curl gettext
 
-RUN WEBHOOK_VERSION=2.8.1 && \
+RUN WEBHOOK_VERSION=2.8.0 && \
     wget -qO /usr/local/bin/webhook \
     https://github.com/adnanh/webhook/releases/download/${WEBHOOK_VERSION}/webhook-linux-amd64 && \
     chmod +x /usr/local/bin/webhook
