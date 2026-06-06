@@ -14,4 +14,47 @@ PAYMENT_STATUS_CANCELLED = "cancelled"
 PAYMENT_STATUS_REFUNDED = "refunded"
 PAYMENT_STATUS_EXPIRED = "expired"
 
-PAYMENT_PROVIDER_MERCADO_PAGO = "mercadopago"
+PAYMENT_PROVIDER_MERCADO_PAGO = "mercado_pago"
+PAYMENT_PROVIDER_MERCADO_PAGO_LEGACY = "mercadopago"
+PAYMENT_PROVIDER_PICPAY = "picpay"
+SUPPORTED_PAYMENT_PROVIDERS = {
+    PAYMENT_PROVIDER_MERCADO_PAGO,
+    PAYMENT_PROVIDER_PICPAY,
+}
+
+PAYMENT_ACCOUNT_STATUS_CONNECTED = "connected"
+PAYMENT_ACCOUNT_STATUS_DISCONNECTED = "disconnected"
+PAYMENT_ACCOUNT_STATUS_EXPIRED = "expired"
+PAYMENT_ACCOUNT_STATUS_ERROR = "error"
+SUPPORTED_PAYMENT_ACCOUNT_STATUSES = {
+    PAYMENT_ACCOUNT_STATUS_CONNECTED,
+    PAYMENT_ACCOUNT_STATUS_DISCONNECTED,
+    PAYMENT_ACCOUNT_STATUS_EXPIRED,
+    PAYMENT_ACCOUNT_STATUS_ERROR,
+}
+LEGACY_PAYMENT_ACCOUNT_STATUS_ALIASES = {
+    "active": PAYMENT_ACCOUNT_STATUS_CONNECTED,
+    "inactive": PAYMENT_ACCOUNT_STATUS_DISCONNECTED,
+    "revoked": PAYMENT_ACCOUNT_STATUS_DISCONNECTED,
+    "pending": PAYMENT_ACCOUNT_STATUS_DISCONNECTED,
+}
+
+
+def normalize_payment_provider(provider: str | None) -> str:
+    normalized = (provider or "").strip().lower()
+    if normalized in {PAYMENT_PROVIDER_MERCADO_PAGO, PAYMENT_PROVIDER_MERCADO_PAGO_LEGACY}:
+        return PAYMENT_PROVIDER_MERCADO_PAGO
+    return normalized
+
+
+def normalize_payment_account_status(
+    status: str | None,
+    *,
+    default: str = PAYMENT_ACCOUNT_STATUS_DISCONNECTED,
+) -> str:
+    normalized = (status or default).strip().lower()
+    return LEGACY_PAYMENT_ACCOUNT_STATUS_ALIASES.get(normalized, normalized)
+
+
+def is_payment_account_connected(status: str | None) -> bool:
+    return normalize_payment_account_status(status) == PAYMENT_ACCOUNT_STATUS_CONNECTED

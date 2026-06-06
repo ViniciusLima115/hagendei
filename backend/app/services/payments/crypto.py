@@ -1,8 +1,11 @@
 import base64
-import hashlib
 import os
 
 from cryptography.fernet import Fernet, InvalidToken
+
+
+class SecretCryptoError(ValueError):
+    """Raised when a sensitive value cannot be encrypted or decrypted safely."""
 
 
 def _normalize_fernet_key(raw: str) -> bytes:
@@ -33,40 +36,30 @@ def _normalize_fernet_key(raw: str) -> bytes:
     raise ValueError("ENCRYPTION_KEY invalida. Use uma chave Fernet ou 32 bytes.")
 
 
-def _fallback_dev_key() -> bytes:
-    seed = os.getenv("JWT_SECRET", "dev-insecure-key").encode("utf-8")
-    digest = hashlib.sha256(seed).digest()
-    return base64.urlsafe_b64encode(digest)
-
-
 def _build_fernet() -> Fernet:
     configured = os.getenv("ENCRYPTION_KEY", "").strip()
-    app_env = os.getenv("APP_ENV", "").strip().lower()
 
     if configured:
         return Fernet(_normalize_fernet_key(configured))
 
-    if app_env in {"prod", "production"}:
-        raise RuntimeError("ENCRYPTION_KEY nao configurada em ambiente de producao.")
-
-    return Fernet(_fallback_dev_key())
+    raise RuntimeError("ENCRYPTION_KEY nao configurada para criptografia de tokens sensiveis.")
 
 
-def encrypt_sensitive_value(value: str | None) -> str | None:
+def encrypt_secret(value: str | None) -> str:
     if not value:
-        return None
+        return ""
     fernet = _build_fernet()
     return fernet.encrypt(value.encode("utf-8")).decode("utf-8")
 
 
-def decrypt_sensitive_value(value: str | None) -> str | None:
+def decrypt_secret(value: str | None) -> str:
     if not value:
-        return None
+        return ""
     fernet = _build_fernet()
     try:
         return fernet.decrypt(value.encode("utf-8")).decode("utf-8")
     except InvalidToken as exc:
-        raise ValueError("Falha ao descriptografar valor sensivel.") from exc
+        raise SecretCryptoError("Falha ao descriptografar valor sensivel.") from exc
 
 
 def mask_secret(value: str | None, head: int = 6, tail: int = 4) -> str:
@@ -76,3 +69,13 @@ def mask_secret(value: str | None, head: int = 6, tail: int = 4) -> str:
     if len(text) <= head + tail:
         return "*" * len(text)
     return f"{text[:head]}***{text[-tail:]}"
+
+
+def encrypt_sensitive_value(value: str | None) -> str | None:
+    encrypted = encrypt_secret(value)
+    return encrypted or None
+
+
+def decrypt_sensitive_value(value: str | None) -> str | None:
+    decrypted = decrypt_secret(value)
+    return decrypted or None

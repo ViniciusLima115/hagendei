@@ -267,6 +267,145 @@
   margin: 0;
 }
 
+.paymentEmpty {
+  border-radius: var(--radius-md);
+  border: 1px solid var(--line);
+  background: var(--surface-alt);
+  padding: 14px;
+}
+
+.paymentEmptyTitle {
+  margin: 0 0 4px;
+  color: var(--ink);
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+.paymentDetailsGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.paymentDetailItem,
+.paymentMetricItem {
+  min-width: 0;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--line);
+  background: var(--surface-alt);
+  padding: 12px;
+}
+
+.paymentDetailItem span,
+.paymentMetricItem span {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--ink-muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.paymentDetailItem strong,
+.paymentMetricItem strong {
+  display: block;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--ink);
+  font-size: 0.88rem;
+  line-height: 1.35;
+}
+
+.paymentMetricGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.paymentMetricItem strong {
+  font-size: 1rem;
+}
+
+.paymentError {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--danger-line);
+  background: var(--danger-soft);
+  color: var(--danger);
+  padding: 12px;
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
+.paymentError svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.auditSection {
+  display: grid;
+  gap: 8px;
+}
+
+.sectionMiniTitle {
+  margin: 0;
+  color: var(--ink);
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.auditList {
+  display: grid;
+  gap: 8px;
+}
+
+.auditItem {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: start;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--line);
+  background: var(--surface-alt);
+  padding: 10px 12px;
+}
+
+.auditItem strong {
+  color: var(--ink);
+  font-size: 0.85rem;
+}
+
+.auditMeta,
+.auditError {
+  margin: 2px 0 0;
+  color: var(--ink-muted);
+  font-size: 0.76rem;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.auditStatus {
+  color: var(--ink-muted);
+  font-size: 0.76rem;
+  font-family: var(--font-mono, monospace);
+  white-space: nowrap;
+}
+
+.auditError {
+  grid-column: 1 / -1;
+  color: var(--danger);
+}
+
+.modalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding-top: 4px;
+}
+
 .secretGrid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -496,7 +635,7 @@
   flex-direction: column;
   gap: 3px;
   flex-shrink: 0;
-  min-width: 110px;
+  min-width: 180px;
 }
 
 .estabMetaItem {
@@ -510,6 +649,22 @@
 .estabMetaItem svg {
   flex-shrink: 0;
   color: var(--ink-subtle);
+}
+
+.estabMetaItemDanger {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 220px;
+  color: var(--danger);
+  font-size: 0.78rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.estabMetaItemDanger svg {
+  flex-shrink: 0;
 }
 
 .estabSenha {
@@ -573,6 +728,16 @@
   }
   .secretGrid {
     grid-template-columns: 1fr;
+  }
+  .paymentDetailsGrid,
+  .paymentMetricGrid {
+    grid-template-columns: 1fr;
+  }
+  .auditItem {
+    grid-template-columns: 1fr;
+  }
+  .auditStatus {
+    white-space: normal;
   }
 }
 

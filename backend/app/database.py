@@ -68,6 +68,7 @@ def init_db():
         reminder_job,
         pagamento,
         payment_account,
+        payment_admin_audit_log,
         payment_oauth_state,
         payment_webhook_event,
         webhook_event,
@@ -112,6 +113,10 @@ def _ensure_configuracoes_columns():
         "ALTER TABLE estabelecimentos ADD COLUMN logo_url VARCHAR(500)",
         "ALTER TABLE estabelecimentos ADD COLUMN notif_ativo BOOLEAN NOT NULL DEFAULT TRUE",
         "ALTER TABLE estabelecimentos ADD COLUMN notif_horas_antes INTEGER NOT NULL DEFAULT 2",
+        "ALTER TABLE estabelecimentos ADD COLUMN pagamento_adiantado_obrigatorio BOOLEAN NOT NULL DEFAULT FALSE",
+        "ALTER TABLE estabelecimentos ADD COLUMN advance_payment_type VARCHAR(20) NULL",
+        "ALTER TABLE estabelecimentos ADD COLUMN advance_payment_amount FLOAT NULL",
+        "ALTER TABLE estabelecimentos ADD COLUMN payment_default_provider VARCHAR(50) NOT NULL DEFAULT 'mercado_pago'",
     ])
 
 
@@ -168,6 +173,8 @@ def _ensure_pagamentos_table():
         from app.models.pagamento import Pagamento
 
         PaymentAccount.__table__.create(bind=engine, checkfirst=True)
+        from app.models.payment_admin_audit_log import PaymentAdminAuditLog
+        PaymentAdminAuditLog.__table__.create(bind=engine, checkfirst=True)
         PaymentOAuthState.__table__.create(bind=engine, checkfirst=True)
         Pagamento.__table__.create(bind=engine, checkfirst=True)
         PaymentWebhookEvent.__table__.create(bind=engine, checkfirst=True)
@@ -176,11 +183,30 @@ def _ensure_pagamentos_table():
 
     _run_best_effort([
         "ALTER TABLE payment_accounts ADD COLUMN account_name VARCHAR(120) NULL",
+        "ALTER TABLE payment_accounts ADD COLUMN provider_account_id VARCHAR(120) NULL",
+        "ALTER TABLE payment_accounts ADD COLUMN provider_account_email VARCHAR(255) NULL",
         "ALTER TABLE payment_accounts ADD COLUMN client_id_encrypted TEXT NULL",
         "ALTER TABLE payment_accounts ADD COLUMN client_secret_encrypted TEXT NULL",
+        "ALTER TABLE payment_accounts ADD COLUMN public_key TEXT NULL",
+        "ALTER TABLE payment_accounts ADD COLUMN connected_at TIMESTAMP NULL",
+        "ALTER TABLE payment_accounts ADD COLUMN disconnected_at TIMESTAMP NULL",
+        "ALTER TABLE payment_accounts ADD COLUMN expires_at TIMESTAMP NULL",
         "ALTER TABLE payment_accounts ADD COLUMN internal_notes TEXT NULL",
         "ALTER TABLE payment_accounts ADD COLUMN created_by_admin_id VARCHAR(120) NULL",
         "ALTER TABLE payment_accounts ADD COLUMN updated_by_admin_id VARCHAR(120) NULL",
+        "ALTER TABLE payment_oauth_states ADD COLUMN code_verifier VARCHAR(255) NULL",
+        "UPDATE payment_accounts SET provider = 'mercado_pago' WHERE provider = 'mercadopago'",
+        "UPDATE payment_oauth_states SET provider = 'mercado_pago' WHERE provider = 'mercadopago'",
+        "UPDATE pagamentos SET provider = 'mercado_pago' WHERE provider = 'mercadopago'",
+        "UPDATE payment_webhook_events SET provider = 'mercado_pago' WHERE provider = 'mercadopago'",
+        "UPDATE payment_accounts SET provider_account_id = external_user_id WHERE provider_account_id IS NULL AND external_user_id IS NOT NULL",
+        "UPDATE payment_accounts SET provider_account_email = external_account_email WHERE provider_account_email IS NULL AND external_account_email IS NOT NULL",
+        "UPDATE payment_accounts SET expires_at = token_expires_at WHERE expires_at IS NULL AND token_expires_at IS NOT NULL",
+        "UPDATE payment_accounts SET status = 'connected' WHERE status = 'active'",
+        "UPDATE payment_accounts SET status = 'disconnected' WHERE status IN ('inactive', 'revoked', 'pending')",
+        "UPDATE payment_accounts SET connected_at = COALESCE(last_sync_at, updated_at, created_at) WHERE status = 'connected' AND connected_at IS NULL",
+        "UPDATE payment_accounts SET disconnected_at = COALESCE(updated_at, created_at) WHERE status = 'disconnected' AND disconnected_at IS NULL",
+        "CREATE UNIQUE INDEX IF NOT EXISTS ux_payment_accounts_provider_account_id ON payment_accounts (provider, provider_account_id)",
         "ALTER TABLE pagamentos ADD COLUMN estabelecimento_id INTEGER NULL",
         "ALTER TABLE pagamentos ADD COLUMN payment_account_id INTEGER NULL",
         "ALTER TABLE pagamentos ADD COLUMN idempotency_key VARCHAR(120) NULL",
@@ -195,6 +221,9 @@ def _ensure_pagamentos_table():
         "CREATE INDEX ix_pagamentos_estabelecimento_id ON pagamentos (estabelecimento_id)",
         "CREATE INDEX ix_pagamentos_payment_account_id ON pagamentos (payment_account_id)",
         "CREATE INDEX ix_pagamentos_expires_at ON pagamentos (expires_at)",
+        "CREATE INDEX ix_payment_admin_audit_establishment_id ON payment_admin_audit_logs (establishment_id)",
+        "CREATE INDEX ix_payment_admin_audit_payment_account_id ON payment_admin_audit_logs (payment_account_id)",
+        "CREATE INDEX ix_payment_admin_audit_action ON payment_admin_audit_logs (action)",
     ])
 
 
@@ -207,6 +236,24 @@ def _ensure_postgres_schema_guards():
         return
 
     statements = [
+        # estabelecimentos.payment settings
+        """
+        ALTER TABLE estabelecimentos
+        ADD COLUMN IF NOT EXISTS pagamento_adiantado_obrigatorio BOOLEAN NOT NULL DEFAULT FALSE
+        """,
+        """
+        ALTER TABLE estabelecimentos
+        ADD COLUMN IF NOT EXISTS advance_payment_type VARCHAR(20) NULL
+        """,
+        """
+        ALTER TABLE estabelecimentos
+        ADD COLUMN IF NOT EXISTS advance_payment_amount FLOAT NULL
+        """,
+        """
+        ALTER TABLE estabelecimentos
+        ADD COLUMN IF NOT EXISTS payment_default_provider VARCHAR(50) NOT NULL DEFAULT 'mercado_pago'
+        """,
+
         # clientes.email
         """
         ALTER TABLE clientes
@@ -285,11 +332,35 @@ def _ensure_postgres_schema_guards():
         """,
         """
         ALTER TABLE payment_accounts
+        ADD COLUMN IF NOT EXISTS provider_account_id VARCHAR(120) NULL
+        """,
+        """
+        ALTER TABLE payment_accounts
+        ADD COLUMN IF NOT EXISTS provider_account_email VARCHAR(255) NULL
+        """,
+        """
+        ALTER TABLE payment_accounts
         ADD COLUMN IF NOT EXISTS client_id_encrypted TEXT NULL
         """,
         """
         ALTER TABLE payment_accounts
         ADD COLUMN IF NOT EXISTS client_secret_encrypted TEXT NULL
+        """,
+        """
+        ALTER TABLE payment_accounts
+        ADD COLUMN IF NOT EXISTS public_key TEXT NULL
+        """,
+        """
+        ALTER TABLE payment_accounts
+        ADD COLUMN IF NOT EXISTS connected_at TIMESTAMP NULL
+        """,
+        """
+        ALTER TABLE payment_accounts
+        ADD COLUMN IF NOT EXISTS disconnected_at TIMESTAMP NULL
+        """,
+        """
+        ALTER TABLE payment_accounts
+        ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP NULL
         """,
         """
         ALTER TABLE payment_accounts
@@ -303,6 +374,42 @@ def _ensure_postgres_schema_guards():
         ALTER TABLE payment_accounts
         ADD COLUMN IF NOT EXISTS updated_by_admin_id VARCHAR(120) NULL
         """,
+        """
+        ALTER TABLE payment_oauth_states
+        ADD COLUMN IF NOT EXISTS code_verifier VARCHAR(255) NULL
+        """,
+        "UPDATE payment_accounts SET provider = 'mercado_pago' WHERE provider = 'mercadopago'",
+        "UPDATE payment_oauth_states SET provider = 'mercado_pago' WHERE provider = 'mercadopago'",
+        "UPDATE pagamentos SET provider = 'mercado_pago' WHERE provider = 'mercadopago'",
+        "UPDATE payment_webhook_events SET provider = 'mercado_pago' WHERE provider = 'mercadopago'",
+        """
+        UPDATE payment_accounts
+        SET provider_account_id = external_user_id
+        WHERE provider_account_id IS NULL AND external_user_id IS NOT NULL
+        """,
+        """
+        UPDATE payment_accounts
+        SET provider_account_email = external_account_email
+        WHERE provider_account_email IS NULL AND external_account_email IS NOT NULL
+        """,
+        """
+        UPDATE payment_accounts
+        SET expires_at = token_expires_at
+        WHERE expires_at IS NULL AND token_expires_at IS NOT NULL
+        """,
+        "UPDATE payment_accounts SET status = 'connected' WHERE status = 'active'",
+        "UPDATE payment_accounts SET status = 'disconnected' WHERE status IN ('inactive', 'revoked', 'pending')",
+        """
+        UPDATE payment_accounts
+        SET connected_at = COALESCE(last_sync_at, updated_at, created_at)
+        WHERE status = 'connected' AND connected_at IS NULL
+        """,
+        """
+        UPDATE payment_accounts
+        SET disconnected_at = COALESCE(updated_at, created_at)
+        WHERE status = 'disconnected' AND disconnected_at IS NULL
+        """,
+        "CREATE UNIQUE INDEX IF NOT EXISTS ux_payment_accounts_provider_account_id ON payment_accounts (provider, provider_account_id)",
 
         # pagamentos v2
         """
@@ -349,6 +456,27 @@ def _ensure_postgres_schema_guards():
         "CREATE INDEX IF NOT EXISTS ix_pagamentos_estabelecimento_id ON pagamentos (estabelecimento_id)",
         "CREATE INDEX IF NOT EXISTS ix_pagamentos_payment_account_id ON pagamentos (payment_account_id)",
         "CREATE INDEX IF NOT EXISTS ix_pagamentos_expires_at ON pagamentos (expires_at)",
+
+        # auditoria admin de pagamentos
+        """
+        CREATE TABLE IF NOT EXISTS payment_admin_audit_logs (
+            id SERIAL PRIMARY KEY,
+            establishment_id INTEGER NOT NULL REFERENCES estabelecimentos(id),
+            payment_account_id INTEGER NULL REFERENCES payment_accounts(id),
+            provider VARCHAR(50) NOT NULL DEFAULT 'mercado_pago',
+            admin_sub VARCHAR(120) NULL,
+            action VARCHAR(80) NOT NULL,
+            status_before VARCHAR(30) NULL,
+            status_after VARCHAR(30) NULL,
+            details JSONB NULL,
+            error_message TEXT NULL,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+        """,
+        "CREATE INDEX IF NOT EXISTS ix_payment_admin_audit_establishment_id ON payment_admin_audit_logs (establishment_id)",
+        "CREATE INDEX IF NOT EXISTS ix_payment_admin_audit_payment_account_id ON payment_admin_audit_logs (payment_account_id)",
+        "CREATE INDEX IF NOT EXISTS ix_payment_admin_audit_action ON payment_admin_audit_logs (action)",
+        "CREATE INDEX IF NOT EXISTS ix_payment_admin_audit_created_at ON payment_admin_audit_logs (created_at)",
     ]
 
     for sql in statements:

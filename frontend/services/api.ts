@@ -189,19 +189,16 @@ export type PublicAgendamentoTokenResponse = {
 };
 
 export type PublicPaymentInitResponse = {
-  agendamento_id: number;
-  external_reference: string;
-  preference_id: string;
   checkout_url: string;
-  amount: number;
-  pagamento_status: "pending" | "approved" | "rejected" | "cancelled" | "refunded" | "expired";
-  agendamento_status: "pending_payment" | "pendente" | "confirmado" | "cancelado" | "failed" | "expired";
+  appointment_id: number;
+  payment_id: number;
   expires_at?: string | null;
 };
 
 export type PublicPaymentStatusResponse = {
   external_reference: string;
   agendamento_id: number;
+  slug?: string | null;
   pagamento_status: "pending" | "approved" | "rejected" | "cancelled" | "refunded" | "expired";
   agendamento_status: "pending_payment" | "pendente" | "confirmado" | "cancelado" | "failed" | "expired";
   amount: number;
@@ -210,13 +207,29 @@ export type PublicPaymentStatusResponse = {
 export type PaymentAccountStatus = {
   connected: boolean;
   provider: string;
-  status: "pending" | "active" | "inactive" | "revoked" | "error";
+  status: "connected" | "disconnected" | "expired" | "error";
   establishment_id: number;
+  provider_account_email_masked?: string | null;
+  provider_account_id_masked?: string | null;
   external_account_email_masked?: string | null;
   external_user_id_masked?: string | null;
   last_sync_at?: string | null;
+  connected_at?: string | null;
+  disconnected_at?: string | null;
+  expires_at?: string | null;
   token_expires_at?: string | null;
   checkout_hold_minutes?: number;
+  pix_enabled?: boolean;
+  card_enabled?: boolean;
+  payment_required_default?: boolean;
+  advance_payment_type?: "full" | "signal" | null;
+  advance_payment_amount?: number | null;
+  default_provider?: "mercado_pago" | "picpay";
+};
+
+export type MercadoPagoConnectResponse = {
+  authorization_url: string;
+  state_ttl_minutes: number;
 };
 
 export type WorkingDayKey = "seg" | "ter" | "qua" | "qui" | "sex" | "sab" | "dom";
@@ -508,6 +521,42 @@ export async function updateBarbershopWorkingHours(
 export async function getMercadoPagoStatus(): Promise<PaymentAccountStatus> {
   const res = await apiFetch("/integrations/mercadopago/status", { cache: "no-store" });
   return parseOrThrow(res, "Falha ao carregar status da conta Mercado Pago.");
+}
+
+export async function getPicPayStatus(): Promise<PaymentAccountStatus> {
+  const res = await apiFetch("/integrations/picpay/status", { cache: "no-store" });
+  return parseOrThrow(res, "Falha ao carregar status da conta PicPay.");
+}
+
+export async function connectMercadoPago(): Promise<MercadoPagoConnectResponse> {
+  const res = await apiFetch("/payments/mercadopago/connect", { method: "POST" });
+  return parseOrThrow(res, "Falha ao iniciar conexao com Mercado Pago.");
+}
+
+export async function disconnectMercadoPago(): Promise<PaymentAccountStatus> {
+  const res = await apiFetch("/integrations/mercadopago/disconnect", { method: "POST" });
+  return parseOrThrow(res, "Falha ao desconectar Mercado Pago.");
+}
+
+export async function disconnectPicPay(): Promise<PaymentAccountStatus> {
+  const res = await apiFetch("/integrations/picpay/disconnect", { method: "POST" });
+  return parseOrThrow(res, "Falha ao desconectar PicPay.");
+}
+
+export async function updateMercadoPagoSettings(payload: {
+  checkout_hold_minutes?: number | null;
+  status?: "connected" | "disconnected" | "expired" | "error" | null;
+  payment_required_default?: boolean | null;
+  advance_payment_type?: "full" | "signal" | null;
+  advance_payment_amount?: number | null;
+  default_provider?: "mercado_pago" | "picpay" | null;
+}): Promise<PaymentAccountStatus> {
+  const res = await apiFetch("/integrations/mercadopago/settings", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  return parseOrThrow(res, "Falha ao salvar configuracoes do Mercado Pago.");
 }
 
 export async function deleteAgendamento(id: number): Promise<void> {

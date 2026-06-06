@@ -33,6 +33,7 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.responses import HTMLResponse
+from app.config import validate_critical_config
 from app.services.scheduler import start_scheduler, stop_scheduler
 
 
@@ -119,6 +120,7 @@ from contextlib import asynccontextmanager
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    validate_critical_config()
     init_db()
     start_scheduler()
     try:
