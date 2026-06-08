@@ -582,7 +582,7 @@ export default function GestaoPage() {
     }
     return `${barbeiroSelecionadoAgendamento.nome} atende em ${dia?.label.toLowerCase() ?? "esse dia"} das ${item.inicio} as ${item.fim}.`;
   }, [barbeiroSelecionadoAgendamento, formAgendamento.dataHora, funcionamento]);
-  const mercadoPagoConectado = Boolean(paymentAccount?.connected && paymentAccount.status === "active");
+  const mercadoPagoConectado = Boolean(paymentAccount?.connected && paymentAccount.status === "connected");
 
   const limparMensagens = () => {
     setError(null);
@@ -1255,7 +1255,7 @@ export default function GestaoPage() {
                 {!mercadoPagoConectado ? (
                   <Notice
                     tone="warning"
-                    message="Este estabelecimento ainda nao possui conta de pagamento configurada pela administracao. O pagamento online nao ficara disponivel ate essa configuracao ser feita."
+                    message="Este estabelecimento ainda nao conectou o Mercado Pago. O pagamento online nao ficara disponivel ate a conta ser conectada."
                   />
                 ) : null}
                 {servicos.length === 0 ? (
@@ -1606,12 +1606,12 @@ export default function GestaoPage() {
                 />
               </Field>
               <p className={styles.inlineInfoText}>
-                O agendamento so sera confirmado apos a aprovacao do pagamento. A conta de recebimento e definida pela administracao do sistema.
+                O agendamento so sera confirmado apos a aprovacao do pagamento. A conta de recebimento e conectada em Configuracoes, na aba Pagamentos.
               </p>
               {!mercadoPagoConectado ? (
                 <Notice
                   tone="warning"
-                  message="Este estabelecimento ainda nao possui conta de pagamento configurada pela administracao. O pagamento online nao ficara disponivel ate essa configuracao ser feita."
+                  message="Este estabelecimento ainda nao conectou o Mercado Pago. O pagamento online nao ficara disponivel ate a conta ser conectada."
                 />
               ) : null}
             </div>

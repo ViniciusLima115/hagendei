@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { AlertTriangle, BellRing, Building2, CalendarDays, ChevronLeft, ChevronRight, Clock, CreditCard, KeyRound, Lock, RefreshCw, Search, ShieldCheck, Trash2, UserRound, X } from "lucide-react";
+import { AlertTriangle, BellRing, Building2, ChevronLeft, ChevronRight, Clock, CreditCard, KeyRound, Lock, PlugZap, RefreshCw, Search, ShieldCheck, Trash2, Unplug, UserRound, X } from "lucide-react";
 import Alert from "../../components/Alert";
 import Button from "../../components/Button";
 import FormInput from "../../components/FormInput";
@@ -12,15 +12,16 @@ import {
   AdminPaymentAccount,
   PlanoBarbearia,
   createBarbeariaAdmin,
+  deactivatePaymentAccountAdmin,
   deleteBarbeariaAdmin,
   getPaymentAccountAdmin,
   getStatusAssinaturaBarbearia,
   listBarbeariasAdmin,
   listPaymentEstablishmentsAdmin,
-  savePaymentAccountAdmin,
+  requestPaymentReconnectAdmin,
   StatusManualBarbearia,
   StatusAssinaturaBarbearia,
-  updatePaymentAccountStatusAdmin,
+  testPaymentCheckoutAdmin,
   updateBarbeariaAdmin,
 } from "@/services/estabelecimentos-admin";
 
@@ -41,12 +42,35 @@ function statusLabel(status: StatusAssinaturaBarbearia): string {
 }
 
 function paymentStatusLabel(status?: BarbeariaAdmin["paymentAccountStatus"]): string {
-  if (status === "active") return "Conta ativa";
-  if (status === "inactive") return "Conta inativa";
+  if (status === "connected") return "Conectada";
+  if (status === "disconnected") return "Desconectada";
+  if (status === "expired") return "Expirada";
   if (status === "error") return "Erro";
-  if (status === "revoked") return "Removida";
-  if (status === "pending") return "Pendente";
   return "Sem conta";
+}
+
+function providerLabel(provider?: string | null): string {
+  if (provider === "mercado_pago") return "Mercado Pago";
+  return provider ? provider : "-";
+}
+
+function formatDateTime(value?: string | null): string {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  return new Intl.DateTimeFormat("pt-BR", {
+    dateStyle: "short",
+    timeStyle: "short",
+  }).format(date);
+}
+
+function auditActionLabel(action: string): string {
+  if (action === "deactivate") return "Desativacao";
+  if (action === "request_reconnect") return "Reconexao solicitada";
+  if (action === "test_checkout") return "Teste de checkout";
+  if (action === "status_update") return "Status alterado";
+  if (action === "upsert_payment_account") return "Conta atualizada";
+  return action.replaceAll("_", " ");
 }
 
 const initialForm = {
@@ -67,17 +91,6 @@ const initialFiltros = {
   atividade: "todos",
   dataDe: "",
   dataAte: "",
-};
-
-const initialPaymentForm = {
-  accountName: "",
-  clientId: "",
-  clientSecret: "",
-  accessToken: "",
-  publicKey: "",
-  status: "active" as "active" | "inactive" | "error",
-  internalNotes: "",
-  checkoutHoldMinutes: 10,
 };
 
 export default function AdminPage() {
@@ -106,7 +119,6 @@ export default function AdminPage() {
   });
   const [paymentSelected, setPaymentSelected] = useState<BarbeariaAdmin | null>(null);
   const [paymentAccount, setPaymentAccount] = useState<AdminPaymentAccount | null>(null);
-  const [paymentForm, setPaymentForm] = useState(initialPaymentForm);
   const [paymentLoading, setPaymentLoading] = useState(false);
 
   async function recarregar() {
@@ -125,6 +137,10 @@ export default function AdminPage() {
             paymentAccountStatus: payment?.payment_account_status ?? "not_configured",
             paymentAccountName: payment?.payment_account_name ?? null,
             paymentAccountId: payment?.payment_account_id ?? null,
+            paymentProvider: payment?.provider ?? null,
+            paymentConnectedAt: payment?.connected_at ?? null,
+            paymentUpdatedAt: payment?.updated_at ?? null,
+            paymentLastError: payment?.last_error ?? null,
           };
         })
       );
@@ -335,23 +351,10 @@ export default function AdminPage() {
     limparMensagens();
     setPaymentSelected(item);
     setPaymentAccount(null);
-    setPaymentForm(initialPaymentForm);
     setPaymentLoading(true);
     try {
       const account = await getPaymentAccountAdmin(item.id);
       setPaymentAccount(account);
-      if (account) {
-        setPaymentForm({
-          accountName: account.account_name ?? "",
-          clientId: "",
-          clientSecret: "",
-          accessToken: "",
-          publicKey: "",
-          status: account.status === "active" || account.status === "error" ? account.status : "inactive",
-          internalNotes: account.internal_notes ?? "",
-          checkoutHoldMinutes: account.checkout_hold_minutes ?? 10,
-        });
-      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Falha ao carregar configuracao de pagamento.");
     } finally {
@@ -359,57 +362,54 @@ export default function AdminPage() {
     }
   }
 
-  async function salvarPagamento(e: FormEvent) {
-    e.preventDefault();
+  async function desativarIntegracaoPagamento() {
     if (!paymentSelected) return;
+    const confirmed = window.confirm(`Desativar a integracao de pagamento de "${paymentSelected.nome}"?`);
+    if (!confirmed) return;
     limparMensagens();
-
-    if (paymentForm.status === "active" && !paymentAccount && !paymentForm.accessToken.trim()) {
-      setError("Informe o access token para ativar pagamentos online.");
-      return;
-    }
-
     setPaymentLoading(true);
     try {
-      await savePaymentAccountAdmin(
-        paymentSelected.id,
-        {
-          account_name: paymentForm.accountName || null,
-          client_id: paymentForm.clientId || null,
-          client_secret: paymentForm.clientSecret || null,
-          access_token: paymentForm.accessToken || null,
-          public_key: paymentForm.publicKey || null,
-          status: paymentForm.status,
-          internal_notes: paymentForm.internalNotes || null,
-          checkout_hold_minutes: paymentForm.checkoutHoldMinutes,
-        },
-        Boolean(paymentAccount),
-      );
-      setSuccess(`Pagamento de "${paymentSelected.nome}" atualizado com sucesso.`);
-      setPaymentSelected(null);
+      const updated = await deactivatePaymentAccountAdmin(paymentSelected.id);
+      setPaymentAccount(updated);
+      setSuccess("Integracao de pagamento desativada.");
       await recarregar();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Falha ao salvar configuracao de pagamento.");
+      setError(err instanceof Error ? err.message : "Falha ao desativar integracao.");
     } finally {
       setPaymentLoading(false);
     }
   }
 
-  async function alterarStatusPagamento(status: "active" | "inactive" | "error" | "revoked") {
+  async function solicitarReconexaoPagamento() {
+    if (!paymentSelected) return;
+    const confirmed = window.confirm(`Solicitar reconexao da integracao de "${paymentSelected.nome}"?`);
+    if (!confirmed) return;
+    limparMensagens();
+    setPaymentLoading(true);
+    try {
+      const updated = await requestPaymentReconnectAdmin(paymentSelected.id);
+      setPaymentAccount(updated);
+      setSuccess("Solicitacao de reconexao registrada.");
+      await recarregar();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Falha ao solicitar reconexao.");
+    } finally {
+      setPaymentLoading(false);
+    }
+  }
+
+  async function testarCheckoutPagamento() {
     if (!paymentSelected) return;
     limparMensagens();
     setPaymentLoading(true);
     try {
-      const updated = await updatePaymentAccountStatusAdmin(paymentSelected.id, status);
-      setPaymentAccount(updated);
-      setPaymentForm((prev) => ({
-        ...prev,
-        status: updated.status === "active" || updated.status === "error" ? updated.status : "inactive",
-      }));
-      setSuccess("Status da conta de pagamento atualizado.");
+      const result = await testPaymentCheckoutAdmin(paymentSelected.id);
+      const account = await getPaymentAccountAdmin(paymentSelected.id);
+      setPaymentAccount(account);
+      setSuccess(result.detail || "Checkout de teste validado.");
       await recarregar();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Falha ao alterar status da conta.");
+      setError(err instanceof Error ? err.message : "Falha ao testar checkout.");
     } finally {
       setPaymentLoading(false);
     }
@@ -813,7 +813,7 @@ export default function AdminPage() {
                       {/* Name + login */}
                       <div className={styles.estabInfo}>
                         <p className={styles.estabName}>{item.nome}</p>
-                        <p className={styles.estabLogin}>{item.login}</p>
+                        <p className={styles.estabLogin}>ID {item.id} - {item.login}</p>
                       </div>
 
                       {/* Badges */}
@@ -837,7 +837,7 @@ export default function AdminPage() {
                           {statusLabel(status)}
                         </span>
                         <span className={`badge ${
-                          item.paymentAccountStatus === "active"
+                          item.paymentAccountStatus === "connected"
                             ? "badge-confirmado"
                             : item.paymentAccountStatus === "not_configured"
                               ? "badge-livre"
@@ -847,16 +847,26 @@ export default function AdminPage() {
                         </span>
                       </div>
 
-                      {/* Meta: vencimento + atividade */}
+                      {/* Meta: pagamento */}
                       <div className={styles.estabMeta}>
                         <span className={styles.estabMetaItem}>
-                          <CalendarDays size={12} />
-                          Vence {item.vencimentoEm}
+                          <CreditCard size={12} />
+                          {providerLabel(item.paymentProvider)}
                         </span>
                         <span className={styles.estabMetaItem}>
                           <Clock size={12} />
-                          {item.ultimoAcessoEm ? item.ultimoAcessoEm.slice(0, 10) : "Nunca acessou"}
+                          Conexao {formatDateTime(item.paymentConnectedAt)}
                         </span>
+                        <span className={styles.estabMetaItem}>
+                          <RefreshCw size={12} />
+                          Atualizado {formatDateTime(item.paymentUpdatedAt)}
+                        </span>
+                        {item.paymentLastError && (
+                          <span className={styles.estabMetaItemDanger}>
+                            <AlertTriangle size={12} />
+                            {item.paymentLastError}
+                          </span>
+                        )}
                       </div>
 
                       {/* Password */}
@@ -938,113 +948,154 @@ export default function AdminPage() {
       <Modal
         isOpen={Boolean(paymentSelected)}
         onClose={() => setPaymentSelected(null)}
-        title="Configurar Pagamento"
+        title="Detalhes de Pagamento"
+        size="lg"
       >
         {!paymentSelected ? null : (
-          <form onSubmit={salvarPagamento} className={styles.formStack}>
+          <div className={styles.formStack}>
             <div className={styles.modalInfoBox}>
               <p className={styles.modalInfoName}>{paymentSelected.nome}</p>
               <p className={styles.modalInfoLogin}>
                 <CreditCard size={14} />
-                {paymentAccount ? paymentStatusLabel(paymentAccount.status) : "Sem conta configurada"}
+                ID {paymentSelected.id} - {paymentAccount ? paymentStatusLabel(paymentAccount.status) : "Sem conta configurada"}
               </p>
             </div>
 
-            {paymentLoading && <p className={styles.panelSubtitle}>Carregando configuracao...</p>}
+            {paymentLoading && <p className={styles.panelSubtitle}>Carregando dados da integracao...</p>}
 
-            {paymentAccount && (
-              <div className={styles.secretGrid}>
-                <span>Client ID: {paymentAccount.client_id_masked || "-"}</span>
-                <span>Client Secret: {paymentAccount.client_secret_masked || "-"}</span>
-                <span>Access Token: {paymentAccount.access_token_masked || "-"}</span>
-                <span>Public Key: {paymentAccount.public_key_masked || "-"}</span>
+            {!paymentLoading && !paymentAccount && (
+              <div className={styles.paymentEmpty}>
+                <p className={styles.paymentEmptyTitle}>Mercado Pago nao conectado</p>
+                <p className={styles.panelSubtitle}>
+                  O estabelecimento precisa conectar a propria conta pelo painel de pagamentos.
+                </p>
               </div>
             )}
 
-            <FormInput
-              label="Nome amigavel da conta"
-              value={paymentForm.accountName}
-              placeholder="Ex: Mercado Pago Barbearia Central"
-              onChange={(e) => setPaymentForm((prev) => ({ ...prev, accountName: e.target.value }))}
-            />
-            <FormInput
-              as="select"
-              label="Status"
-              value={paymentForm.status}
-              onChange={(e) =>
-                setPaymentForm((prev) => ({ ...prev, status: e.target.value as "active" | "inactive" | "error" }))
-              }
-            >
-              <option value="active">Ativo</option>
-              <option value="inactive">Inativo</option>
-              <option value="error">Erro</option>
-            </FormInput>
-            <FormInput
-              label="Client ID"
-              value={paymentForm.clientId}
-              placeholder={paymentAccount?.client_id_masked || "Client ID do Mercado Pago"}
-              onChange={(e) => setPaymentForm((prev) => ({ ...prev, clientId: e.target.value }))}
-            />
-            <FormInput
-              label="Client Secret"
-              type="password"
-              value={paymentForm.clientSecret}
-              placeholder={paymentAccount?.client_secret_masked || "Client Secret do Mercado Pago"}
-              onChange={(e) => setPaymentForm((prev) => ({ ...prev, clientSecret: e.target.value }))}
-            />
-            <FormInput
-              label="Access Token"
-              type="password"
-              value={paymentForm.accessToken}
-              placeholder={paymentAccount?.access_token_masked || "Access token usado para criar checkout"}
-              onChange={(e) => setPaymentForm((prev) => ({ ...prev, accessToken: e.target.value }))}
-              required={!paymentAccount && paymentForm.status === "active"}
-            />
-            <FormInput
-              label="Public Key"
-              value={paymentForm.publicKey}
-              placeholder={paymentAccount?.public_key_masked || "Public key, se aplicavel"}
-              onChange={(e) => setPaymentForm((prev) => ({ ...prev, publicKey: e.target.value }))}
-            />
-            <FormInput
-              label="Tempo de reserva do horario (minutos)"
-              type="number"
-              min={5}
-              max={60}
-              value={paymentForm.checkoutHoldMinutes}
-              onChange={(e) =>
-                setPaymentForm((prev) => ({ ...prev, checkoutHoldMinutes: Number(e.target.value) || 10 }))
-              }
-            />
-            <FormInput
-              as="textarea"
-              label="Observacoes internas"
-              value={paymentForm.internalNotes}
-              placeholder="Notas visiveis apenas para administradores."
-              rows={3}
-              onChange={(e) => setPaymentForm((prev) => ({ ...prev, internalNotes: e.target.value }))}
-            />
+            {paymentAccount && (
+              <>
+                <div className={styles.paymentDetailsGrid}>
+                  <div className={styles.paymentDetailItem}>
+                    <span>Provedor</span>
+                    <strong>{providerLabel(paymentAccount.provider)}</strong>
+                  </div>
+                  <div className={styles.paymentDetailItem}>
+                    <span>Status</span>
+                    <strong>{paymentStatusLabel(paymentAccount.status)}</strong>
+                  </div>
+                  <div className={styles.paymentDetailItem}>
+                    <span>Conta</span>
+                    <strong>{paymentAccount.account_name ?? "Conta Mercado Pago"}</strong>
+                  </div>
+                  <div className={styles.paymentDetailItem}>
+                    <span>Provider account id</span>
+                    <strong>{paymentAccount.provider_account_id_masked ?? "-"}</strong>
+                  </div>
+                  <div className={styles.paymentDetailItem}>
+                    <span>Email Mercado Pago</span>
+                    <strong>{paymentAccount.provider_account_email_masked ?? "-"}</strong>
+                  </div>
+                  <div className={styles.paymentDetailItem}>
+                    <span>Conectado em</span>
+                    <strong>{formatDateTime(paymentAccount.connected_at)}</strong>
+                  </div>
+                  <div className={styles.paymentDetailItem}>
+                    <span>Ultima atualizacao</span>
+                    <strong>{formatDateTime(paymentAccount.updated_at)}</strong>
+                  </div>
+                  <div className={styles.paymentDetailItem}>
+                    <span>Ultimo pagamento teste</span>
+                    <strong>
+                      {paymentAccount.last_test_payment_status
+                        ? `${paymentAccount.last_test_payment_status} - ${formatDateTime(paymentAccount.last_test_payment_at)}`
+                        : "-"}
+                    </strong>
+                  </div>
+                </div>
 
-            <div className="flex justify-end gap-3">
-              {paymentAccount && paymentAccount.status === "active" && (
-                <Button type="button" variant="secondary" onClick={() => alterarStatusPagamento("inactive")} disabled={paymentLoading}>
-                  Desativar
-                </Button>
+                {paymentAccount.last_error && (
+                  <div className={styles.paymentError}>
+                    <AlertTriangle size={16} />
+                    <span>{paymentAccount.last_error}</span>
+                  </div>
+                )}
+
+                <div className={styles.paymentMetricGrid}>
+                  <div className={styles.paymentMetricItem}>
+                    <span>Aprovados</span>
+                    <strong>{paymentAccount.approved_payments_count}</strong>
+                  </div>
+                  <div className={styles.paymentMetricItem}>
+                    <span>Falhas</span>
+                    <strong>{paymentAccount.failed_payments_count}</strong>
+                  </div>
+                  <div className={styles.paymentMetricItem}>
+                    <span>Ultimo pagamento</span>
+                    <strong>
+                      {paymentAccount.last_payment_status
+                        ? `${paymentAccount.last_payment_status} - ${formatDateTime(paymentAccount.last_payment_at)}`
+                        : "-"}
+                    </strong>
+                  </div>
+                </div>
+
+                <div className={styles.auditSection}>
+                  <p className={styles.sectionMiniTitle}>Auditoria recente</p>
+                  {paymentAccount.audit_logs.length === 0 ? (
+                    <p className={styles.panelSubtitle}>Nenhuma acao administrativa registrada.</p>
+                  ) : (
+                    <div className={styles.auditList}>
+                      {paymentAccount.audit_logs.map((log) => (
+                        <div key={log.id} className={styles.auditItem}>
+                          <div>
+                            <strong>{auditActionLabel(log.action)}</strong>
+                            <p className={styles.auditMeta}>
+                              {formatDateTime(log.created_at)}
+                              {log.admin_sub ? ` - ${log.admin_sub}` : ""}
+                            </p>
+                          </div>
+                          <span className={styles.auditStatus}>
+                            {log.status_before ?? "-"} {"->"} {log.status_after ?? "-"}
+                          </span>
+                          {log.error_message && <p className={styles.auditError}>{log.error_message}</p>}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+
+            <div className={styles.modalActions}>
+              {paymentAccount && (
+                <>
+                  <Button
+                    variant="secondary"
+                    onClick={testarCheckoutPagamento}
+                    disabled={paymentLoading || paymentAccount.status !== "connected"}
+                  >
+                    <PlugZap size={16} />
+                    Testar checkout
+                  </Button>
+                  <Button variant="secondary" onClick={solicitarReconexaoPagamento} disabled={paymentLoading}>
+                    <RefreshCw size={16} />
+                    Solicitar reconexao
+                  </Button>
+                  <Button
+                    variant="danger"
+                    onClick={desativarIntegracaoPagamento}
+                    disabled={paymentLoading || paymentAccount.status === "disconnected"}
+                  >
+                    <Unplug size={16} />
+                    Desativar
+                  </Button>
+                </>
               )}
-              {paymentAccount && paymentAccount.status !== "revoked" && (
-                <Button type="button" variant="danger" onClick={() => alterarStatusPagamento("revoked")} disabled={paymentLoading}>
-                  Remover
-                </Button>
-              )}
-              <Button variant="secondary" onClick={() => setPaymentSelected(null)}>
-                Cancelar
-              </Button>
-              <Button type="submit" disabled={paymentLoading}>
-                <CreditCard size={16} />
-                Salvar Pagamento
+              <Button variant="secondary" onClick={() => setPaymentSelected(null)} disabled={paymentLoading}>
+                Fechar
               </Button>
             </div>
-          </form>
+          </div>
         )}
       </Modal>
 

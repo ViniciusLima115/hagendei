@@ -2,12 +2,14 @@ import logging
 import os
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlsplit
 
 from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
 
+from app.config import get_backend_url, get_frontend_url
 from app.models.agendamento import Agendamento
+from app.models.estabelecimento import Estabelecimento
 from app.models.pagamento import Pagamento
 from app.models.servico import Servico
 from app.repositories import notificacao_repository as notificacao_repo
@@ -18,6 +20,7 @@ from app.services.payments.constants import (
     BOOKING_STATUS_FAILED,
     BOOKING_STATUS_PENDING_PAYMENT,
     PAYMENT_PROVIDER_MERCADO_PAGO,
+    PAYMENT_PROVIDER_PICPAY,
     PAYMENT_STATUS_APPROVED,
     PAYMENT_STATUS_CANCELLED,
     PAYMENT_STATUS_EXPIRED,
@@ -25,10 +28,12 @@ from app.services.payments.constants import (
     PAYMENT_STATUS_PENDING,
     PAYMENT_STATUS_REFUNDED,
     PAYMENT_STATUS_REJECTED,
+    normalize_payment_provider,
 )
 from app.services.payments.payment_account_service import (
     get_active_payment_account,
-    get_decrypted_access_token,
+    get_valid_access_token,
+    get_valid_mercadopago_access_token,
 )
 from app.services.payments.provider_factory import get_payment_provider
 
@@ -42,26 +47,70 @@ PAYMENT_FINAL_STATUSES = {
     PAYMENT_STATUS_REFUNDED,
     PAYMENT_STATUS_EXPIRED,
 }
+PAYMENT_PAID_STATUSES = {PAYMENT_STATUS_APPROVED, "paid"}
 
 
 def _utcnow() -> datetime:
     return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
+def clamp_checkout_hold_minutes(value: int | None, default: int = 10) -> int:
+    try:
+        minutes = int(value if value is not None else default)
+    except (TypeError, ValueError):
+        minutes = default
+    return max(5, min(minutes, 60))
+
+
+def default_checkout_hold_minutes() -> int:
+    configured = os.getenv("PAYMENT_DEFAULT_HOLD_MINUTES", "10")
+    try:
+        return clamp_checkout_hold_minutes(int(configured))
+    except ValueError:
+        return 10
+
+
+def default_payment_hold_expires_at(now: datetime | None = None) -> datetime:
+    current = now or _utcnow()
+    return current + timedelta(minutes=default_checkout_hold_minutes())
+
+
 def normalize_provider(provider: str) -> str:
-    normalized = (provider or "").strip().lower()
-    if normalized == "mercado_pago":
-        return PAYMENT_PROVIDER_MERCADO_PAGO
-    return normalized
+    return normalize_payment_provider(provider)
+
+
+def get_establishment_default_payment_provider(establishment: Estabelecimento | None) -> str:
+    configured = getattr(establishment, "payment_default_provider", None)
+    return normalize_provider(configured or PAYMENT_PROVIDER_MERCADO_PAGO)
+
+
+def resolve_booking_payment_provider(db: Session, booking: Agendamento, provider: str | None = None) -> str:
+    if provider:
+        return normalize_provider(provider)
+
+    establishment = booking.estabelecimento
+    if not establishment and booking.estabelecimento_id is not None:
+        establishment = (
+            db.query(Estabelecimento)
+            .filter(Estabelecimento.id == booking.estabelecimento_id)
+            .first()
+        )
+    return get_establishment_default_payment_provider(establishment)
+
+
+def _ensure_provider_available(provider_impl) -> None:
+    ensure_available = getattr(provider_impl, "ensure_available", None)
+    if callable(ensure_available):
+        ensure_available()
 
 
 def normalize_payment_status(raw_status: str | None) -> str:
     status = (raw_status or "").strip().lower()
-    if status == "approved":
+    if status in {"approved", "paid", "completed"}:
         return PAYMENT_STATUS_APPROVED
-    if status in {"rejected"}:
+    if status in {"rejected", "denied"}:
         return PAYMENT_STATUS_REJECTED
-    if status in {"cancelled", "charged_back"}:
+    if status in {"cancelled", "canceled", "charged_back", "chargeback"}:
         return PAYMENT_STATUS_CANCELLED
     if status in {"refunded"}:
         return PAYMENT_STATUS_REFUNDED
@@ -70,12 +119,21 @@ def normalize_payment_status(raw_status: str | None) -> str:
     return PAYMENT_STATUS_PENDING
 
 
-def validate_service_advance_payment_config(servico: Servico) -> tuple[bool, str | None, float | None]:
-    require = bool(getattr(servico, "pagamento_adiantado_obrigatorio", False))
+def validate_service_advance_payment_config(
+    servico: Servico,
+    establishment: Estabelecimento | None = None,
+) -> tuple[bool, str | None, float | None]:
+    require = bool(getattr(servico, "pagamento_adiantado_obrigatorio", False)) or bool(
+        getattr(establishment, "pagamento_adiantado_obrigatorio", False)
+    )
     if not require:
         return False, None, None
 
-    payment_type = (getattr(servico, "advance_payment_type", "") or "full").strip().lower()
+    payment_type = (
+        getattr(servico, "advance_payment_type", None)
+        or getattr(establishment, "advance_payment_type", None)
+        or "full"
+    ).strip().lower()
     if payment_type not in {"full", "signal"}:
         raise ValueError("Tipo de pagamento adiantado invalido. Use 'full' ou 'signal'.")
 
@@ -87,6 +145,8 @@ def validate_service_advance_payment_config(servico: Servico) -> tuple[bool, str
 
     signal_amount = getattr(servico, "advance_payment_amount", None)
     if signal_amount is None:
+        signal_amount = getattr(establishment, "advance_payment_amount", None)
+    if signal_amount is None:
         raise ValueError("Informe o valor do sinal para este servico.")
     signal_value = round(float(signal_amount), 2)
     if signal_value <= 0:
@@ -96,8 +156,12 @@ def validate_service_advance_payment_config(servico: Servico) -> tuple[bool, str
     return True, payment_type, signal_value
 
 
-def apply_payment_snapshot_from_service(booking: Agendamento, servico: Servico) -> None:
-    required, payment_type, amount = validate_service_advance_payment_config(servico)
+def apply_payment_snapshot_from_service(
+    booking: Agendamento,
+    servico: Servico,
+    establishment: Estabelecimento | None = None,
+) -> None:
+    required, payment_type, amount = validate_service_advance_payment_config(servico, establishment)
     booking.payment_required_snapshot = required
     booking.payment_type_snapshot = payment_type
     booking.payment_amount_snapshot = amount
@@ -105,17 +169,50 @@ def apply_payment_snapshot_from_service(booking: Agendamento, servico: Servico) 
     if required:
         booking.payment_status = PAYMENT_STATUS_PENDING
         booking.status = BOOKING_STATUS_PENDING_PAYMENT
+        if not booking.payment_hold_expires_at or booking.payment_hold_expires_at <= _utcnow():
+            booking.payment_hold_expires_at = default_payment_hold_expires_at()
     else:
         booking.payment_status = PAYMENT_STATUS_NOT_REQUIRED
+        booking.payment_hold_expires_at = None
 
 
-def build_checkout_notification_url(payment_id: int) -> str:
-    base = os.getenv("BACKEND_PUBLIC_BASE_URL", "http://127.0.0.1:8000").rstrip("/")
-    query: dict[str, str] = {"payment_id": str(payment_id)}
-    webhook_token = os.getenv("MERCADOPAGO_WEBHOOK_TOKEN", "").strip()
-    if webhook_token:
-        query["token"] = webhook_token
-    return f"{base}/webhooks/mercadopago?{urlencode(query)}"
+def build_checkout_notification_url(payment_id: int, provider: str = PAYMENT_PROVIDER_MERCADO_PAGO) -> str:
+    base = get_backend_url()
+    normalized_provider = normalize_provider(provider)
+    if normalized_provider == PAYMENT_PROVIDER_PICPAY:
+        return f"{base}/webhooks/picpay"
+    return f"{base}/webhooks/mercadopago"
+
+
+def build_checkout_back_urls(external_reference: str, slug: str | None = None) -> dict[str, str]:
+    frontend_base = get_frontend_url()
+    frontend_url = urlsplit(frontend_base)
+    frontend_is_public_https = (
+        frontend_url.scheme == "https"
+        and frontend_url.hostname not in {"localhost", "127.0.0.1", "::1"}
+    )
+    base = frontend_base if frontend_is_public_https else f"{get_backend_url()}/payments/checkout-return"
+    query = {"external_reference": external_reference}
+    if slug:
+        query["slug"] = slug
+    encoded_reference = urlencode(query)
+    return {
+        "success": (
+            f"{base}/agendamento/pagamento/sucesso?{encoded_reference}"
+            if frontend_is_public_https
+            else f"{base}/success?{encoded_reference}"
+        ),
+        "pending": (
+            f"{base}/agendamento/pagamento/pendente?{encoded_reference}"
+            if frontend_is_public_https
+            else f"{base}/pending?{encoded_reference}"
+        ),
+        "failure": (
+            f"{base}/agendamento/pagamento/falha?{encoded_reference}"
+            if frontend_is_public_https
+            else f"{base}/failure?{encoded_reference}"
+        ),
+    }
 
 
 def _booking_conflict_filter(now: datetime):
@@ -123,10 +220,7 @@ def _booking_conflict_filter(now: datetime):
         Agendamento.status.in_(["pendente", "confirmado", "reagendamento_solicitado"]),
         and_(
             Agendamento.status == BOOKING_STATUS_PENDING_PAYMENT,
-            or_(
-                Agendamento.payment_hold_expires_at.is_(None),
-                Agendamento.payment_hold_expires_at > now,
-            ),
+            Agendamento.payment_hold_expires_at > now,
         ),
     )
 
@@ -185,16 +279,19 @@ def start_checkout_for_booking(
     db: Session,
     *,
     booking: Agendamento,
-    provider: str = PAYMENT_PROVIDER_MERCADO_PAGO,
+    provider: str | None = None,
     payer_name: str | None = None,
     payer_email: str | None = None,
     payer_phone: str | None = None,
 ) -> Pagamento:
-    normalized_provider = normalize_provider(provider)
+    normalized_provider = resolve_booking_payment_provider(db, booking, provider)
     if not booking.payment_required_snapshot:
         raise ValueError("Este agendamento nao exige pagamento adiantado.")
     if booking.estabelecimento_id is None:
         raise ValueError("Agendamento sem estabelecimento associado.")
+
+    provider_impl = get_payment_provider(normalized_provider)
+    _ensure_provider_available(provider_impl)
 
     account = get_active_payment_account(
         db,
@@ -202,15 +299,19 @@ def start_checkout_for_booking(
         provider=normalized_provider,
     )
     if not account:
-        raise ValueError("Conta de pagamento ativa nao encontrada para o estabelecimento.")
+        provider_label = "PicPay" if normalized_provider == PAYMENT_PROVIDER_PICPAY else "Mercado Pago"
+        raise ValueError(f"{provider_label} nao conectado para este estabelecimento.")
 
     now = _utcnow()
-    hold_minutes = max(5, min(int(account.checkout_hold_minutes or 10), 60))
+    hold_minutes = clamp_checkout_hold_minutes(account.checkout_hold_minutes)
     expires_at = now + timedelta(minutes=hold_minutes)
 
     existing_payment = (
         db.query(Pagamento)
-        .filter(Pagamento.agendamento_id == booking.id)
+        .filter(
+            Pagamento.agendamento_id == booking.id,
+            Pagamento.estabelecimento_id == booking.estabelecimento_id,
+        )
         .first()
     )
     if (
@@ -263,8 +364,11 @@ def start_checkout_for_booking(
 
     db.flush()
 
-    provider_impl = get_payment_provider(normalized_provider)
-    access_token = get_decrypted_access_token(account)
+    access_token = (
+        get_valid_mercadopago_access_token(db, establishment_id=booking.estabelecimento_id)
+        if normalized_provider == PAYMENT_PROVIDER_MERCADO_PAGO
+        else get_valid_access_token(db, account)
+    )
     title = f"Agendamento #{booking.id}"
     description = f"Pagamento adiantado do servico {booking.servico.nome if booking.servico else ''}".strip()
 
@@ -280,11 +384,16 @@ def start_checkout_for_booking(
             payer_phone=payer_phone,
             metadata={
                 "booking_id": booking.id,
+                "appointment_id": booking.id,
                 "establishment_id": booking.estabelecimento_id,
                 "payment_id": payment.id,
                 "provider": normalized_provider,
             },
-            notification_url=build_checkout_notification_url(payment.id),
+            notification_url=build_checkout_notification_url(payment.id, normalized_provider),
+            back_urls=build_checkout_back_urls(
+                payment.external_reference,
+                booking.estabelecimento.slug if booking.estabelecimento else None,
+            ),
             expires_at=expires_at,
         )
     except Exception:
@@ -297,6 +406,8 @@ def start_checkout_for_booking(
         raise
 
     payment.preference_id = checkout["preference_id"]
+    if checkout.get("payment_id"):
+        payment.provider_payment_id = str(checkout["payment_id"])
     payment.checkout_url = checkout["checkout_url"]
     payment.raw_payload = checkout["raw"]
     payment.external_status = PAYMENT_STATUS_PENDING
@@ -313,6 +424,7 @@ def apply_payment_update_from_provider(
     *,
     payment: Pagamento,
     provider_payload: dict,
+    commit: bool = True,
 ) -> Pagamento:
     now = _utcnow()
     mapped_status = normalize_payment_status(provider_payload.get("status"))
@@ -371,14 +483,115 @@ def apply_payment_update_from_provider(
         else:
             booking.status = BOOKING_STATUS_PENDING_PAYMENT
 
-    db.commit()
-    db.refresh(payment)
+    if commit:
+        db.commit()
+        db.refresh(payment)
+    else:
+        db.flush()
     return payment
 
 
-def expire_pending_bookings_and_payments(db: Session, *, limit: int = 200) -> int:
+def _query_with_update_lock(query, db: Session):
+    dialect_obj = getattr(getattr(db, "bind", None), "dialect", None)
+    dialect = (getattr(dialect_obj, "name", "") or "").lower()
+    if dialect in {"sqlite", ""}:
+        return query
+    return query.with_for_update(skip_locked=True)
+
+
+def _status_is_paid(status: str | None) -> bool:
+    return (status or "").strip().lower() in PAYMENT_PAID_STATUSES
+
+
+def _booking_or_payment_is_paid(booking: Agendamento, payment: Pagamento | None) -> bool:
+    if booking.status == BOOKING_STATUS_CONFIRMED:
+        return True
+    if _status_is_paid(booking.payment_status):
+        return True
+    if payment and (_status_is_paid(payment.status) or payment.paid_at is not None):
+        return True
+    return False
+
+
+def _safe_float(value) -> float | None:
+    if value is None or value == "":
+        return None
+    try:
+        return round(float(value), 2)
+    except (TypeError, ValueError):
+        return None
+
+
+def _provider_payload_amount(provider_payload: dict) -> float | None:
+    for value in (
+        provider_payload.get("transaction_amount"),
+        provider_payload.get("total_paid_amount"),
+        provider_payload.get("amount"),
+    ):
+        parsed = _safe_float(value)
+        if parsed is not None:
+            return parsed
+    details = provider_payload.get("transaction_details")
+    if isinstance(details, dict):
+        return _safe_float(details.get("total_paid_amount"))
+    return None
+
+
+def _provider_payload_matches_payment(payment: Pagamento, provider_payload: dict) -> bool:
+    external_reference = str(provider_payload.get("external_reference") or "").strip()
+    if not external_reference or external_reference != payment.external_reference:
+        return False
+
+    provider_amount = _provider_payload_amount(provider_payload)
+    if provider_amount is None:
+        return False
+    expected_amount = round(float(payment.amount or 0), 2)
+    return abs(provider_amount - expected_amount) <= 0.01
+
+
+def _confirm_provider_approved_payment_if_needed(db: Session, payment: Pagamento) -> bool:
+    if not payment.provider_payment_id:
+        return False
+    try:
+        account = get_active_payment_account(
+            db,
+            establishment_id=payment.estabelecimento_id or 0,
+            provider=payment.provider,
+        )
+        if not account:
+            return False
+        provider_impl = get_payment_provider(payment.provider)
+        access_token = (
+            get_valid_mercadopago_access_token(db, establishment_id=payment.estabelecimento_id or 0)
+            if payment.provider == PAYMENT_PROVIDER_MERCADO_PAGO
+            else get_valid_access_token(db, account)
+        )
+        provider_payload = provider_impl.get_payment(
+            access_token=access_token,
+            payment_id=str(payment.provider_payment_id),
+        )
+    except Exception:
+        logger.exception("Falha ao consultar provider antes de expirar pagamento %s.", payment.id)
+        return False
+
+    if normalize_payment_status(provider_payload.get("status")) != PAYMENT_STATUS_APPROVED:
+        return False
+    if not _provider_payload_matches_payment(payment, provider_payload):
+        logger.warning("Provider retornou pagamento aprovado divergente antes da expiracao local payment_id=%s.", payment.id)
+        return False
+
+    apply_payment_update_from_provider(
+        db,
+        payment=payment,
+        provider_payload=provider_payload,
+        commit=False,
+    )
+    return True
+
+
+def expire_pending_appointments(db: Session, *, limit: int = 200) -> int:
     now = _utcnow()
-    pendentes = (
+    pending_query = (
         db.query(Agendamento)
         .filter(
             Agendamento.status == BOOKING_STATUS_PENDING_PAYMENT,
@@ -388,26 +601,49 @@ def expire_pending_bookings_and_payments(db: Session, *, limit: int = 200) -> in
         )
         .order_by(Agendamento.payment_hold_expires_at.asc())
         .limit(limit)
-        .all()
     )
+    pendentes = _query_with_update_lock(pending_query, db).all()
     if not pendentes:
         return 0
 
     count = 0
     for booking in pendentes:
+        payment_query = (
+            db.query(Pagamento)
+            .filter(
+                Pagamento.agendamento_id == booking.id,
+                Pagamento.estabelecimento_id == booking.estabelecimento_id,
+            )
+        )
+        payment = _query_with_update_lock(payment_query, db).first()
+
+        db.refresh(booking)
+        if payment:
+            db.refresh(payment)
+
+        if booking.status != BOOKING_STATUS_PENDING_PAYMENT:
+            continue
+        if booking.payment_status != PAYMENT_STATUS_PENDING:
+            continue
+        if not booking.payment_hold_expires_at or booking.payment_hold_expires_at > now:
+            continue
+
+        if _booking_or_payment_is_paid(booking, payment):
+            booking.status = BOOKING_STATUS_CONFIRMED
+            booking.payment_status = PAYMENT_STATUS_APPROVED
+            booking.payment_hold_expires_at = None
+            if payment and not payment.paid_at:
+                payment.paid_at = now
+            continue
+
+        if payment and _confirm_provider_approved_payment_if_needed(db, payment):
+            continue
+
         booking.status = BOOKING_STATUS_EXPIRED
         booking.payment_status = PAYMENT_STATUS_EXPIRED
         booking.payment_hold_expires_at = None
 
-        payment = (
-            db.query(Pagamento)
-            .filter(
-                Pagamento.agendamento_id == booking.id,
-                Pagamento.status == PAYMENT_STATUS_PENDING,
-            )
-            .first()
-        )
-        if payment:
+        if payment and payment.status == PAYMENT_STATUS_PENDING:
             payment.status = PAYMENT_STATUS_EXPIRED
             payment.external_status = PAYMENT_STATUS_EXPIRED
 
@@ -423,3 +659,7 @@ def expire_pending_bookings_and_payments(db: Session, *, limit: int = 200) -> in
     db.commit()
     logger.info("Expiracao de pagamentos pendentes concluida: %s agendamentos expirados.", count)
     return count
+
+
+def expire_pending_bookings_and_payments(db: Session, *, limit: int = 200) -> int:
+    return expire_pending_appointments(db, limit=limit)

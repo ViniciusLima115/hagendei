@@ -6,7 +6,7 @@ from sqlalchemy.orm import joinedload
 
 from app.database import SessionLocal
 from app.models.agendamento import Agendamento
-from app.services.payments.payment_service import expire_pending_bookings_and_payments
+from app.services.payments.payment_service import expire_pending_appointments
 from app.services.email_service import (
     AgendamentoEmailContext,
     build_reminder_email,
@@ -76,7 +76,7 @@ def _processar_notificacoes_pendentes():
 def _processar_expiracao_pagamentos():
     db = SessionLocal()
     try:
-        expire_pending_bookings_and_payments(db, limit=300)
+        expire_pending_appointments(db, limit=300)
     finally:
         db.close()
 

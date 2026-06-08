@@ -7,6 +7,12 @@ backend/.env.*
 frontend/.env.local
 frontend/.env.*.local
 
+# Local development runtime files
+backend/.run/
+backend/dev-local.db
+backend/local-*.log
+frontend/local-*.log
+
 __pycache__/
 *.py[cod]
 .pytest_cache/

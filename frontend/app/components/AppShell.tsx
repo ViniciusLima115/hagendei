@@ -18,6 +18,7 @@ export default function AppShell({ children }: AppShellProps) {
   useTenantTheme();
   const inLogin = pathname === "/login";
   const isPublicBookingById = pathname.startsWith("/agendar/");
+  const isPublicPaymentReturn = pathname.startsWith("/agendamento/pagamento/");
   const isTokenActionPage = TOKEN_ACTION_PREFIXES.some((p) => pathname.startsWith(p));
   const ADMIN_PATHS = ["/login", "/admin", "/agenda", "/gestao", "/dashboard", "/configuracoes", "/upgrade", "/painel"];
   const isPublicBookingPath =
@@ -26,12 +27,12 @@ export default function AppShell({ children }: AppShellProps) {
     /^\/[^/]+$/.test(pathname) &&
     !ADMIN_PATHS.includes(pathname);
 
-  const hideHeader = inLogin || isPublicBookingPath || isPublicBookingById || isTokenActionPage;
+  const hideHeader = inLogin || isPublicBookingPath || isPublicBookingById || isPublicPaymentReturn || isTokenActionPage;
 
   const content = (
     <>
       {!hideHeader && <Header />}
-      {(isPublicBookingPath || isPublicBookingById) && <ThemeToggle floating />}
+      {isPublicBookingById && <ThemeToggle floating />}
       {children}
     </>
   );
