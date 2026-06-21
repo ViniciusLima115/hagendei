@@ -82,14 +82,14 @@ class MercadoPagoProvider(PaymentProvider):
     def build_connect_url(self, *, state: str, code_challenge: str | None = None) -> str:
         self._validate_oauth_config(require_secret=False)
 
-        params = {
+        params: dict[str, str] = {
             "client_id": self.client_id,
             "response_type": "code",
-            "platform_id": "mp",
             "state": state,
             "redirect_uri": self.redirect_uri,
         }
-        if code_challenge:
+        use_pkce = os.getenv("MERCADOPAGO_USE_PKCE", "false").strip().lower() in {"1", "true", "yes", "on"}
+        if use_pkce and code_challenge:
             params["code_challenge"] = code_challenge
             params["code_challenge_method"] = "S256"
         query = urlencode(params)
@@ -113,8 +113,13 @@ class MercadoPagoProvider(PaymentProvider):
             timeout=self.timeout_seconds,
         )
         if response.status_code >= 300:
-            self._log_provider_error("Falha OAuth Mercado Pago.", response)
-            raise ValueError("Nao foi possivel autenticar com o Mercado Pago.")
+            self._log_provider_error("Falha OAuth Mercado Pago (troca de codigo).", response)
+            try:
+                err_data = response.json()
+                err_detail = f"status={response.status_code} error={err_data.get('error')} message={err_data.get('message')}"
+            except Exception:
+                err_detail = f"status={response.status_code}"
+            raise ValueError(f"Nao foi possivel autenticar com o Mercado Pago. {err_detail}")
 
         token_data = response.json()
         access_token = str(token_data.get("access_token") or "").strip()
@@ -232,9 +237,19 @@ class MercadoPagoProvider(PaymentProvider):
         notification_url: str,
         back_urls: dict[str, str] | None,
         expires_at: datetime | None,
+        marketplace_fee: float | None = None,
     ) -> dict[str, Any]:
         if amount <= 0:
             raise ValueError("Valor do pagamento deve ser maior que zero.")
+
+        effective_fee = marketplace_fee
+        if effective_fee is None:
+            env_fee = os.getenv("MERCADOPAGO_MARKETPLACE_FEE", "").strip()
+            if env_fee:
+                try:
+                    effective_fee = float(env_fee)
+                except ValueError:
+                    effective_fee = None
 
         payload: dict[str, Any] = {
             "external_reference": external_reference,
@@ -256,6 +271,8 @@ class MercadoPagoProvider(PaymentProvider):
             "notification_url": notification_url,
             "auto_return": "approved",
         }
+        if effective_fee is not None and effective_fee >= 0:
+            payload["marketplace_fee"] = round(effective_fee, 2)
         if back_urls:
             payload["back_urls"] = back_urls
         if expires_at:

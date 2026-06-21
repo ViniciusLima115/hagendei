@@ -71,6 +71,7 @@ class PaymentProvider(ABC):
         notification_url: str,
         back_urls: dict[str, str] | None,
         expires_at: datetime | None,
+        marketplace_fee: float | None = None,
     ) -> dict[str, Any]:
         raise NotImplementedError
 

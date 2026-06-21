@@ -130,6 +130,7 @@ class PicPayProvider(PaymentProvider):
         notification_url: str,
         back_urls: dict[str, str] | None,
         expires_at: datetime | None,
+        marketplace_fee: float | None = None,
     ) -> dict[str, Any]:
         if amount <= 0:
             raise ValueError("Valor do pagamento deve ser maior que zero.")
