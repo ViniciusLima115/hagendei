@@ -59,6 +59,7 @@ class TokenClaims(BaseModel):
     iss: str
     aud: str
     session_version: int = 0
+    auth_time: int | None = None
     iat: int
     exp: int
 
@@ -82,6 +83,7 @@ def create_access_token(
         "iss": JWT_ISSUER,
         "aud": JWT_AUDIENCE,
         "session_version": session_version,
+        "auth_time": now,
         "iat": now,
         "exp": now + (ttl * 60),
     }

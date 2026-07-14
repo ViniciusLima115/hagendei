@@ -8,17 +8,23 @@ const apiOrigin = (() => {
   }
 })();
 
+const isDevelopment = process.env.NODE_ENV !== "production";
+const scriptSource = `script-src 'self' 'unsafe-inline'${isDevelopment ? " 'unsafe-eval'" : ""}`;
+const connectSource = isDevelopment
+  ? `connect-src 'self' ${apiOrigin} http://localhost:8000 http://127.0.0.1:8000 ws://localhost:* ws://127.0.0.1:*`
+  : `connect-src 'self' ${apiOrigin}`;
+
 const contentSecurityPolicy = [
   "default-src 'self'",
   "base-uri 'self'",
   "frame-ancestors 'none'",
   "object-src 'none'",
   "form-action 'self'",
-  "script-src 'self' 'unsafe-inline'",
+  scriptSource,
   "style-src 'self' 'unsafe-inline'",
   "font-src 'self' data:",
   "img-src 'self' data: blob: https:",
-  `connect-src 'self' ${apiOrigin}`,
+  connectSource,
 ].join("; ");
 
 const nextConfig: NextConfig = {

@@ -8,7 +8,6 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.limiter import RATE_LIMIT_PAYMENT_STATUS, RATE_LIMIT_PUBLIC, limiter
 from app.models.agendamento import Agendamento as AgendamentoModel
-from app.models.estabelecimento import Estabelecimento
 from app.models.pagamento import Pagamento
 from app.models.servico import Servico
 from app.schemas.public import (
@@ -29,11 +28,11 @@ from app.services.public_booking_service import (
     obter_lookup_publico_por_id,
     servico_exige_pagamento_adiantado_publico,
 )
+from app.time_utils import utcnow_naive
 from app.services.agendamento_service import obter_payload_email_confirmacao
 from app.services.payments.constants import (
-    BOOKING_STATUS_FAILED,
+    PAYMENT_PROVIDER_MERCADO_PAGO,
     PAYMENT_STATUS_PENDING,
-    PAYMENT_STATUS_REJECTED,
 )
 from app.services.payments.payment_service import (
     apply_payment_snapshot_from_service,
@@ -221,10 +220,7 @@ def iniciar_pagamento_agendamento_public(
         )
         if not servico:
             raise HTTPException(status_code=404, detail="Servico nao encontrado.")
-        estabelecimento = db.query(Estabelecimento).filter(Estabelecimento.id == tenant_id).first()
-        if not estabelecimento:
-            raise HTTPException(status_code=404, detail="Barbearia nao encontrada.")
-        _, _, amount = validate_service_advance_payment_config(servico, estabelecimento)
+        _, _, amount = validate_service_advance_payment_config(servico)
         if amount is None:
             raise HTTPException(status_code=400, detail="Configuracao de pagamento do servico invalida.")
 
@@ -246,28 +242,25 @@ def iniciar_pagamento_agendamento_public(
         )
         if existente:
             if not existente.payment_required_snapshot:
-                apply_payment_snapshot_from_service(existente, servico, estabelecimento)
+                apply_payment_snapshot_from_service(existente, servico)
                 db.commit()
                 db.refresh(existente)
-            pagamento_existente = (
-                db.query(Pagamento)
-                .filter(
-                    Pagamento.agendamento_id == existente.id,
-                    Pagamento.estabelecimento_id == tenant_id,
-                )
-                .first()
-            )
+            pagamento_existente = db.query(Pagamento).filter(Pagamento.agendamento_id == existente.id).first()
             if (
                 pagamento_existente
                 and pagamento_existente.checkout_url
                 and pagamento_existente.status == PAYMENT_STATUS_PENDING
                 and pagamento_existente.expires_at
-                and pagamento_existente.expires_at > datetime.utcnow()
+                and pagamento_existente.expires_at > utcnow_naive()
             ):
                 return {
+                    "agendamento_id": existente.id,
+                    "external_reference": pagamento_existente.external_reference,
+                    "preference_id": pagamento_existente.preference_id or "",
                     "checkout_url": pagamento_existente.checkout_url,
-                    "appointment_id": existente.id,
-                    "payment_id": pagamento_existente.id,
+                    "amount": pagamento_existente.amount,
+                    "pagamento_status": pagamento_existente.status,
+                    "agendamento_status": existente.status,
                     "expires_at": pagamento_existente.expires_at,
                 }
             pagamento_retentativa = start_checkout_for_booking(
@@ -313,29 +306,27 @@ def iniciar_pagamento_agendamento_public(
         if not agendamento_model:
             raise HTTPException(status_code=500, detail="Falha ao carregar agendamento criado.")
 
-        apply_payment_snapshot_from_service(agendamento_model, servico, estabelecimento)
+        apply_payment_snapshot_from_service(agendamento_model, servico)
         db.commit()
         db.refresh(agendamento_model)
 
-        try:
-            pagamento = start_checkout_for_booking(
-                db,
-                booking=agendamento_model,
-                payer_name=dados.cliente_nome,
-                payer_email=dados.cliente_email,
-                payer_phone=dados.cliente_telefone,
-            )
-        except ValueError:
-            agendamento_model.status = BOOKING_STATUS_FAILED
-            agendamento_model.payment_status = PAYMENT_STATUS_REJECTED
-            agendamento_model.payment_hold_expires_at = None
-            db.commit()
-            raise
+        pagamento = start_checkout_for_booking(
+            db,
+            booking=agendamento_model,
+            provider=PAYMENT_PROVIDER_MERCADO_PAGO,
+            payer_name=dados.cliente_nome,
+            payer_email=dados.cliente_email,
+            payer_phone=dados.cliente_telefone,
+        )
 
         return {
+            "agendamento_id": agendamento["id"],
+            "external_reference": pagamento.external_reference,
+            "preference_id": pagamento.preference_id or "",
             "checkout_url": pagamento.checkout_url or "",
-            "appointment_id": agendamento["id"],
-            "payment_id": pagamento.id,
+            "amount": float(pagamento.amount or amount),
+            "pagamento_status": pagamento.status,
+            "agendamento_status": agendamento_model.status,
             "expires_at": pagamento.expires_at,
         }
     except HTTPException:
@@ -365,49 +356,7 @@ def consultar_status_pagamento(
     return {
         "external_reference": pagamento.external_reference,
         "agendamento_id": pagamento.agendamento_id,
-        "slug": pagamento.agendamento.estabelecimento.slug if pagamento.agendamento.estabelecimento else None,
         "pagamento_status": pagamento.status,
         "agendamento_status": pagamento.agendamento.status,
         "amount": pagamento.amount,
     }
-<<<<<<< HEAD
-=======
-
-
-@router.post("/pagamentos/mercado-pago/webhook")
-async def webhook_mercado_pago(
-    request: Request,
-    topic: str | None = Query(default=None),
-    webhook_id: str | None = Query(default=None, alias="id"),
-    payment_id_query: str | None = Query(default=None, alias="data.id"),
-    db: Session = Depends(get_db),
-):
-    raw_body = await request.body()
-    try:
-        payload = await request.json()
-        if not isinstance(payload, dict):
-            payload = {}
-    except Exception:
-        payload = {}
-
-    signature_header = request.headers.get("x-signature") or request.headers.get("x-hub-signature")
-    signature_secret = os.getenv("MERCADOPAGO_WEBHOOK_SECRET", "").strip() or None
-    request_id = request.headers.get("x-request-id")
-    try:
-        result = process_mercadopago_webhook(
-            db,
-            payload=payload,
-            raw_body=raw_body,
-            provider_payment_id_query=payment_id_query,
-            webhook_id=webhook_id,
-            topic=topic,
-            signature_header=signature_header,
-            signature_secret=signature_secret,
-            request_id=request_id,
-        )
-        if result.get("status") == "forbidden":
-            raise HTTPException(status_code=403, detail="Webhook Mercado Pago invalido.")
-        return result
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
->>>>>>> 58bfd5f7b3e3f2e381d1812d30878ea29463a478

@@ -8,6 +8,7 @@ from app.models.barbeiro import Barbeiro
 from app.models.barbearia import Barbearia
 from app.models.servico import Servico
 from app.services.barbershop_hours_service import build_day_slots, get_working_window
+from app.time_utils import utcnow_naive
 
 
 def _hora_esta_no_periodo(hora: int, periodo: str) -> bool:
@@ -60,7 +61,7 @@ def gerar_horarios_disponiveis(
     fim_dia = datetime.combine(data.date(), window[1])
     horarios = build_day_slots(barbearia, data.date(), duracao, barbeiro=barbeiro)
 
-    agora = datetime.utcnow()
+    agora = utcnow_naive()
     agendamentos_query = db.query(Agendamento).filter(
         Agendamento.barbeiro_id == barbeiro_id,
         Agendamento.barbearia_id == tenant_id,
@@ -70,7 +71,10 @@ def gerar_horarios_disponiveis(
             Agendamento.status.in_(["pendente", "confirmado", "reagendamento_solicitado"]),
             and_(
                 Agendamento.status == "pending_payment",
-                Agendamento.payment_hold_expires_at > agora,
+                or_(
+                    Agendamento.payment_hold_expires_at.is_(None),
+                    Agendamento.payment_hold_expires_at > agora,
+                ),
             ),
         ),
     )

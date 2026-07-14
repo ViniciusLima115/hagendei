@@ -18,7 +18,6 @@ from app.services.notificacao_service import (
     enviar_mensagem_whatsapp,
     montar_mensagem_confirmacao,
 )
-from app.services.payments.payment_service import default_payment_hold_expires_at, validate_service_advance_payment_config
 
 
 BOOKING_PUBLIC_BASE_URL = os.getenv("BOOKING_PUBLIC_BASE_URL", "http://127.0.0.1:3000")
@@ -127,8 +126,7 @@ def listar_servicos_publico(db: Session, *, barbearia_id: int) -> list[dict]:
 
 
 def _servico_exige_pagamento_adiantado(servico: Servico, barbearia: Barbearia) -> bool:
-    required, _, _ = validate_service_advance_payment_config(servico, barbearia)
-    return required
+    return bool(getattr(servico, "pagamento_adiantado_obrigatorio", False))
 
 
 def _serializar_servico_publico(servico: Servico, barbearia: Barbearia) -> dict:
@@ -139,15 +137,10 @@ def _serializar_servico_publico(servico: Servico, barbearia: Barbearia) -> dict:
         "preco": float(servico.preco),
         "pagamento_adiantado_obrigatorio": bool(getattr(servico, "pagamento_adiantado_obrigatorio", False)),
         "pagamento_adiantado_obrigatorio_efetivo": _servico_exige_pagamento_adiantado(servico, barbearia),
-        "advance_payment_type": (
-            getattr(servico, "advance_payment_type", None)
-            or getattr(barbearia, "advance_payment_type", None)
-        ),
+        "advance_payment_type": getattr(servico, "advance_payment_type", None),
         "advance_payment_amount": (
             float(servico.advance_payment_amount)
             if getattr(servico, "advance_payment_amount", None) is not None
-            else float(barbearia.advance_payment_amount)
-            if getattr(barbearia, "advance_payment_amount", None) is not None
             else None
         ),
     }
@@ -346,21 +339,15 @@ def criar_agendamento_publico(
     )
     agendamento.payment_required_snapshot = bool(pagamento_adiantado_exigido)
     if pagamento_adiantado_exigido:
-<<<<<<< HEAD
         payment_type = (servico.advance_payment_type or "full").strip().lower()
         amount_snapshot = servico.preco or 0
         if payment_type == "signal" and servico.advance_payment_amount is not None:
             amount_snapshot = servico.advance_payment_amount
-=======
-        _, payment_type, amount_snapshot = validate_service_advance_payment_config(servico, barbearia)
->>>>>>> 58bfd5f7b3e3f2e381d1812d30878ea29463a478
         agendamento.payment_type_snapshot = payment_type
         agendamento.payment_amount_snapshot = amount_snapshot
         agendamento.payment_status = "pending"
-        agendamento.payment_hold_expires_at = default_payment_hold_expires_at()
     else:
         agendamento.payment_status = "not_required"
-        agendamento.payment_hold_expires_at = None
 
     lembretes = 0
     if agendar_lembretes:

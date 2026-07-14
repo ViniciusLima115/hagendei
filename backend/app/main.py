@@ -36,16 +36,6 @@ from app.routes import (
     webhooks,
     whatsapp,
 )
-<<<<<<< HEAD
-=======
-import secrets
-import os
-from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBasic, HTTPBasicCredentials
-from fastapi.openapi.docs import get_swagger_ui_html
-from fastapi.responses import HTMLResponse
-from app.config import validate_critical_config
->>>>>>> 58bfd5f7b3e3f2e381d1812d30878ea29463a478
 from app.services.scheduler import start_scheduler, stop_scheduler
 
 security = HTTPBasic()
@@ -78,6 +68,7 @@ def _validate_runtime_config() -> None:
         "ALLOWED_HOSTS",
         "CORS_ALLOWED_ORIGINS",
         "TRUSTED_PROXY_IPS",
+        "RATE_LIMIT_STORAGE_URI",
         "INTERNAL_REMINDER_TOKEN",
         "WHATSAPP_VERIFY_TOKEN",
         "WHATSAPP_APP_SECRET",
@@ -88,6 +79,8 @@ def _validate_runtime_config() -> None:
     missing = [name for name in required if not os.getenv(name, "").strip()]
     if missing:
         raise RuntimeError(f"Configuracao de producao incompleta: {', '.join(missing)}")
+    if not os.getenv("RATE_LIMIT_STORAGE_URI", "").strip().lower().startswith(("redis://", "rediss://")):
+        raise RuntimeError("RATE_LIMIT_STORAGE_URI deve usar Redis em producao.")
     if len(os.getenv("ADMIN_SENHA", "")) < 14:
         raise RuntimeError("ADMIN_SENHA deve ter ao menos 14 caracteres em producao.")
     if _as_bool(os.getenv("AUTH_EXPOSE_BEARER_TOKEN"), False):
@@ -153,11 +146,7 @@ def verify_docs(credentials: HTTPBasicCredentials = Depends(security)) -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-<<<<<<< HEAD
     _validate_runtime_config()
-=======
-    validate_critical_config()
->>>>>>> 58bfd5f7b3e3f2e381d1812d30878ea29463a478
     init_db()
     start_scheduler()
     try:

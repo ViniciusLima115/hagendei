@@ -1,4 +1,5 @@
 import os
+import time
 from datetime import datetime
 from typing import Annotated
 from zoneinfo import ZoneInfo
@@ -17,6 +18,10 @@ from app.security import SESSION_COOKIE_NAME, TokenClaims, decode_access_token
 bearer_scheme = HTTPBearer(auto_error=False)
 ADMIN_ROLES = {"admin", "super_admin"}
 BUSINESS_TIMEZONE = ZoneInfo(os.getenv("BUSINESS_TIMEZONE", "America/Sao_Paulo"))
+ADMIN_REAUTH_MAX_AGE_SECONDS = max(
+    60,
+    min(int(os.getenv("ADMIN_REAUTH_MAX_AGE_SECONDS", "900")), 3600),
+)
 
 
 def has_admin_access(claims: TokenClaims) -> bool:
@@ -90,6 +95,16 @@ def get_current_claims(
 def require_admin(claims: TokenClaims = Depends(get_current_claims)) -> TokenClaims:
     if not has_admin_access(claims):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Acesso restrito ao admin.")
+    return claims
+
+
+def require_recent_admin(claims: TokenClaims = Depends(require_admin)) -> TokenClaims:
+    authenticated_at = claims.auth_time or claims.iat
+    if int(time.time()) - authenticated_at > ADMIN_REAUTH_MAX_AGE_SECONDS:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Reautenticacao obrigatoria para esta operacao sensivel.",
+        )
     return claims
 
 

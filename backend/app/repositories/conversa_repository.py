@@ -3,6 +3,7 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy.orm import Session
 
 from app.models.conversa import Conversa
+from app.time_utils import utcnow_naive
 
 
 class ConversaRepository:
@@ -22,7 +23,7 @@ class ConversaRepository:
             Conversa.ativa.is_(True),
         )
         if ativa_nos_ultimos_minutos is not None:
-            limite = datetime.utcnow() - timedelta(minutes=ativa_nos_ultimos_minutos)
+            limite = utcnow_naive() - timedelta(minutes=ativa_nos_ultimos_minutos)
             query = query.filter(Conversa.atualizado_em >= limite)
         return query.first()
 

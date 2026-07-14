@@ -3,6 +3,7 @@ from datetime import datetime
 from sqlalchemy import Column, DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint
 
 from app.database import Base
+from app.time_utils import utcnow_naive
 
 
 class PaymentIntegration(Base):
@@ -49,5 +50,5 @@ class PaymentIntegration(Base):
     updated_by_admin_id = Column(String(120), nullable=True)
     connected_at = Column(DateTime, nullable=True)
     disconnected_at = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
-    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, nullable=False, default=utcnow_naive)
+    updated_at = Column(DateTime, nullable=False, default=utcnow_naive, onupdate=utcnow_naive)

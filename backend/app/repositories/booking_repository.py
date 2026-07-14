@@ -7,6 +7,7 @@ from app.models.agendamento import Agendamento
 from app.models.barbeiro import Barbeiro
 from app.models.cliente import Cliente
 from app.models.servico import Servico
+from app.time_utils import utcnow_naive
 
 
 class BookingRepository:
@@ -106,7 +107,7 @@ class BookingRepository:
         inicio: datetime,
         fim: datetime,
     ) -> Agendamento | None:
-        now = datetime.utcnow()
+        now = utcnow_naive()
         return (
             self.db.query(Agendamento)
             .filter(
@@ -116,7 +117,10 @@ class BookingRepository:
                     Agendamento.status.in_(["pendente", "confirmado", "reagendamento_solicitado"]),
                     and_(
                         Agendamento.status == "pending_payment",
-                        Agendamento.payment_hold_expires_at > now,
+                        or_(
+                            Agendamento.payment_hold_expires_at.is_(None),
+                            Agendamento.payment_hold_expires_at > now,
+                        ),
                     ),
                 ),
                 Agendamento.data_hora_inicio < fim,

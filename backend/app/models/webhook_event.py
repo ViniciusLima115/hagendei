@@ -3,6 +3,7 @@ from datetime import datetime
 from sqlalchemy import Column, DateTime, Integer, String, UniqueConstraint
 
 from app.database import Base
+from app.time_utils import utcnow_naive
 
 
 class WebhookEvent(Base):
@@ -15,4 +16,4 @@ class WebhookEvent(Base):
     provider = Column(String(50), nullable=False, index=True)
     event_id = Column(String(255), nullable=False, index=True)
     tenant_id = Column(Integer, nullable=True, index=True)
-    criado_em = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
+    criado_em = Column(DateTime, nullable=False, default=utcnow_naive, index=True)

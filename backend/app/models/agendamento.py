@@ -4,6 +4,7 @@ from uuid import uuid4
 from sqlalchemy import Boolean, Column, Date, DateTime, ForeignKey, Index, Integer, Numeric, String, Time
 from sqlalchemy.orm import relationship, synonym
 from app.database import Base
+from app.time_utils import utcnow_naive
 
 
 class Agendamento(Base):
@@ -41,7 +42,7 @@ class Agendamento(Base):
     payment_hold_expires_at = Column(DateTime, nullable=True)
     provider_checkout_reference = Column(String(255), nullable=True)
     provider_preference_id = Column(String(255), nullable=True)
-    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_at = Column(DateTime, nullable=False, default=utcnow_naive, onupdate=utcnow_naive)
 
     # Aliases de compatibilidade com código legado (colunas físicas renomeadas)
     barbearia_id = synonym("estabelecimento_id")

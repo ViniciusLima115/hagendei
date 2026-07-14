@@ -1,6 +1,17 @@
+import pytest
+from limits.storage import MemoryStorage
+from limits.strategies import FixedWindowRateLimiter
+
+from app.limiter import limiter
 from app.models.barbearia import Barbearia
 import app.routes.auth as auth_module
 from app.security import hash_senha, verificar_senha
+
+
+@pytest.fixture(autouse=True)
+def reset_rate_limiter_storage():
+    limiter._storage = MemoryStorage()
+    limiter._limiter = FixedWindowRateLimiter(limiter._storage)
 
 
 def test_auth_admin_check_nao_e_exposto(client):
@@ -44,6 +55,48 @@ def test_auth_login_tenant_sucesso_e_senha_invalida(client, db_session):
 
     invalido = client.post("/auth/login", json={"usuario": "barbearia.login", "senha": "errada"})
     assert invalido.status_code == 401
+
+
+def test_auth_login_accepts_unique_email_local_part(client, db_session):
+    estabelecimento = Barbearia(
+        nome="Estabelecimento Alias",
+        login="alias.unico@example.com",
+        senha=hash_senha("senha123"),
+        plano="basico",
+        endereco="Rua Alias",
+    )
+    db_session.add(estabelecimento)
+    db_session.commit()
+
+    response = client.post("/auth/login", json={"usuario": "alias.unico", "senha": "senha123"})
+
+    assert response.status_code == 200
+    assert response.json()["tenant_id"] == estabelecimento.id
+
+
+def test_auth_login_rejects_ambiguous_email_local_part(client, db_session):
+    db_session.add_all(
+        [
+            Barbearia(
+                nome="Alias Um",
+                login="alias.duplicado@example.com",
+                senha=hash_senha("senha123"),
+                endereco="Rua Um",
+            ),
+            Barbearia(
+                nome="Alias Dois",
+                login="alias.duplicado@example.org",
+                senha=hash_senha("senha123"),
+                endereco="Rua Dois",
+            ),
+        ]
+    )
+    db_session.commit()
+
+    response = client.post("/auth/login", json={"usuario": "alias.duplicado", "senha": "senha123"})
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Usuario ou senha invalidos."
 
 
 def test_barbearias_exige_admin_e_bloqueia_tenant(client, make_tenant_headers):

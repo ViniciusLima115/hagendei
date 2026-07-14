@@ -3,6 +3,7 @@ from datetime import datetime
 from sqlalchemy import JSON, Boolean, Column, DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint
 
 from app.database import Base
+from app.time_utils import utcnow_naive
 
 
 class PaymentWebhookEvent(Base):
@@ -29,5 +30,5 @@ class PaymentWebhookEvent(Base):
     payload = Column(JSON, nullable=False)
     processing_status = Column(String(30), nullable=False, default="pending")
     error_message = Column(Text, nullable=True)
-    received_at = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
+    received_at = Column(DateTime, nullable=False, default=utcnow_naive, index=True)
     processed_at = Column(DateTime, nullable=True)

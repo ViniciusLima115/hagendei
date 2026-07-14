@@ -100,16 +100,19 @@ class PublicAgendamentoResponse(BaseModel):
 
 
 class PublicPagamentoInitResponse(BaseModel):
+    agendamento_id: int
+    external_reference: str
+    preference_id: str
     checkout_url: str
-    appointment_id: int
-    payment_id: int
+    amount: float
+    pagamento_status: str
+    agendamento_status: str
     expires_at: datetime | None = None
 
 
 class PublicPagamentoStatusResponse(BaseModel):
     external_reference: str
     agendamento_id: int
-    slug: str | None = None
     pagamento_status: str
     agendamento_status: str
     amount: float

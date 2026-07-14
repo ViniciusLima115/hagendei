@@ -3,6 +3,7 @@ from datetime import datetime
 from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Index, Integer, String, Text
 
 from app.database import Base
+from app.time_utils import utcnow_naive
 
 
 class Notificacao(Base):
@@ -18,5 +19,5 @@ class Notificacao(Base):
     titulo = Column(String(255), nullable=False)
     corpo = Column(Text, nullable=True)
     lida = Column(Boolean, nullable=False, default=False)
-    criada_em = Column(DateTime, nullable=False, default=datetime.utcnow)
+    criada_em = Column(DateTime, nullable=False, default=utcnow_naive)
     lida_em = Column(DateTime, nullable=True)

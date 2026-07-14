@@ -3,6 +3,7 @@ from datetime import datetime
 from sqlalchemy import JSON, Column, DateTime, ForeignKey, Index, Integer, String
 
 from app.database import Base
+from app.time_utils import utcnow_naive
 
 
 class AdminAuditLog(Base):
@@ -24,4 +25,4 @@ class AdminAuditLog(Base):
     ip_address = Column(String(80), nullable=True)
     user_agent = Column(String(500), nullable=True)
     audit_metadata = Column("metadata", JSON, nullable=True)
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    created_at = Column(DateTime, nullable=False, default=utcnow_naive)

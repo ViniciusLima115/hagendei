@@ -4,6 +4,7 @@ from sqlalchemy import Column, DateTime, ForeignKey, Index, Integer, String, Tex
 from sqlalchemy.orm import synonym
 
 from app.database import Base
+from app.time_utils import utcnow_naive
 
 
 class ReminderJob(Base):
@@ -26,4 +27,4 @@ class ReminderJob(Base):
     status = Column(String(20), nullable=False, default="pendente")
     tentativas = Column(Integer, nullable=False, default=0)
     ultimo_erro = Column(String(255), nullable=True)
-    criado_em = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
+    criado_em = Column(DateTime, nullable=False, default=utcnow_naive, index=True)

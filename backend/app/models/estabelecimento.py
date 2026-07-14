@@ -1,13 +1,10 @@
 from datetime import datetime
 
-<<<<<<< HEAD
 from sqlalchemy import JSON, Boolean, Column, Date, DateTime, Integer, String, Text
-=======
-from sqlalchemy import JSON, Boolean, Column, Date, DateTime, Float, Integer, String
->>>>>>> 58bfd5f7b3e3f2e381d1812d30878ea29463a478
 from sqlalchemy.orm import relationship
 
 from app.database import Base
+from app.time_utils import utcnow_naive
 
 
 class Estabelecimento(Base):
@@ -33,7 +30,7 @@ class Estabelecimento(Base):
     ultimo_acesso_em = Column(DateTime, nullable=True)
     pagamento_recusado = Column(Boolean, nullable=False, default=False)
     horarios_funcionamento = Column(JSON, nullable=True)
-    criado_em = Column(DateTime, nullable=False, default=datetime.utcnow)
+    criado_em = Column(DateTime, nullable=False, default=utcnow_naive)
 
     tipo_servico = Column(String(50), nullable=False, server_default="barbearia")
 
@@ -43,9 +40,5 @@ class Estabelecimento(Base):
     notif_ativo = Column(Boolean, nullable=False, default=True)
     notif_horas_antes = Column(Integer, nullable=False, default=2)
     intervalo_minutos = Column(Integer, nullable=False, server_default="30")
-    pagamento_adiantado_obrigatorio = Column(Boolean, nullable=False, default=False, server_default="false")
-    advance_payment_type = Column(String(20), nullable=True)
-    advance_payment_amount = Column(Float, nullable=True)
-    payment_default_provider = Column(String(50), nullable=False, default="mercado_pago", server_default="mercado_pago")
 
     profissionais = relationship("Profissional", back_populates="estabelecimento")

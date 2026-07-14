@@ -1,11 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
-<<<<<<< HEAD
 import { AlertTriangle, BellRing, Building2, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Clock, CreditCard, Eye, EyeOff, KeyRound, Lock, Power, RefreshCw, Search, ShieldCheck, Trash2, UserRound, X } from "lucide-react";
-=======
-import { AlertTriangle, BellRing, Building2, ChevronLeft, ChevronRight, Clock, CreditCard, KeyRound, Lock, PlugZap, RefreshCw, Search, ShieldCheck, Trash2, Unplug, UserRound, X } from "lucide-react";
->>>>>>> 58bfd5f7b3e3f2e381d1812d30878ea29463a478
 import Alert from "../../components/Alert";
 import Button from "../../components/Button";
 import FormInput from "../../components/FormInput";
@@ -17,24 +13,16 @@ import {
   PlanoBarbearia,
   clearMercadoPagoIntegrationFieldAdmin,
   createBarbeariaAdmin,
-  deactivatePaymentAccountAdmin,
   deleteBarbeariaAdmin,
   disableMercadoPagoIntegrationAdmin,
   getMercadoPagoIntegrationAdmin,
   getStatusAssinaturaBarbearia,
   listBarbeariasAdmin,
   listPaymentEstablishmentsAdmin,
-<<<<<<< HEAD
   saveMercadoPagoIntegrationAdmin,
   StatusManualBarbearia,
   StatusAssinaturaBarbearia,
   testMercadoPagoCheckoutAdmin,
-=======
-  requestPaymentReconnectAdmin,
-  StatusManualBarbearia,
-  StatusAssinaturaBarbearia,
-  testPaymentCheckoutAdmin,
->>>>>>> 58bfd5f7b3e3f2e381d1812d30878ea29463a478
   updateBarbeariaAdmin,
   validateMercadoPagoIntegrationAdmin,
 } from "@/services/estabelecimentos-admin";
@@ -56,41 +44,13 @@ function statusLabel(status: StatusAssinaturaBarbearia): string {
 }
 
 function paymentStatusLabel(status?: BarbeariaAdmin["paymentAccountStatus"]): string {
-  if (status === "connected") return "Conectada";
-  if (status === "disconnected") return "Desconectada";
-  if (status === "expired") return "Expirada";
+  if (status === "active") return "Conta ativa";
+  if (status === "inactive") return "Conta inativa";
   if (status === "error") return "Erro";
-<<<<<<< HEAD
   if (status === "revoked" || status === "disconnected") return "Desconectada";
   if (status === "pending") return "Pendente";
   if (status === "pending_validation") return "Aguardando validacao";
-=======
->>>>>>> 58bfd5f7b3e3f2e381d1812d30878ea29463a478
   return "Sem conta";
-}
-
-function providerLabel(provider?: string | null): string {
-  if (provider === "mercado_pago") return "Mercado Pago";
-  return provider ? provider : "-";
-}
-
-function formatDateTime(value?: string | null): string {
-  if (!value) return "-";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "-";
-  return new Intl.DateTimeFormat("pt-BR", {
-    dateStyle: "short",
-    timeStyle: "short",
-  }).format(date);
-}
-
-function auditActionLabel(action: string): string {
-  if (action === "deactivate") return "Desativacao";
-  if (action === "request_reconnect") return "Reconexao solicitada";
-  if (action === "test_checkout") return "Teste de checkout";
-  if (action === "status_update") return "Status alterado";
-  if (action === "upsert_payment_account") return "Conta atualizada";
-  return action.replaceAll("_", " ");
 }
 
 const initialForm = {
@@ -113,7 +73,6 @@ const initialFiltros = {
   dataAte: "",
 };
 
-<<<<<<< HEAD
 const initialPaymentForm = {
   environment: "production" as "sandbox" | "production",
   clientId: "",
@@ -196,8 +155,6 @@ function SecretPaymentInput({
   );
 }
 
-=======
->>>>>>> 58bfd5f7b3e3f2e381d1812d30878ea29463a478
 export default function AdminPage() {
   const [barbearias, setBarbearias] = useState<BarbeariaAdmin[]>([]);
   const [loading, setLoading] = useState(true);
@@ -223,13 +180,9 @@ export default function AdminPage() {
     pagamentoRecusado: false,
   });
   const [paymentSelected, setPaymentSelected] = useState<BarbeariaAdmin | null>(null);
-<<<<<<< HEAD
   const [paymentIntegration, setPaymentIntegration] = useState<AdminPaymentIntegration | null>(null);
   const [paymentForm, setPaymentForm] = useState(initialPaymentForm);
   const [paymentSecretVisible, setPaymentSecretVisible] = useState(initialPaymentSecretVisibility);
-=======
-  const [paymentAccount, setPaymentAccount] = useState<AdminPaymentAccount | null>(null);
->>>>>>> 58bfd5f7b3e3f2e381d1812d30878ea29463a478
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const [paymentSuccess, setPaymentSuccess] = useState<string | null>(null);
@@ -250,15 +203,8 @@ export default function AdminPage() {
             paymentAccountStatus: payment?.payment_account_status ?? "not_configured",
             paymentAccountName: payment?.payment_account_name ?? null,
             paymentAccountId: payment?.payment_account_id ?? null,
-<<<<<<< HEAD
             paymentEnvironment: payment?.payment_environment ?? null,
             paymentValidationStatus: payment?.payment_validation_status ?? null,
-=======
-            paymentProvider: payment?.provider ?? null,
-            paymentConnectedAt: payment?.connected_at ?? null,
-            paymentUpdatedAt: payment?.updated_at ?? null,
-            paymentLastError: payment?.last_error ?? null,
->>>>>>> 58bfd5f7b3e3f2e381d1812d30878ea29463a478
           };
         })
       );
@@ -474,7 +420,6 @@ export default function AdminPage() {
   async function abrirModalPagamento(item: BarbeariaAdmin) {
     limparMensagensPagamento();
     setPaymentSelected(item);
-<<<<<<< HEAD
     setPaymentIntegration(null);
     setPaymentForm(initialPaymentForm);
     setPaymentSecretVisible(initialPaymentSecretVisibility);
@@ -493,13 +438,6 @@ export default function AdminPage() {
           notes: "",
         });
       }
-=======
-    setPaymentAccount(null);
-    setPaymentLoading(true);
-    try {
-      const account = await getPaymentAccountAdmin(item.id);
-      setPaymentAccount(account);
->>>>>>> 58bfd5f7b3e3f2e381d1812d30878ea29463a478
     } catch (err) {
       setPaymentError(err instanceof Error ? err.message : "Falha ao carregar integracao de pagamento.");
     } finally {
@@ -507,9 +445,9 @@ export default function AdminPage() {
     }
   }
 
-  async function desativarIntegracaoPagamento() {
+  async function salvarPagamento(e: FormEvent) {
+    e.preventDefault();
     if (!paymentSelected) return;
-<<<<<<< HEAD
     limparMensagensPagamento();
 
     const trimmedPaymentForm = {
@@ -582,25 +520,11 @@ export default function AdminPage() {
       await recarregar();
     } catch (err) {
       setPaymentError(err instanceof Error ? err.message : "Falha ao salvar credenciais Mercado Pago.");
-=======
-    const confirmed = window.confirm(`Desativar a integracao de pagamento de "${paymentSelected.nome}"?`);
-    if (!confirmed) return;
-    limparMensagens();
-    setPaymentLoading(true);
-    try {
-      const updated = await deactivatePaymentAccountAdmin(paymentSelected.id);
-      setPaymentAccount(updated);
-      setSuccess("Integracao de pagamento desativada.");
-      await recarregar();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Falha ao desativar integracao.");
->>>>>>> 58bfd5f7b3e3f2e381d1812d30878ea29463a478
     } finally {
       setPaymentLoading(false);
     }
   }
 
-<<<<<<< HEAD
   function togglePaymentSecret(field: PaymentSecretField) {
     setPaymentSecretVisible((prev) => ({ ...prev, [field]: !prev[field] }));
   }
@@ -689,38 +613,6 @@ export default function AdminPage() {
       await recarregar();
     } catch (err) {
       setPaymentError(err instanceof Error ? err.message : `Falha ao limpar ${label}.`);
-=======
-  async function solicitarReconexaoPagamento() {
-    if (!paymentSelected) return;
-    const confirmed = window.confirm(`Solicitar reconexao da integracao de "${paymentSelected.nome}"?`);
-    if (!confirmed) return;
-    limparMensagens();
-    setPaymentLoading(true);
-    try {
-      const updated = await requestPaymentReconnectAdmin(paymentSelected.id);
-      setPaymentAccount(updated);
-      setSuccess("Solicitacao de reconexao registrada.");
-      await recarregar();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Falha ao solicitar reconexao.");
-    } finally {
-      setPaymentLoading(false);
-    }
-  }
-
-  async function testarCheckoutPagamento() {
-    if (!paymentSelected) return;
-    limparMensagens();
-    setPaymentLoading(true);
-    try {
-      const result = await testPaymentCheckoutAdmin(paymentSelected.id);
-      const account = await getPaymentAccountAdmin(paymentSelected.id);
-      setPaymentAccount(account);
-      setSuccess(result.detail || "Checkout de teste validado.");
-      await recarregar();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Falha ao testar checkout.");
->>>>>>> 58bfd5f7b3e3f2e381d1812d30878ea29463a478
     } finally {
       setPaymentLoading(false);
     }
@@ -1124,7 +1016,7 @@ export default function AdminPage() {
                       {/* Name + login */}
                       <div className={styles.estabInfo}>
                         <p className={styles.estabName}>{item.nome}</p>
-                        <p className={styles.estabLogin}>ID {item.id} - {item.login}</p>
+                        <p className={styles.estabLogin}>{item.login}</p>
                       </div>
 
                       {/* Badges */}
@@ -1148,7 +1040,7 @@ export default function AdminPage() {
                           {statusLabel(status)}
                         </span>
                         <span className={`badge ${
-                          item.paymentAccountStatus === "connected"
+                          item.paymentAccountStatus === "active"
                             ? "badge-confirmado"
                             : item.paymentAccountStatus === "not_configured"
                               ? "badge-livre"
@@ -1158,26 +1050,16 @@ export default function AdminPage() {
                         </span>
                       </div>
 
-                      {/* Meta: pagamento */}
+                      {/* Meta: vencimento + atividade */}
                       <div className={styles.estabMeta}>
                         <span className={styles.estabMetaItem}>
-                          <CreditCard size={12} />
-                          {providerLabel(item.paymentProvider)}
+                          <CalendarDays size={12} />
+                          Vence {item.vencimentoEm}
                         </span>
                         <span className={styles.estabMetaItem}>
                           <Clock size={12} />
-                          Conexao {formatDateTime(item.paymentConnectedAt)}
+                          {item.ultimoAcessoEm ? item.ultimoAcessoEm.slice(0, 10) : "Nunca acessou"}
                         </span>
-                        <span className={styles.estabMetaItem}>
-                          <RefreshCw size={12} />
-                          Atualizado {formatDateTime(item.paymentUpdatedAt)}
-                        </span>
-                        {item.paymentLastError && (
-                          <span className={styles.estabMetaItemDanger}>
-                            <AlertTriangle size={12} />
-                            {item.paymentLastError}
-                          </span>
-                        )}
                       </div>
 
                       {/* Password */}
@@ -1259,30 +1141,20 @@ export default function AdminPage() {
       <Modal
         isOpen={Boolean(paymentSelected)}
         onClose={() => setPaymentSelected(null)}
-<<<<<<< HEAD
         title="Pagamentos"
-=======
-        title="Detalhes de Pagamento"
-        size="lg"
->>>>>>> 58bfd5f7b3e3f2e381d1812d30878ea29463a478
       >
         {!paymentSelected ? null : (
-          <div className={styles.formStack}>
+          <form onSubmit={salvarPagamento} className={styles.formStack}>
             <div className={styles.modalInfoBox}>
               <p className={styles.modalInfoName}>{paymentSelected.nome}</p>
               <p className={styles.modalInfoLogin}>
                 <CreditCard size={14} />
-<<<<<<< HEAD
                 Mercado Pago
-=======
-                ID {paymentSelected.id} - {paymentAccount ? paymentStatusLabel(paymentAccount.status) : "Sem conta configurada"}
->>>>>>> 58bfd5f7b3e3f2e381d1812d30878ea29463a478
               </p>
             </div>
 
-            {paymentLoading && <p className={styles.panelSubtitle}>Carregando dados da integracao...</p>}
+            {paymentLoading && <p className={styles.panelSubtitle}>Carregando configuracao...</p>}
 
-<<<<<<< HEAD
             <div className={styles.paymentSectionHeader}>
               <div>
                 <p className={styles.panelTitle}>Mercado Pago</p>
@@ -1427,141 +1299,9 @@ export default function AdminPage() {
               <Button type="submit" disabled={paymentLoading}>
                 <CreditCard size={16} />
                 Salvar credenciais
-=======
-            {!paymentLoading && !paymentAccount && (
-              <div className={styles.paymentEmpty}>
-                <p className={styles.paymentEmptyTitle}>Mercado Pago nao conectado</p>
-                <p className={styles.panelSubtitle}>
-                  O estabelecimento precisa conectar a propria conta pelo painel de pagamentos.
-                </p>
-              </div>
-            )}
-
-            {paymentAccount && (
-              <>
-                <div className={styles.paymentDetailsGrid}>
-                  <div className={styles.paymentDetailItem}>
-                    <span>Provedor</span>
-                    <strong>{providerLabel(paymentAccount.provider)}</strong>
-                  </div>
-                  <div className={styles.paymentDetailItem}>
-                    <span>Status</span>
-                    <strong>{paymentStatusLabel(paymentAccount.status)}</strong>
-                  </div>
-                  <div className={styles.paymentDetailItem}>
-                    <span>Conta</span>
-                    <strong>{paymentAccount.account_name ?? "Conta Mercado Pago"}</strong>
-                  </div>
-                  <div className={styles.paymentDetailItem}>
-                    <span>Provider account id</span>
-                    <strong>{paymentAccount.provider_account_id_masked ?? "-"}</strong>
-                  </div>
-                  <div className={styles.paymentDetailItem}>
-                    <span>Email Mercado Pago</span>
-                    <strong>{paymentAccount.provider_account_email_masked ?? "-"}</strong>
-                  </div>
-                  <div className={styles.paymentDetailItem}>
-                    <span>Conectado em</span>
-                    <strong>{formatDateTime(paymentAccount.connected_at)}</strong>
-                  </div>
-                  <div className={styles.paymentDetailItem}>
-                    <span>Ultima atualizacao</span>
-                    <strong>{formatDateTime(paymentAccount.updated_at)}</strong>
-                  </div>
-                  <div className={styles.paymentDetailItem}>
-                    <span>Ultimo pagamento teste</span>
-                    <strong>
-                      {paymentAccount.last_test_payment_status
-                        ? `${paymentAccount.last_test_payment_status} - ${formatDateTime(paymentAccount.last_test_payment_at)}`
-                        : "-"}
-                    </strong>
-                  </div>
-                </div>
-
-                {paymentAccount.last_error && (
-                  <div className={styles.paymentError}>
-                    <AlertTriangle size={16} />
-                    <span>{paymentAccount.last_error}</span>
-                  </div>
-                )}
-
-                <div className={styles.paymentMetricGrid}>
-                  <div className={styles.paymentMetricItem}>
-                    <span>Aprovados</span>
-                    <strong>{paymentAccount.approved_payments_count}</strong>
-                  </div>
-                  <div className={styles.paymentMetricItem}>
-                    <span>Falhas</span>
-                    <strong>{paymentAccount.failed_payments_count}</strong>
-                  </div>
-                  <div className={styles.paymentMetricItem}>
-                    <span>Ultimo pagamento</span>
-                    <strong>
-                      {paymentAccount.last_payment_status
-                        ? `${paymentAccount.last_payment_status} - ${formatDateTime(paymentAccount.last_payment_at)}`
-                        : "-"}
-                    </strong>
-                  </div>
-                </div>
-
-                <div className={styles.auditSection}>
-                  <p className={styles.sectionMiniTitle}>Auditoria recente</p>
-                  {paymentAccount.audit_logs.length === 0 ? (
-                    <p className={styles.panelSubtitle}>Nenhuma acao administrativa registrada.</p>
-                  ) : (
-                    <div className={styles.auditList}>
-                      {paymentAccount.audit_logs.map((log) => (
-                        <div key={log.id} className={styles.auditItem}>
-                          <div>
-                            <strong>{auditActionLabel(log.action)}</strong>
-                            <p className={styles.auditMeta}>
-                              {formatDateTime(log.created_at)}
-                              {log.admin_sub ? ` - ${log.admin_sub}` : ""}
-                            </p>
-                          </div>
-                          <span className={styles.auditStatus}>
-                            {log.status_before ?? "-"} {"->"} {log.status_after ?? "-"}
-                          </span>
-                          {log.error_message && <p className={styles.auditError}>{log.error_message}</p>}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </>
-            )}
-
-            <div className={styles.modalActions}>
-              {paymentAccount && (
-                <>
-                  <Button
-                    variant="secondary"
-                    onClick={testarCheckoutPagamento}
-                    disabled={paymentLoading || paymentAccount.status !== "connected"}
-                  >
-                    <PlugZap size={16} />
-                    Testar checkout
-                  </Button>
-                  <Button variant="secondary" onClick={solicitarReconexaoPagamento} disabled={paymentLoading}>
-                    <RefreshCw size={16} />
-                    Solicitar reconexao
-                  </Button>
-                  <Button
-                    variant="danger"
-                    onClick={desativarIntegracaoPagamento}
-                    disabled={paymentLoading || paymentAccount.status === "disconnected"}
-                  >
-                    <Unplug size={16} />
-                    Desativar
-                  </Button>
-                </>
-              )}
-              <Button variant="secondary" onClick={() => setPaymentSelected(null)} disabled={paymentLoading}>
-                Fechar
->>>>>>> 58bfd5f7b3e3f2e381d1812d30878ea29463a478
               </Button>
             </div>
-          </div>
+          </form>
         )}
       </Modal>
 

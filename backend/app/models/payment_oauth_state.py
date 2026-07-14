@@ -3,7 +3,7 @@ from datetime import datetime
 from sqlalchemy import Column, DateTime, Index, Integer, String, UniqueConstraint
 
 from app.database import Base
-from app.services.payments.constants import PAYMENT_PROVIDER_MERCADO_PAGO
+from app.time_utils import utcnow_naive
 
 
 class PaymentOAuthState(Base):
@@ -15,11 +15,10 @@ class PaymentOAuthState(Base):
     )
 
     id = Column(Integer, primary_key=True, index=True)
-    provider = Column(String(50), nullable=False, default=PAYMENT_PROVIDER_MERCADO_PAGO)
+    provider = Column(String(50), nullable=False, default="mercadopago")
     establishment_id = Column(Integer, nullable=False)
     user_sub = Column(String(255), nullable=True)
     state = Column(String(255), nullable=False, index=True)
-    code_verifier = Column(String(255), nullable=True)
     expires_at = Column(DateTime, nullable=False)
     consumed_at = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    created_at = Column(DateTime, nullable=False, default=utcnow_naive)

@@ -5,6 +5,7 @@ from sqlalchemy import JSON, Column, DateTime, ForeignKey, Index, Integer, Numer
 from sqlalchemy.orm import relationship, synonym
 
 from app.database import Base
+from app.time_utils import utcnow_naive
 
 
 class Pagamento(Base):
@@ -38,8 +39,8 @@ class Pagamento(Base):
     raw_payload = Column(JSON, nullable=True)
     paid_at = Column(DateTime, nullable=True)
     expires_at = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
-    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow, index=True)
+    created_at = Column(DateTime, nullable=False, default=utcnow_naive, index=True)
+    updated_at = Column(DateTime, nullable=False, default=utcnow_naive, onupdate=utcnow_naive, index=True)
 
     # Aliases de compatibilidade e nomenclatura futura
     booking_id = synonym("agendamento_id")

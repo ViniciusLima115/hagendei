@@ -3,11 +3,11 @@ import secrets
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.limiter import RATE_LIMIT_LOGIN, limiter
-from app.models.barbearia import Barbearia
 from app.models.estabelecimento import Estabelecimento
 from app.models.token_blacklist import TokenBlacklist
 from app.routes.deps import get_current_claims, tenant_account_is_active
@@ -28,6 +28,21 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 ADMIN_USUARIO = os.getenv("ADMIN_USUARIO", "").strip().lower()
 ADMIN_SENHA = os.getenv("ADMIN_SENHA", "")
 _DUMMY_PASSWORD_HASH = hash_senha(secrets.token_urlsafe(32))
+
+
+def _find_establishment_for_login(db: Session, usuario: str) -> Estabelecimento | None:
+    exact = db.query(Estabelecimento).filter(func.lower(Estabelecimento.login) == usuario).first()
+    if exact or "@" in usuario:
+        return exact
+
+    escaped = usuario.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    matches = (
+        db.query(Estabelecimento)
+        .filter(func.lower(Estabelecimento.login).like(f"{escaped}@%", escape="\\"))
+        .limit(2)
+        .all()
+    )
+    return matches[0] if len(matches) == 1 else None
 
 
 def _set_session_cookie(response: Response, token: str) -> None:
@@ -62,7 +77,7 @@ def login(request: Request, response: Response, payload: LoginRequest, db: Sessi
             token_type="bearer",
         )
 
-    estabelecimento = db.query(Barbearia).filter(Barbearia.login == usuario).first()
+    estabelecimento = _find_establishment_for_login(db, usuario)
     stored_hash = estabelecimento.senha if estabelecimento and estabelecimento.senha else _DUMMY_PASSWORD_HASH
     password_valid = verificar_senha(senha, stored_hash)
     if not estabelecimento or not password_valid:

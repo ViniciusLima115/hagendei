@@ -2,27 +2,19 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Settings, User, Lock, Palette, Bell, ArrowLeft, CreditCard } from "lucide-react";
+import { Settings, User, Lock, Palette, Bell, ArrowLeft } from "lucide-react";
 
 import { useAuthSession, AUTH_STORAGE_KEY } from "@/services/auth";
-import {
-  API_URL,
-  PaymentAccountStatus,
-  connectMercadoPago,
-  disconnectMercadoPago,
-  getMercadoPagoStatus,
-  updateMercadoPagoSettings,
-} from "@/services/api";
+import { API_URL } from "@/services/api";
 import styles from "./page.module.css";
 
-type Section = "perfil" | "senha" | "tema" | "notificacoes" | "pagamentos";
+type Section = "perfil" | "senha" | "tema" | "notificacoes";
 
 const SECTIONS: { id: Section; label: string; icon: React.ElementType }[] = [
   { id: "perfil", label: "Perfil", icon: User },
   { id: "senha", label: "Senha", icon: Lock },
   { id: "tema", label: "Tema", icon: Palette },
   { id: "notificacoes", label: "Notificacoes", icon: Bell },
-  { id: "pagamentos", label: "Pagamentos", icon: CreditCard },
 ];
 
 type Preset = {
@@ -93,48 +85,14 @@ function ConfiguracoesContent() {
 
   const [notifAtivo, setNotifAtivo] = useState(true);
   const [notifHoras, setNotifHoras] = useState<number>(2);
-  const [paymentAccount, setPaymentAccount] = useState<PaymentAccountStatus | null>(null);
-  const [checkoutHoldMinutes, setCheckoutHoldMinutes] = useState<number>(10);
 
   useEffect(() => {
     if (session?.tenantId === "admin") router.replace("/admin");
   }, [session?.tenantId, router]);
 
-<<<<<<< HEAD
-=======
-  useEffect(() => {
-    const aba = searchParams.get("aba");
-    if (aba === "perfil" || aba === "senha" || aba === "tema" || aba === "notificacoes" || aba === "pagamentos") {
-      setActiveSection(aba);
-    }
-    const mpStatus = searchParams.get("mp_status");
-    if (mpStatus === "connected") {
-      setSuccess("Mercado Pago conectado com sucesso.");
-    } else if (mpStatus === "error") {
-      setError("Nao foi possivel conectar a conta Mercado Pago.");
-    }
-  }, [searchParams]);
-
-  useEffect(() => {
-    if (!session?.accessToken || activeSection !== "pagamentos") return;
-    carregarPagamento();
-  }, [session?.accessToken, activeSection]);
-
->>>>>>> 58bfd5f7b3e3f2e381d1812d30878ea29463a478
   function clearMessages() {
     setSuccess(null);
     setError(null);
-  }
-
-  async function carregarPagamento() {
-    try {
-      const status = await getMercadoPagoStatus();
-      setPaymentAccount(status);
-      setCheckoutHoldMinutes(status.checkout_hold_minutes ?? 10);
-    } catch (e) {
-      setPaymentAccount(null);
-      setError(e instanceof Error ? e.message : "Falha ao carregar pagamentos.");
-    }
   }
 
   function applyPreset(preset: Preset) {
@@ -239,51 +197,6 @@ function ConfiguracoesContent() {
     setLoading(false);
     if (result.ok) setSuccess("Preferencias salvas.");
     else setError(result.detail ?? "Erro ao salvar preferencias.");
-  }
-
-  async function handleConectarMercadoPago() {
-    clearMessages();
-    setLoading(true);
-    try {
-      const response = await connectMercadoPago();
-      window.location.href = response.authorization_url;
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Erro ao iniciar conexao com Mercado Pago.");
-      setLoading(false);
-    }
-  }
-
-  async function handleDesconectarMercadoPago() {
-    clearMessages();
-    setLoading(true);
-    try {
-      const status = await disconnectMercadoPago();
-      setPaymentAccount(status);
-      setCheckoutHoldMinutes(status.checkout_hold_minutes ?? 10);
-      setSuccess("Mercado Pago desconectado.");
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Erro ao desconectar Mercado Pago.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function handleSalvarPagamentos(e: React.FormEvent) {
-    e.preventDefault();
-    clearMessages();
-    setLoading(true);
-    try {
-      const status = await updateMercadoPagoSettings({
-        checkout_hold_minutes: checkoutHoldMinutes,
-      });
-      setPaymentAccount(status);
-      setCheckoutHoldMinutes(status.checkout_hold_minutes ?? checkoutHoldMinutes);
-      setSuccess("Configuracoes de pagamento salvas.");
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Erro ao salvar pagamentos.");
-    } finally {
-      setLoading(false);
-    }
   }
 
   return (
@@ -517,62 +430,6 @@ function ConfiguracoesContent() {
                 <button type="submit" className="btn btn-accent" disabled={loading}>
                   {loading ? "Salvando..." : "Salvar preferencias"}
                 </button>
-              </div>
-            </form>
-          )}
-
-          {activeSection === "pagamentos" && (
-            <form onSubmit={handleSalvarPagamentos} className={styles.card}>
-              <div className={styles.cardHeader}>
-                <p className={styles.eyebrow}>Mercado Pago</p>
-                <h2 className={styles.cardTitle}>Pagamentos online</h2>
-                <p className={styles.cardDesc}>Conta de recebimento usada nos checkouts dos clientes.</p>
-              </div>
-
-              <div className={styles.cardBody}>
-                <div className={styles.paymentStatusGrid}>
-                  <div className={styles.paymentStatusItem}>
-                    <span className={styles.fieldHint}>Status</span>
-                    <strong>{paymentAccount?.connected ? "Conectada" : "Desconectada"}</strong>
-                  </div>
-                  <div className={styles.paymentStatusItem}>
-                    <span className={styles.fieldHint}>Conta</span>
-                    <strong>{paymentAccount?.provider_account_email_masked || paymentAccount?.provider_account_id_masked || paymentAccount?.external_account_email_masked || paymentAccount?.external_user_id_masked || "-"}</strong>
-                  </div>
-                </div>
-
-                <div className={styles.fieldGroup}>
-                  <div className={styles.field}>
-                    <label className={styles.fieldLabel} htmlFor="checkout-hold">Bloqueio temporario do horario</label>
-                    <input
-                      id="checkout-hold"
-                      className="input"
-                      type="number"
-                      min={5}
-                      max={60}
-                      value={checkoutHoldMinutes}
-                      onChange={(e) => setCheckoutHoldMinutes(Number(e.target.value))}
-                    />
-                    <span className={styles.fieldHint}>Entre 5 e 60 minutos.</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className={styles.cardFooter}>
-                <div className={styles.paymentActions}>
-                  {paymentAccount?.connected ? (
-                    <button type="button" className="btn" onClick={handleDesconectarMercadoPago} disabled={loading}>
-                      Desconectar
-                    </button>
-                  ) : (
-                    <button type="button" className="btn btn-accent" onClick={handleConectarMercadoPago} disabled={loading}>
-                      Conectar Mercado Pago
-                    </button>
-                  )}
-                  <button type="submit" className="btn btn-accent" disabled={loading}>
-                    {loading ? "Salvando..." : "Salvar"}
-                  </button>
-                </div>
               </div>
             </form>
           )}

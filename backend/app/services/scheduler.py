@@ -6,7 +6,8 @@ from sqlalchemy.orm import joinedload
 
 from app.database import SessionLocal
 from app.models.agendamento import Agendamento
-from app.services.payments.payment_service import expire_pending_appointments
+from app.services.payments.payment_service import expire_pending_bookings_and_payments
+from app.services.session_service import purge_expired_revoked_tokens
 from app.services.email_service import (
     AgendamentoEmailContext,
     build_reminder_email,
@@ -76,7 +77,15 @@ def _processar_notificacoes_pendentes():
 def _processar_expiracao_pagamentos():
     db = SessionLocal()
     try:
-        expire_pending_appointments(db, limit=300)
+        expire_pending_bookings_and_payments(db, limit=300)
+    finally:
+        db.close()
+
+
+def _purge_expired_revoked_tokens():
+    db = SessionLocal()
+    try:
+        purge_expired_revoked_tokens(db)
     finally:
         db.close()
 
@@ -185,6 +194,15 @@ def start_scheduler():
             "interval",
             minutes=1,
             id="pending-payments-expiration",
+            max_instances=1,
+            replace_existing=True,
+            coalesce=True,
+        )
+        scheduler.add_job(
+            _purge_expired_revoked_tokens,
+            "interval",
+            hours=1,
+            id="expired-token-blacklist",
             max_instances=1,
             replace_existing=True,
             coalesce=True,

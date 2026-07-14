@@ -1,20 +1,20 @@
 # Auditoria de Seguranca - Hagendei
 
-Data da auditoria: 2026-07-13  
+Data da auditoria: 2026-07-14
 Escopo: repositorio completo do Hagendei, incluindo frontend, backend, banco/ORM, autenticacao, multiestabelecimento, Mercado Pago, mensageria, email, Docker, proxy, CI/CD, dependencias, testes e documentacao.  
 Objetivo de referencia: OWASP ASVS 5 nivel 2, OWASP Top 10, OWASP API Security Top 10 e documentacao oficial do Mercado Pago aplicavel ao fluxo encontrado.
 
 ## Sumario executivo
 
-Foram catalogados 40 achados: 5 criticos, 16 altos, 14 medios e 5 baixos. No estado final desta revisao, 27 estao corrigidos, 8 parcialmente corrigidos e 5 pendentes. Os falsos positivos descartados nao entram nessa contagem.
+Foram catalogados 40 achados: 5 criticos, 16 altos, 14 medios e 5 baixos. No estado final desta revisao, 32 estao corrigidos, 6 parcialmente corrigidos e 2 pendentes. Os falsos positivos descartados nao entram nessa contagem.
 
 | Severidade | Total | Corrigidos | Parciais | Pendentes |
 | --- | ---: | ---: | ---: | ---: |
 | Critica | 5 | 4 | 1 | 0 |
 | Alta | 16 | 15 | 1 | 0 |
-| Media | 14 | 6 | 5 | 3 |
-| Baixa | 5 | 2 | 1 | 2 |
-| **Total** | **40** | **27** | **8** | **5** |
+| Media | 14 | 8 | 4 | 2 |
+| Baixa | 5 | 5 | 0 | 0 |
+| **Total** | **40** | **32** | **6** | **2** |
 
 Esta auditoria reduziu riscos concretos, mas nao certifica que o sistema seja "100% seguro". A verificacao foi local, sem cobrancas, reembolsos ou ataques contra producao e sem acesso ao painel, IAM, banco, backups, observabilidade ou rede reais.
 
@@ -23,7 +23,7 @@ Esta auditoria reduziu riscos concretos, mas nao certifica que o sistema seja "1
 - Frontend: Next.js 16.2.10, React 19.2.3, TypeScript, App Router e middleware de navegacao.
 - Backend: FastAPI 0.139.0, Pydantic 2.12.5, SQLAlchemy 2.0.46 e Uvicorn.
 - Banco principal pretendido: PostgreSQL/Neon via `psycopg2`; ha compatibilidade legada com MySQL. Os testes locais usam banco isolado configurado pelas fixtures.
-- Autenticacao: senha bcrypt e JWT HS256 em cookie `HttpOnly`; claims obrigatorias incluem `iss`, `aud`, `jti`, `iat`, `exp` e `session_version`.
+- Autenticacao: senha bcrypt e JWT HS256 em cookie `HttpOnly`; claims obrigatorias incluem `iss`, `aud`, `jti`, `iat`, `exp` e `session_version`; novos tokens tambem registram `auth_time` para operacoes administrativas sensiveis.
 - Perfis: visitante publico, usuario de estabelecimento/tenant e superadministrador.
 - Multiestabelecimento: `estabelecimento_id`/`barbearia_id` em recursos; o tenant do JWT e comparado com o cabecalho e aplicado nas consultas.
 - Pagamento: Mercado Pago Checkout Pro, com criacao server-side de preferencia e redirecionamento para checkout hospedado. Nao foi encontrado recebimento ou armazenamento de PAN, CVV, validade ou dados brutos de cartao.
@@ -87,15 +87,20 @@ Baseline anterior as correcoes:
 
 Estado final validado:
 
-- backend: 343 testes aprovados, 1.322 avisos, cobertura total 80,53% e piso de 78% atendido;
+- backend: 355 testes aprovados, 48 avisos, cobertura total 80,94% e piso de 78% atendido;
 - frontend: ESLint sem erros/avisos e build de producao aprovado com typecheck;
 - `npm audit --audit-level=low`: 0 vulnerabilidades conhecidas;
 - `pip-audit -r requirements.txt`: 0 vulnerabilidades conhecidas;
 - Bandit `-ll`: 0 alertas medios ou altos; 22 baixos permanecem para triagem continua;
 - `python -m compileall -q app`: aprovado;
-- `git diff --check`: aprovado apos correcao de whitespace.
+- `git diff --check`: aprovado; busca em todo o working tree nao encontrou marcadores de conflito.
+- Gitleaks 8.30.1: 322 commits varridos com redaction total; 11 candidatos historicos detectados, incluindo 2 no antigo `backend/.env`, sem exibir valores.
 
-Avisos preexistentes ainda visiveis: uso de `datetime.utcnow()`, deprecacoes de dependencias (`slowapi`/TestClient) e aviso do Next.js para migrar futuramente `middleware.ts` para a convencao `proxy`.
+Avisos ainda visiveis: usos de `datetime.utcnow()` restritos a testes, deprecacoes de dependencias (`slowapi`/TestClient) e aviso do Next.js para migrar futuramente `middleware.ts` para a convencao `proxy`.
+
+### Incidente apos git pull
+
+O merge `3ce45dc` trouxe marcadores de conflito versionados em 26 arquivos e mais de 2.000 linhas duplicadas, incluindo `frontend/services/api.ts`. A arvore foi reconstruida a partir do pai auditado `ce17c6c`; as adicoes de marketplace foram reaplicadas de forma compativel, sem mensagens sensiveis do provider e com taxa opcional validada por `Decimal`. O estado final nao contem marcadores, compila e passa pela suite completa.
 
 ## Achados corrigidos
 
@@ -120,6 +125,8 @@ Avisos preexistentes ainda visiveis: uso de `datetime.utcnow()`, deprecacoes de 
 | H-14 | Alta | CWE-16, CWE-346 | proxy/configuracao | Cabecalhos `X-Forwarded-*` forjados ou defaults de producao podiam burlar HTTPS/origem. | Proxy headers desativados no Uvicorn ate proxies explicitamente confiaveis; IP real vem de `request.client`; hosts/CORS/proxies/URLs/segredos falham fechados. Teste de HTTPS administrativo. |
 | H-15 | Alta | CWE-16, CWE-345 | integracao MP | Salvar token marcava integracao como pronta mesmo sem validacao/segredo de webhook. | Credencial salva fica pendente; checkout exige integracao ativa, validada e com webhook secret. Testes de validacao, permissoes e bloqueio sem secret. |
 | H-16 | Alta | CWE-670, CWE-841 | consistencia financeira | Pagamento aprovado tardio, chargeback ou evento terminal repetido podia gerar estado incoerente/email duplicado. | Maquina inclui `charged_back`; aprovado nao regride; conflito tardio vira `payment_review_required`; efeitos so ocorrem em transicao real. Testes de nao regressao e notificacao terminal unica. |
+| M-03 | Media | CWE-770 | rate limiting | O storage em memoria nao coordenava limites entre replicas. | Producao agora exige `RATE_LIMIT_STORAGE_URI` Redis/Rediss; Compose inclui Redis isolado e sem fallback silencioso. Teste `test_production_requires_shared_rate_limit_storage`. |
+| M-08 | Media | CWE-1104, supply chain | Actions e imagens por tag podiam mudar sem revisao. | GitHub Actions fixadas por commit SHA, imagens Docker por digest e Dependabot semanal configurado para Actions, pip, npm e Docker. |
 | M-09 | Media | CWE-778 | auditoria administrativa | Alteracoes criticas nao tinham trilha suficiente. | `AdminAuditLog` registra ator, acao, tenant, recurso, horario, resultado e correlacao, com redaction. Testes de sucesso/falha sem segredo. |
 | M-10 | Media | CWE-459, privacidade | exclusao de tenant | Hard delete podia apagar historico financeiro e dificultar investigacao. | Exclusao administrativa virou desativacao/revogacao de sessoes e integracoes, preservando historico e auditoria. |
 | M-11 | Media | CWE-200 | notificacoes frontend | Troca de tenant podia manter notificacoes anteriores na memoria/tela. | Hook passou a ser tenant-scoped, limpa dados e descarta respostas async obsoletas. Lint/build validam o contrato. |
@@ -127,30 +134,28 @@ Avisos preexistentes ainda visiveis: uso de `datetime.utcnow()`, deprecacoes de 
 | M-13 | Media | CWE-601, CWE-918 | URLs externas | Callback privado, redirect de provider arbitrario ou redirect HTTP podia causar SSRF/open redirect. | Apenas HTTPS publico e hosts oficiais do Mercado Pago; IPs nao globais, userinfo, portas indevidas e redirects HTTP sao recusados. Testes parametrizados de URLs privadas e checkout nao confiavel. |
 | M-14 | Media | CWE-613, regra de negocio | Pix/hold | QR/preferencia longa e hold diferente do provider mantinham cobranca e horario inconsistentes. | Hold e `date_of_expiration` sao limitados a no maximo 5 min; expiracao libera slot; pagamento tardio exige reconciliacao/revisao. Teste `test_checkout_expiration_is_capped_at_five_minutes`. |
 | L-01 | Baixa | CWE-532 | logs | Token, cookie, payload ou PII poderiam aparecer em logs. | Access log do backend desativado no container, payloads nao sao logados integralmente e redaction cobre campos sensiveis. Testes de logger e auditoria. |
+| L-02 | Baixa | CWE-459 | blacklist JWT | Tokens expirados podiam permanecer indefinidamente na blacklist. | Job horario remove registros vencidos pelo indice `expires_at`; teste `test_expired_revoked_tokens_are_purged`. |
+| L-03 | Baixa | CWE-682 | tempo | `datetime.utcnow()` obsoleto mantinha risco de semantica temporal ambigua. | Codigo de producao usa `utcnow_naive()` centralizado, preservando compatibilidade com as colunas atuais; busca final em `backend/app` retorna zero ocorrencias. |
 | L-04 | Baixa | CWE-16 | documentacao/lockfiles | Instrucoes antigas e lockfile raiz ambiguo favoreciam deploy inseguro. | README, `.env.example`, guia de pagamento e CI atualizados; lockfile vazio da raiz removido. |
+| L-05 | Baixa | CWE-798 | scanner de segredos | Nao havia scanner dedicado no pipeline. | Gitleaks foi executado localmente com redaction total e adicionado ao CI com historico completo; os candidatos historicos mantem C-01 aberto ate rotacao e limpeza. |
 
 ## Achados parcialmente corrigidos
 
 | ID | Severidade | CWE / categoria | Componente | Estado atual e risco residual | Acao restante |
 | --- | --- | --- | --- | --- | --- |
-| C-01 | Critica | CWE-798 | Git/segredos | O estado atual nao contem valor real reconhecivel, mas o historico contem os caminhos `backend/.env` e `backend/.env.production`. Valores nao foram exibidos. | Rotacionar tudo que possa ter sido usado e depois reescrever o historico de forma coordenada. A remocao local nao revoga credenciais externas. |
+| C-01 | Critica | CWE-798 | Git/segredos | Gitleaks varreu 322 commits com redaction total e detectou 11 candidatos; 2 estao no antigo `backend/.env`. Nenhum valor foi exibido. | Rotacionar tudo que possa ter sido usado, triar os 9 candidatos de docs/fixtures e depois reescrever o historico de forma coordenada. A remocao local nao revoga credenciais externas. |
 | H-09 | Alta | CWE-362 | concorrencia de agenda | Criacao/edicao/reagendamento bloqueiam a linha do profissional e revalidam conflito na mesma transacao. Testes impedem conflito sequencial. | Executar teste concorrente real em PostgreSQL staging; SQLite/local nao comprova semantica de `FOR UPDATE` em duas conexoes. Avaliar constraint/slot ledger para defesa adicional. |
+| M-01 | Media | CWE-308 | contas administrativas | Mutacoes de credenciais e conta de pagamento exigem autenticacao com no maximo 15 min, mas ainda nao ha MFA. | Implementar WebAuthn/TOTP, recovery codes e usar o segundo fator no step-up antes de troca de credencial ou futuro reembolso. |
 | M-02 | Media | CWE-79, CSP | frontend/Caddy | Headers e CSP foram adicionados, mas o script inline estatico de tema ainda requer `unsafe-inline`. Nao recebe entrada do usuario. | Migrar bootstrap de tema para arquivo com nonce/hash e remover `unsafe-inline` apos teste cross-browser. |
-| M-03 | Media | CWE-770 | rate limiting | Login, publico, status de pagamento e webhook tem limites e testes. O storage padrao e em memoria por processo. | Em mais de uma replica, usar Redis/shared storage e limites por tenant/rota; validar comportamento atras do proxy real. |
 | M-04 | Media | API4, disponibilidade | webhook MP | Provider e consultado com timeout e retry correto, mas a consulta ainda ocorre durante a requisicao. | Adotar fila/outbox com ACK rapido, worker idempotente, DLQ e monitoramento antes de escalar horizontalmente. |
 | M-07 | Media | CWE-312, CWE-598 | tokens de acao | Tokens de confirmacao sao aleatorios, unicos e expiram, mas permanecem recuperaveis no banco e URLs. | Armazenar hash do token, reduzir retencao e garantir redaction em proxy/analytics/email. Exige migracao compativel. |
-| M-08 | Media | CWE-1104, supply chain | Docker/GitHub Actions | Dependencias da aplicacao estao pinadas/auditadas; Actions usam tags e imagens Docker usam tags. | Fixar actions por commit SHA e imagens por digest com processo de renovacao automatizado. |
-| L-05 | Baixa | CWE-798 | scanner de segredos | Busca por padroes e historico foi executada, sem imprimir valores, mas Gitleaks/TruffleHog nao estavam instalados. | Executar scanner dedicado em todos os refs e adicionar ao CI com baseline revisado. |
 
 ## Achados pendentes
 
 | ID | Severidade | CWE / categoria | Componente | Risco | Recomendacao |
 | --- | --- | --- | --- | --- | --- |
-| M-01 | Media | CWE-308 | contas administrativas | Nao ha MFA para quem gerencia credenciais/pagamentos. Roubo de senha ainda permite acao sensivel. | Implementar WebAuthn/TOTP, recovery codes e step-up/reautenticacao para trocar credencial ou futuro reembolso. |
 | M-05 | Media | CWE-639, defesa em profundidade | PostgreSQL | Isolamento depende da aplicacao; nao ha RLS. | Avaliar RLS com `tenant_id` de sessao, usuario DB sem bypass e testes. Nao habilitar sem plano de migracao. |
 | M-06 | Media | CWE-16 | schema/migrations | Parte do schema ainda usa `ALTER TABLE`/`create_all` best-effort no startup e engole erros. | Consolidar Alembic, migrations versionadas, dry-run, backup e rollback; em producao, app DB sem privilegio DDL. |
-| L-02 | Baixa | CWE-459 | blacklist JWT | Tokens expirados podem permanecer na blacklist. | Job periodico para remover `expires_at` antigo e metrica de crescimento. |
-| L-03 | Baixa | CWE-682 | tempo | Ha 1.322 avisos, muitos por `datetime.utcnow()`. Mistura naive/aware aumenta risco futuro de timezone. | Migrar gradualmente para UTC aware e manter conversao de negocio em `America/Sao_Paulo`, com testes de DST/fuso. |
 
 ## Falsos positivos descartados
 
@@ -188,6 +193,8 @@ Avisos preexistentes ainda visiveis: uso de `datetime.utcnow()`, deprecacoes de 
 | 22 | Credenciais nao retornadas | testes de status mascarado, permissoes e edicao sem exposicao | Passou |
 | 23 | Logs sem segredos | testes de audit log e logger do servico de integracao | Passou |
 | 24 | Expiracao/invalidation de sessao | token expirado, logout blacklist, conta inativa e `auth_version` | Passou |
+| 25 | Sessao administrativa antiga em credencial | `test_sensitive_admin_operation_requires_recent_authentication` | Passou |
+| 26 | Crescimento da blacklist JWT | `test_expired_revoked_tokens_are_purged` | Passou |
 
 Comandos finais executados:
 
@@ -202,11 +209,15 @@ cd ..\frontend
 npm.cmd audit --audit-level=low
 npm.cmd run lint
 npm.cmd run build
+
+# Executado a partir do binario oficial em diretorio temporario, com redaction total
+cd ..
+gitleaks git . --redact=100 --report-format json
 ```
 
 ## Segredos e rotacao
 
-O estado atual foi verificado por padroes sem exibir valores. Nao foi reconhecido segredo real versionado no working tree. O historico Git, entretanto, contem os arquivos `backend/.env` e `backend/.env.production` em commits anteriores. A presenca historica deve ser tratada como exposicao potencial mesmo sem confirmar se os valores eram reais.
+O estado atual foi verificado por padroes sem exibir valores. Nao foi reconhecido segredo real versionado no working tree. O Gitleaks 8.30.1 varreu 322 commits com redaction de 100% e retornou 11 candidatos: 2 no antigo `backend/.env` e 9 em documentacao/fixtures. A presenca historica deve ser tratada como exposicao potencial mesmo sem confirmar quais valores eram reais.
 
 Rotacao manual prioritaria:
 
@@ -251,9 +262,9 @@ Antes de producao:
 4. Aplicar menor privilegio ao banco, backups criptografados, teste de restauracao e retencao definida.
 5. Executar o fluxo completo no sandbox: checkout Pix, expiracao de 5 min, duplicata, replay, falha do provider, pagamento tardio, chargeback e reconciliacao.
 6. Executar teste concorrente com duas conexoes PostgreSQL para o mesmo profissional/slot.
-7. Configurar Redis para rate limit compartilhado antes de multiplas replicas.
-8. Adicionar Gitleaks/TruffleHog, SBOM, assinatura de imagem e pins SHA/digest ao CI.
-9. Implementar MFA/step-up e alertas para troca de credencial, falhas de assinatura e estados em revisao.
+7. Confirmar no ambiente implantado que o Redis privado do Compose esta saudavel e monitorado; producao falha sem storage Redis/Rediss.
+8. Manter o Gitleaks bloqueante, triar os candidatos historicos e adicionar SBOM/assinatura de imagem ao CI; pins SHA/digest e renovacao semanal ja estao configurados.
+9. Implementar MFA e alertas para troca de credencial, falhas de assinatura e estados em revisao; o step-up por autenticacao recente ja esta ativo.
 10. Definir com juridico/privacidade a base legal, retencao, exclusao, resposta a incidente e atendimento de direitos LGPD.
 
 ## Riscos residuais e itens nao verificaveis localmente
@@ -263,8 +274,8 @@ Antes de producao:
 - Nao houve acesso a configuracao real do Neon/PostgreSQL, grants, RLS, backups, firewall, Caddy/VPS, GitHub Environments ou logs.
 - Sem credenciais sandbox fornecidas, nao foi possivel comprovar como a UI hospedada do Mercado Pago descreve a expiracao Pix de 5 minutos.
 - A semantica concorrente de `SELECT ... FOR UPDATE` precisa de teste em PostgreSQL staging.
-- Rate limiting em memoria nao e global em varias replicas e webhook ainda faz I/O sincrono.
-- MFA, hash de confirmation token, RLS e migrations exclusivas por Alembic continuam abertos.
+- O rate limit compartilhado depende da disponibilidade do Redis; o webhook ainda faz I/O sincrono.
+- MFA, hash de confirmation token, RLS e migrations exclusivas por Alembic continuam abertos; o step-up atual reduz, mas nao elimina, o risco administrativo.
 - Dependencias podem ganhar novos advisories depois da data desta auditoria; scanners devem rodar continuamente.
 - O codigo nao recebe dados brutos de cartao e usa checkout hospedado, mas esta revisao nao concede certificacao PCI DSS.
 - Melhorias tecnicas de minimizacao/redaction nao equivalem a conformidade LGPD; retencao, base legal, contratos e processos exigem avaliacao organizacional/juridica.
@@ -280,4 +291,3 @@ Antes de producao:
 - Dockerfiles, `docker-compose.yml`, `Caddyfile` e `.github/workflows/*`: hardening e supply chain.
 - `backend/tests/test_security_audit.py`, `test_payments_module.py` e suites existentes: regressao de seguranca.
 - `README.md`, `docs/admin-payment-credentials.md` e este relatorio: operacao e resposta manual.
-

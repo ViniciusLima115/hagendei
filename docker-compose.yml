@@ -1,6 +1,6 @@
 services:
   caddy:
-    image: caddy:2-alpine
+    image: caddy:2-alpine@sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648
     environment:
       APP_DOMAIN: ${APP_DOMAIN:?APP_DOMAIN is required}
       API_DOMAIN: ${API_DOMAIN:?API_DOMAIN is required}
@@ -24,6 +24,8 @@ services:
     build: ./backend
     env_file:
       - ./backend/.env.production
+    environment:
+      RATE_LIMIT_STORAGE_URI: redis://redis:6379/0
     read_only: true
     tmpfs:
       - /tmp:size=64m,noexec,nosuid
@@ -37,6 +39,26 @@ services:
       timeout: 5s
       retries: 3
       start_period: 20s
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  redis:
+    image: redis:8.0-alpine@sha256:5f61955be8ab2ccee9372b84ae4d4da2e2b156f87281e3f218544055e7ee04d4
+    command: ["redis-server", "--save", "", "--appendonly", "no", "--maxmemory", "128mb", "--maxmemory-policy", "allkeys-lru"]
+    read_only: true
+    tmpfs:
+      - /data:size=128m,noexec,nosuid
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
     restart: unless-stopped
 
   frontend:

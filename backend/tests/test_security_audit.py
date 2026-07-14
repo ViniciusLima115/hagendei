@@ -1,16 +1,21 @@
 import base64
 import json
+import time
 from datetime import date, timedelta
 
 import jwt
 import pytest
 from cryptography.fernet import Fernet
+from fastapi import HTTPException
 from limits.storage import MemoryStorage
 from limits.strategies import FixedWindowRateLimiter
 
 import app.routes.auth as auth_module
+from app.main import _validate_runtime_config
 from app.limiter import RATE_LIMIT_PAYMENT_STATUS, limiter
 from app.models.barbearia import Barbearia
+from app.models.token_blacklist import TokenBlacklist
+from app.routes.deps import ADMIN_REAUTH_MAX_AGE_SECONDS, require_recent_admin
 from app.security import (
     JWT_ALGORITHM,
     JWT_AUDIENCE,
@@ -25,6 +30,8 @@ from app.services.payments.providers.mercadopago import (
     _is_mercadopago_checkout_url,
     _is_public_https_url,
 )
+from app.services.session_service import purge_expired_revoked_tokens
+from app.time_utils import utcnow_naive
 
 
 @pytest.fixture(autouse=True)
@@ -195,6 +202,66 @@ def test_jwt_rejects_missing_session_version():
     token = jwt.encode(claims, JWT_SECRET, algorithm=JWT_ALGORITHM)
     with pytest.raises(ValueError, match="Token invalido"):
         decode_access_token(token)
+
+
+def test_sensitive_admin_operation_requires_recent_authentication():
+    claims = decode_access_token(create_access_token("admin", None, True))
+    claims.auth_time = int(time.time()) - ADMIN_REAUTH_MAX_AGE_SECONDS - 1
+
+    with pytest.raises(HTTPException) as caught:
+        require_recent_admin(claims)
+
+    assert getattr(caught.value, "status_code", None) == 401
+
+
+def test_expired_revoked_tokens_are_purged(db_session):
+    now = utcnow_naive()
+    db_session.add_all(
+        [
+            TokenBlacklist(jti="expired-token", expires_at=now - timedelta(seconds=1)),
+            TokenBlacklist(jti="active-token", expires_at=now + timedelta(hours=1)),
+        ]
+    )
+    db_session.commit()
+
+    assert purge_expired_revoked_tokens(db_session) == 1
+    assert db_session.get(TokenBlacklist, "expired-token") is None
+    assert db_session.get(TokenBlacklist, "active-token") is not None
+
+
+def test_production_requires_shared_rate_limit_storage(monkeypatch):
+    production_config = {
+        "APP_ENV": "production",
+        "DATABASE_URL": "postgresql://db.example.com/hagendei",
+        "JWT_SECRET": "j" * 32,
+        "ENCRYPTION_KEY": "e" * 32,
+        "PAYMENT_CREDENTIALS_PEPPER": "p" * 32,
+        "ADMIN_USUARIO": "admin",
+        "ADMIN_SENHA": "strong-admin-password",
+        "ALLOWED_HOSTS": "app.example.com",
+        "CORS_ALLOWED_ORIGINS": "https://app.example.com",
+        "TRUSTED_PROXY_IPS": "10.0.0.1",
+        "INTERNAL_REMINDER_TOKEN": "i" * 32,
+        "WHATSAPP_VERIFY_TOKEN": "verify-token",
+        "WHATSAPP_APP_SECRET": "w" * 32,
+        "FRONTEND_URL": "https://app.example.com",
+        "BACKEND_PUBLIC_BASE_URL": "https://api.example.com",
+        "BOOKING_PUBLIC_BASE_URL": "https://app.example.com",
+        "RATE_LIMIT_STORAGE_URI": "memory://",
+        "AUTH_EXPOSE_BEARER_TOKEN": "false",
+        "SESSION_COOKIE_SECURE": "true",
+        "DOCS_ENABLED": "false",
+        "WHATSAPP_ALLOW_UNSIGNED_WEBHOOKS": "false",
+        "MEGAAPI_WEBHOOK_ALLOW_UNSIGNED": "false",
+    }
+    for name, value in production_config.items():
+        monkeypatch.setenv(name, value)
+
+    with pytest.raises(RuntimeError, match="Redis"):
+        _validate_runtime_config()
+
+    monkeypatch.setenv("RATE_LIMIT_STORAGE_URI", "rediss://redis.example.com/0")
+    _validate_runtime_config()
 
 
 def test_meta_webhook_rejects_unsigned_payload(client, monkeypatch):

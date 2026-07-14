@@ -13,6 +13,7 @@ from app.routes.deps import tenant_id_from_header
 from app.services.barbershop_hours_service import build_day_slots, get_working_window
 from app.services.agenda_service import gerar_horarios_disponiveis
 from app.services.payments.webhook_service import sync_pending_payment_statuses
+from app.time_utils import utcnow_naive
 
 router = APIRouter(prefix="/agenda")
 
@@ -66,7 +67,7 @@ def agenda_dia(
 
     agendamentos: list[Agendamento] = []
     if intervalos_ativos:
-        agora = datetime.utcnow()
+        agora = utcnow_naive()
         inicio_dia = min(datetime.combine(data.date(), janela[0]) for janela in intervalos_ativos)
         fim_dia = max(datetime.combine(data.date(), janela[1]) for janela in intervalos_ativos)
         sync_pending_payment_statuses(db, establishment_id=tenant_id, limit=20)
@@ -84,7 +85,10 @@ def agenda_dia(
                     Agendamento.status.in_(["pendente", "confirmado", "reagendamento_solicitado"]),
                     and_(
                         Agendamento.status == "pending_payment",
-                        Agendamento.payment_hold_expires_at > agora,
+                        or_(
+                            Agendamento.payment_hold_expires_at.is_(None),
+                            Agendamento.payment_hold_expires_at > agora,
+                        ),
                     ),
                 ),
             )
@@ -100,10 +104,7 @@ def agenda_dia(
     if agendamentos:
         pagamentos = (
             db.query(Pagamento)
-            .filter(
-                Pagamento.agendamento_id.in_([ag.id for ag in agendamentos]),
-                Pagamento.estabelecimento_id == tenant_id,
-            )
+            .filter(Pagamento.agendamento_id.in_([ag.id for ag in agendamentos]))
             .all()
         )
         pagamentos_por_agendamento = {p.agendamento_id: p for p in pagamentos}

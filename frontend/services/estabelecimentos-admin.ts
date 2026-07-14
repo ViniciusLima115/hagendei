@@ -17,31 +17,11 @@ export type EstabelecimentoAdmin = {
   ultimoAcessoEm: string | null;
   pagamentoRecusado: boolean;
   criadoEm: string;
-<<<<<<< HEAD
   paymentAccountStatus?: "not_configured" | "active" | "inactive" | "error" | "revoked" | "pending" | "pending_validation" | "disconnected";
   paymentAccountName?: string | null;
   paymentAccountId?: number | null;
   paymentEnvironment?: "sandbox" | "production" | null;
   paymentValidationStatus?: "valid" | "invalid" | "not_validated" | "error" | null;
-=======
-  paymentAccountStatus?: "not_configured" | "connected" | "disconnected" | "expired" | "error";
-  paymentAccountName?: string | null;
-  paymentAccountId?: number | null;
-  paymentProvider?: string | null;
-  paymentConnectedAt?: string | null;
-  paymentUpdatedAt?: string | null;
-  paymentLastError?: string | null;
-};
-
-export type AdminPaymentAuditLogItem = {
-  id: number;
-  action: string;
-  admin_sub?: string | null;
-  status_before?: string | null;
-  status_after?: string | null;
-  error_message?: string | null;
-  created_at: string;
->>>>>>> 58bfd5f7b3e3f2e381d1812d30878ea29463a478
 };
 
 export type AdminPaymentAccount = {
@@ -50,7 +30,6 @@ export type AdminPaymentAccount = {
   provider: string;
   environment: "sandbox" | "production";
   account_name: string | null;
-<<<<<<< HEAD
   status: "active" | "inactive" | "error" | "revoked" | "pending" | "pending_validation" | "disconnected";
   client_id_masked: string | null;
   client_secret_masked: string | null;
@@ -64,25 +43,8 @@ export type AdminPaymentAccount = {
   last_validated_at: string | null;
   connected_at: string | null;
   disconnected_at: string | null;
-=======
-  status: "connected" | "disconnected" | "expired" | "error";
-  provider_account_id_masked?: string | null;
-  provider_account_email_masked?: string | null;
-  checkout_hold_minutes: number;
-  connected_at?: string | null;
-  disconnected_at?: string | null;
-  expires_at?: string | null;
->>>>>>> 58bfd5f7b3e3f2e381d1812d30878ea29463a478
   created_at: string;
   updated_at: string;
-  last_error?: string | null;
-  last_payment_status?: string | null;
-  last_payment_at?: string | null;
-  last_test_payment_status?: string | null;
-  last_test_payment_at?: string | null;
-  approved_payments_count: number;
-  failed_payments_count: number;
-  audit_logs: AdminPaymentAuditLogItem[];
 };
 
 export type AdminPaymentIntegration = {
@@ -121,29 +83,11 @@ export type AdminPaymentEstablishment = {
   nome: string;
   slug: string | null;
   login: string | null;
-<<<<<<< HEAD
   payment_account_status: "not_configured" | "active" | "inactive" | "error" | "revoked" | "pending" | "pending_validation" | "disconnected";
   payment_account_name: string | null;
   payment_account_id: number | null;
   payment_environment: "sandbox" | "production" | null;
   payment_validation_status: "valid" | "invalid" | "not_validated" | "error" | null;
-=======
-  provider: string | null;
-  payment_account_status: "not_configured" | "connected" | "disconnected" | "expired" | "error";
-  payment_account_name: string | null;
-  payment_account_id: number | null;
-  connected_at?: string | null;
-  updated_at?: string | null;
-  last_error?: string | null;
-};
-
-export type AdminPaymentActionResponse = {
-  status: string;
-  detail: string;
-  establishment_id: number;
-  payment_account_id?: number | null;
-  tested_at?: string | null;
->>>>>>> 58bfd5f7b3e3f2e381d1812d30878ea29463a478
 };
 
 // Backward compat aliases
@@ -348,7 +292,6 @@ export async function getPaymentAccountAdmin(establishmentId: number): Promise<A
   return parseOrThrow(res, "Falha ao carregar conta de pagamento.");
 }
 
-<<<<<<< HEAD
 export async function getMercadoPagoIntegrationAdmin(establishmentId: number): Promise<AdminPaymentIntegration | null> {
   const res = await adminFetch(`${API_URL}/admin/establishments/${establishmentId}/payment-integrations`, {
     cache: "no-store",
@@ -463,17 +406,10 @@ export async function savePaymentAccountAdmin(
       provider: "mercadopago",
       ...payload,
     }),
-=======
-export async function deactivatePaymentAccountAdmin(establishmentId: number): Promise<AdminPaymentAccount> {
-  const res = await fetch(`${API_URL}/admin/establishments/${establishmentId}/payment-account/deactivate`, {
-    method: "POST",
-    headers: getAdminHeaders(),
->>>>>>> 58bfd5f7b3e3f2e381d1812d30878ea29463a478
   });
-  return parseOrThrow(res, "Falha ao desativar integracao de pagamento.");
+  return parseOrThrow(res, "Falha ao salvar conta de pagamento.");
 }
 
-<<<<<<< HEAD
 export async function updatePaymentAccountStatusAdmin(
   establishmentId: number,
   status: "active" | "inactive" | "error" | "revoked" | "disconnected" | "pending_validation",
@@ -483,22 +419,8 @@ export async function updatePaymentAccountStatusAdmin(
     method: "PATCH",
     headers: getAdminHeaders(true),
     body: JSON.stringify({ status, environment }),
-=======
-export async function requestPaymentReconnectAdmin(establishmentId: number): Promise<AdminPaymentAccount> {
-  const res = await fetch(`${API_URL}/admin/establishments/${establishmentId}/payment-account/request-reconnect`, {
-    method: "POST",
-    headers: getAdminHeaders(),
->>>>>>> 58bfd5f7b3e3f2e381d1812d30878ea29463a478
   });
-  return parseOrThrow(res, "Falha ao solicitar reconexao.");
-}
-
-export async function testPaymentCheckoutAdmin(establishmentId: number): Promise<AdminPaymentActionResponse> {
-  const res = await fetch(`${API_URL}/admin/establishments/${establishmentId}/payment-account/test-checkout`, {
-    method: "POST",
-    headers: getAdminHeaders(),
-  });
-  return parseOrThrow(res, "Falha ao testar checkout.");
+  return parseOrThrow(res, "Falha ao alterar status da conta de pagamento.");
 }
 
 // Backward compat alias
