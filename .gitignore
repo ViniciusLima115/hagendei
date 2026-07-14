@@ -7,12 +7,20 @@ backend/.env.*
 frontend/.env.local
 frontend/.env.*.local
 
+<<<<<<< HEAD
 # Segredos e certificados locais
 *.pem
 *.key
 *.p12
 *.pfx
 secrets/
+=======
+# Local development runtime files
+backend/.run/
+backend/dev-local.db
+backend/local-*.log
+frontend/local-*.log
+>>>>>>> 58bfd5f7b3e3f2e381d1812d30878ea29463a478
 
 __pycache__/
 *.py[cod]

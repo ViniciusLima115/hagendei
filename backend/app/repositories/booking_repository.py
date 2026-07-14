@@ -116,10 +116,7 @@ class BookingRepository:
                     Agendamento.status.in_(["pendente", "confirmado", "reagendamento_solicitado"]),
                     and_(
                         Agendamento.status == "pending_payment",
-                        or_(
-                            Agendamento.payment_hold_expires_at.is_(None),
-                            Agendamento.payment_hold_expires_at > now,
-                        ),
+                        Agendamento.payment_hold_expires_at > now,
                     ),
                 ),
                 Agendamento.data_hora_inicio < fim,

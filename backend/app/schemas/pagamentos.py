@@ -3,6 +3,11 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from app.services.payments.constants import (
+    PAYMENT_ACCOUNT_STATUS_CONNECTED,
+    PAYMENT_PROVIDER_MERCADO_PAGO,
+)
+
 
 PaymentStatus = Literal[
     "not_required",
@@ -26,22 +31,44 @@ class PaymentAccountStatusResponse(BaseModel):
     provider: str
     status: str
     establishment_id: int
+<<<<<<< HEAD
     environment: str | None = None
+=======
+    provider_account_email_masked: str | None = None
+    provider_account_id_masked: str | None = None
+>>>>>>> 58bfd5f7b3e3f2e381d1812d30878ea29463a478
     external_account_email_masked: str | None = None
     external_user_id_masked: str | None = None
     last_sync_at: datetime | None = None
+    connected_at: datetime | None = None
+    disconnected_at: datetime | None = None
+    expires_at: datetime | None = None
     token_expires_at: datetime | None = None
     checkout_hold_minutes: int = 10
+<<<<<<< HEAD
     validation_status: str | None = None
     validation_error: str | None = None
+=======
+    pix_enabled: bool = True
+    card_enabled: bool = True
+    payment_required_default: bool = False
+    advance_payment_type: Literal["full", "signal"] | None = None
+    advance_payment_amount: float | None = None
+    default_provider: str = PAYMENT_PROVIDER_MERCADO_PAGO
+>>>>>>> 58bfd5f7b3e3f2e381d1812d30878ea29463a478
 
 
 class PaymentAccountSettingsUpdate(BaseModel):
-    checkout_hold_minutes: int | None = None
+    checkout_hold_minutes: int | None = Field(default=None, ge=5, le=60)
     status: str | None = None
+    payment_required_default: bool | None = None
+    advance_payment_type: Literal["full", "signal"] | None = None
+    advance_payment_amount: float | None = Field(default=None, gt=0)
+    default_provider: Literal["mercado_pago", "picpay"] | None = None
 
 
 class AdminPaymentAccountUpsert(BaseModel):
+<<<<<<< HEAD
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
     provider: str = Field(default="mercadopago", max_length=50)
@@ -54,6 +81,19 @@ class AdminPaymentAccountUpsert(BaseModel):
     webhook_secret: str | None = Field(default=None, min_length=8, max_length=700)
     status: Literal["active", "inactive", "error", "pending_validation", "disconnected"] = "active"
     internal_notes: str | None = Field(default=None, max_length=1000)
+=======
+    provider: str = PAYMENT_PROVIDER_MERCADO_PAGO
+    account_name: str | None = None
+    provider_account_id: str | None = None
+    provider_account_email: str | None = None
+    client_id: str | None = None
+    client_secret: str | None = None
+    access_token: str | None = None
+    refresh_token: str | None = None
+    public_key: str | None = None
+    status: str = PAYMENT_ACCOUNT_STATUS_CONNECTED
+    internal_notes: str | None = None
+>>>>>>> 58bfd5f7b3e3f2e381d1812d30878ea29463a478
     checkout_hold_minutes: int = Field(default=10, ge=5, le=60)
 
     @field_validator("account_name", "client_id", "client_secret", "access_token", "public_key", "webhook_secret", "internal_notes", mode="before")
@@ -68,6 +108,7 @@ class AdminPaymentAccountUpsert(BaseModel):
 
 
 class AdminPaymentAccountStatusUpdate(BaseModel):
+<<<<<<< HEAD
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
     status: Literal["active", "inactive", "error", "revoked", "disconnected", "pending_validation"]
@@ -174,6 +215,19 @@ class AdminPaymentIntegrationTestCheckoutResponse(BaseModel):
     preference_id: str
     checkout_url: str
     status: Literal["created"]
+=======
+    status: str
+
+
+class AdminPaymentAuditLogItem(BaseModel):
+    id: int
+    action: str
+    admin_sub: str | None = None
+    status_before: str | None = None
+    status_after: str | None = None
+    error_message: str | None = None
+    created_at: datetime
+>>>>>>> 58bfd5f7b3e3f2e381d1812d30878ea29463a478
 
 
 class AdminPaymentAccountResponse(BaseModel):
@@ -183,6 +237,7 @@ class AdminPaymentAccountResponse(BaseModel):
     environment: str = "production"
     account_name: str | None = None
     status: str
+<<<<<<< HEAD
     client_id_masked: str | None = None
     client_secret_masked: str | None = None
     access_token_masked: str | None = None
@@ -197,8 +252,24 @@ class AdminPaymentAccountResponse(BaseModel):
     disconnected_at: datetime | None = None
     created_by_admin_id: str | None = None
     updated_by_admin_id: str | None = None
+=======
+    provider_account_id_masked: str | None = None
+    provider_account_email_masked: str | None = None
+    checkout_hold_minutes: int = 10
+    connected_at: datetime | None = None
+    disconnected_at: datetime | None = None
+    expires_at: datetime | None = None
+>>>>>>> 58bfd5f7b3e3f2e381d1812d30878ea29463a478
     created_at: datetime
     updated_at: datetime
+    last_error: str | None = None
+    last_payment_status: str | None = None
+    last_payment_at: datetime | None = None
+    last_test_payment_status: str | None = None
+    last_test_payment_at: datetime | None = None
+    approved_payments_count: int = 0
+    failed_payments_count: int = 0
+    audit_logs: list[AdminPaymentAuditLogItem] = Field(default_factory=list)
 
 
 class AdminPaymentEstablishmentResponse(BaseModel):
@@ -206,22 +277,32 @@ class AdminPaymentEstablishmentResponse(BaseModel):
     nome: str
     slug: str | None = None
     login: str | None = None
+    provider: str | None = None
     payment_account_status: str = "not_configured"
     payment_account_name: str | None = None
     payment_account_id: int | None = None
+<<<<<<< HEAD
     payment_environment: str | None = None
     payment_validation_status: str | None = None
+=======
+    connected_at: datetime | None = None
+    updated_at: datetime | None = None
+    last_error: str | None = None
+
+
+class AdminPaymentActionResponse(BaseModel):
+    status: str
+    detail: str
+    establishment_id: int
+    payment_account_id: int | None = None
+    tested_at: datetime | None = None
+>>>>>>> 58bfd5f7b3e3f2e381d1812d30878ea29463a478
 
 
 class CheckoutResponse(BaseModel):
-    payment_id: int
-    booking_id: int
-    external_reference: str
-    preference_id: str
     checkout_url: str
-    amount: float
-    payment_status: PaymentStatus
-    booking_status: str
+    appointment_id: int
+    payment_id: int
     expires_at: datetime | None = None
 
 

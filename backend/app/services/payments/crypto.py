@@ -1,7 +1,10 @@
 import base64
+<<<<<<< HEAD
 import hashlib
 import hmac
 import json
+=======
+>>>>>>> 58bfd5f7b3e3f2e381d1812d30878ea29463a478
 import os
 import re
 
@@ -13,7 +16,15 @@ ENVELOPE_VERSION = "v2"
 KEY_ID_PATTERN = re.compile(r"^[A-Za-z0-9._-]{1,40}$")
 
 
+<<<<<<< HEAD
 def _decode_key(raw: str) -> bytes:
+=======
+class SecretCryptoError(ValueError):
+    """Raised when a sensitive value cannot be encrypted or decrypted safely."""
+
+
+def _normalize_fernet_key(raw: str) -> bytes:
+>>>>>>> 58bfd5f7b3e3f2e381d1812d30878ea29463a478
     value = raw.strip()
     if not value:
         raise ValueError("Chave de criptografia vazia.")
@@ -34,6 +45,7 @@ def _decode_key(raw: str) -> bytes:
     raise ValueError("Chave de criptografia invalida. Use exatamente 32 bytes.")
 
 
+<<<<<<< HEAD
 def _current_key_id() -> str:
     key_id = os.getenv("ENCRYPTION_KEY_ID", "primary").strip()
     if not KEY_ID_PATTERN.fullmatch(key_id):
@@ -46,6 +58,10 @@ def _load_keyring() -> dict[str, bytes]:
     current = os.getenv("ENCRYPTION_KEY", "").strip()
     if current:
         keys[_current_key_id()] = _decode_key(current)
+=======
+def _build_fernet() -> Fernet:
+    configured = os.getenv("ENCRYPTION_KEY", "").strip()
+>>>>>>> 58bfd5f7b3e3f2e381d1812d30878ea29463a478
 
     raw_keyring = os.getenv("ENCRYPTION_KEYRING", "").strip()
     if raw_keyring:
@@ -62,6 +78,7 @@ def _load_keyring() -> dict[str, bytes]:
                 raise ValueError("ENCRYPTION_KEYRING contem chave invalida.")
             keys.setdefault(key_id, _decode_key(raw_key))
 
+<<<<<<< HEAD
     if not keys:
         app_env = os.getenv("APP_ENV", "development").strip().lower()
         if app_env in {"prod", "production"}:
@@ -90,10 +107,14 @@ def ensure_encryption_key_for_production() -> None:
     pepper = os.getenv("PAYMENT_CREDENTIALS_PEPPER", "").strip()
     if len(pepper.encode("utf-8")) < 32:
         raise RuntimeError("PAYMENT_CREDENTIALS_PEPPER deve ter ao menos 32 bytes em producao.")
+=======
+    raise RuntimeError("ENCRYPTION_KEY nao configurada para criptografia de tokens sensiveis.")
+>>>>>>> 58bfd5f7b3e3f2e381d1812d30878ea29463a478
 
 
-def encrypt_sensitive_value(value: str | None) -> str | None:
+def encrypt_secret(value: str | None) -> str:
     if not value:
+<<<<<<< HEAD
         return None
     key_id = _current_key_id()
     key = _load_keyring().get(key_id)
@@ -103,10 +124,16 @@ def encrypt_sensitive_value(value: str | None) -> str | None:
     ciphertext_and_tag = AESGCM(key).encrypt(nonce, value.encode("utf-8"), _aad(key_id))
     encoded = base64.urlsafe_b64encode(nonce + ciphertext_and_tag).decode("ascii")
     return f"{ENVELOPE_VERSION}:{key_id}:{encoded}"
+=======
+        return ""
+    fernet = _build_fernet()
+    return fernet.encrypt(value.encode("utf-8")).decode("utf-8")
+>>>>>>> 58bfd5f7b3e3f2e381d1812d30878ea29463a478
 
 
-def decrypt_sensitive_value(value: str | None) -> str | None:
+def decrypt_secret(value: str | None) -> str:
     if not value:
+<<<<<<< HEAD
         return None
     if value.startswith(f"{ENVELOPE_VERSION}:"):
         try:
@@ -149,6 +176,14 @@ def decrypt_json_payload(value: str | None) -> dict:
     if not isinstance(data, dict):
         raise ValueError("Payload sensivel criptografado deve ser um objeto JSON.")
     return data
+=======
+        return ""
+    fernet = _build_fernet()
+    try:
+        return fernet.decrypt(value.encode("utf-8")).decode("utf-8")
+    except InvalidToken as exc:
+        raise SecretCryptoError("Falha ao descriptografar valor sensivel.") from exc
+>>>>>>> 58bfd5f7b3e3f2e381d1812d30878ea29463a478
 
 
 def encrypt_secret(value: str | dict | None) -> str | None:
@@ -196,7 +231,18 @@ def mask_secret(value: str | None, head: int = 2, tail: int = 2) -> str:
     return f"{text[:head]}***{text[-tail:]}"
 
 
+<<<<<<< HEAD
 encryptSecret = encrypt_secret
 decryptSecret = decrypt_secret
 maskSecret = mask_secret
 createCredentialFingerprint = create_credential_fingerprint
+=======
+def encrypt_sensitive_value(value: str | None) -> str | None:
+    encrypted = encrypt_secret(value)
+    return encrypted or None
+
+
+def decrypt_sensitive_value(value: str | None) -> str | None:
+    decrypted = decrypt_secret(value)
+    return decrypted or None
+>>>>>>> 58bfd5f7b3e3f2e381d1812d30878ea29463a478

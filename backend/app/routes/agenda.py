@@ -84,10 +84,7 @@ def agenda_dia(
                     Agendamento.status.in_(["pendente", "confirmado", "reagendamento_solicitado"]),
                     and_(
                         Agendamento.status == "pending_payment",
-                        or_(
-                            Agendamento.payment_hold_expires_at.is_(None),
-                            Agendamento.payment_hold_expires_at > agora,
-                        ),
+                        Agendamento.payment_hold_expires_at > agora,
                     ),
                 ),
             )
@@ -103,7 +100,10 @@ def agenda_dia(
     if agendamentos:
         pagamentos = (
             db.query(Pagamento)
-            .filter(Pagamento.agendamento_id.in_([ag.id for ag in agendamentos]))
+            .filter(
+                Pagamento.agendamento_id.in_([ag.id for ag in agendamentos]),
+                Pagamento.estabelecimento_id == tenant_id,
+            )
             .all()
         )
         pagamentos_por_agendamento = {p.agendamento_id: p for p in pagamentos}

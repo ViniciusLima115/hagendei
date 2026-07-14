@@ -80,3 +80,53 @@ DATABASE_URL = _get_database_url()
 HORARIO_ABERTURA = int(os.getenv("HORARIO_ABERTURA", "8"))
 HORARIO_FECHAMENTO = int(os.getenv("HORARIO_FECHAMENTO", "19"))
 INTERVALO_MINUTOS = int(os.getenv("INTERVALO_MINUTOS", "30"))
+
+PRODUCTION_ENV_VALUES = {"prod", "production"}
+PAYMENT_REQUIRED_ENV_PRODUCTION = (
+    "ENCRYPTION_KEY",
+    "MERCADOPAGO_CLIENT_ID",
+    "MERCADOPAGO_CLIENT_SECRET",
+    "MERCADOPAGO_REDIRECT_URI",
+    "MERCADOPAGO_WEBHOOK_SECRET",
+)
+
+
+class CriticalConfigError(RuntimeError):
+    """Raised when startup would be unsafe because critical config is missing."""
+
+
+def is_production_env() -> bool:
+    return os.getenv("APP_ENV", "").strip().lower() in PRODUCTION_ENV_VALUES
+
+
+def get_backend_url() -> str:
+    return (
+        os.getenv("BACKEND_URL", "").strip()
+        or os.getenv("BACKEND_PUBLIC_BASE_URL", "").strip()
+        or "http://127.0.0.1:8000"
+    ).rstrip("/")
+
+
+def get_frontend_url() -> str:
+    return (os.getenv("FRONTEND_URL", "").strip() or "http://localhost:3000").rstrip("/")
+
+
+def _missing_env_vars(names: tuple[str, ...] | list[str]) -> list[str]:
+    return [name for name in names if not os.getenv(name, "").strip()]
+
+
+def validate_critical_config() -> None:
+    if not is_production_env():
+        return
+
+    missing = _missing_env_vars(list(PAYMENT_REQUIRED_ENV_PRODUCTION))
+    if missing:
+        raise CriticalConfigError(
+            "Configuracao critica ausente em producao: "
+            + ", ".join(missing)
+            + ". Configure essas variaveis no ambiente antes de iniciar a API."
+        )
+
+
+def validate_production_env() -> None:
+    validate_critical_config()

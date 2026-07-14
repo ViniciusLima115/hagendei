@@ -70,10 +70,7 @@ def gerar_horarios_disponiveis(
             Agendamento.status.in_(["pendente", "confirmado", "reagendamento_solicitado"]),
             and_(
                 Agendamento.status == "pending_payment",
-                or_(
-                    Agendamento.payment_hold_expires_at.is_(None),
-                    Agendamento.payment_hold_expires_at > agora,
-                ),
+                Agendamento.payment_hold_expires_at > agora,
             ),
         ),
     )

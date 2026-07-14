@@ -36,6 +36,16 @@ from app.routes import (
     webhooks,
     whatsapp,
 )
+<<<<<<< HEAD
+=======
+import secrets
+import os
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from fastapi.openapi.docs import get_swagger_ui_html
+from fastapi.responses import HTMLResponse
+from app.config import validate_critical_config
+>>>>>>> 58bfd5f7b3e3f2e381d1812d30878ea29463a478
 from app.services.scheduler import start_scheduler, stop_scheduler
 
 security = HTTPBasic()
@@ -143,7 +153,11 @@ def verify_docs(credentials: HTTPBasicCredentials = Depends(security)) -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+<<<<<<< HEAD
     _validate_runtime_config()
+=======
+    validate_critical_config()
+>>>>>>> 58bfd5f7b3e3f2e381d1812d30878ea29463a478
     init_db()
     start_scheduler()
     try:

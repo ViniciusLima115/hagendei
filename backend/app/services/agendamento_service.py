@@ -17,6 +17,7 @@ from app.services.email_service import (
     build_confirmation_email,
     build_status_email,
 )
+from app.services.payments.payment_service import default_payment_hold_expires_at, validate_service_advance_payment_config
 
 
 logger = logging.getLogger(__name__)
@@ -43,10 +44,7 @@ def _filtro_status_ativos(agora: datetime):
         Agendamento.status.in_(["pendente", "confirmado", "reagendamento_solicitado"]),
         and_(
             Agendamento.status == "pending_payment",
-            or_(
-                Agendamento.payment_hold_expires_at.is_(None),
-                Agendamento.payment_hold_expires_at > agora,
-            ),
+            Agendamento.payment_hold_expires_at > agora,
         ),
     )
 
@@ -194,6 +192,7 @@ def criar_agendamento(db: Session, dados, tenant_id: int):
     if conflito:
         raise ValueError("Horário indisponível")
 
+    exige_pagamento, payment_type_snapshot, payment_amount_snapshot = validate_service_advance_payment_config(servico, barbearia)
     novo = Agendamento(
         cliente_id=cliente.id,
         barbeiro_id=dados.barbeiro_id,
@@ -206,6 +205,7 @@ def criar_agendamento(db: Session, dados, tenant_id: int):
         hora_inicio=dados.data_hora_inicio.time().replace(microsecond=0),
         data_hora_inicio=dados.data_hora_inicio,
         data_hora_fim=fim,
+<<<<<<< HEAD
         confirmation_token_expires_at=fim + timedelta(days=1),
         status="pending_payment" if bool(getattr(servico, "pagamento_adiantado_obrigatorio", False)) else dados.status,
         payment_required_snapshot=bool(getattr(servico, "pagamento_adiantado_obrigatorio", False)),
@@ -219,6 +219,14 @@ def criar_agendamento(db: Session, dados, tenant_id: int):
             else Decimal(str(servico.preco or 0)).quantize(MONEY_QUANTUM, rounding=ROUND_HALF_UP)
         ) if bool(getattr(servico, "pagamento_adiantado_obrigatorio", False)) else None,
         payment_status="pending" if bool(getattr(servico, "pagamento_adiantado_obrigatorio", False)) else "not_required",
+=======
+        status="pending_payment" if exige_pagamento else dados.status,
+        payment_required_snapshot=exige_pagamento,
+        payment_type_snapshot=payment_type_snapshot,
+        payment_amount_snapshot=payment_amount_snapshot if exige_pagamento else None,
+        payment_status="pending" if exige_pagamento else "not_required",
+        payment_hold_expires_at=default_payment_hold_expires_at() if exige_pagamento else None,
+>>>>>>> 58bfd5f7b3e3f2e381d1812d30878ea29463a478
     )
 
     db.add(novo)
