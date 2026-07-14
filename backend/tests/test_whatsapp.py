@@ -3,7 +3,7 @@ def test_whatsapp_verify_webhook_ok(client):
         "/whatsapp/webhook",
         params={
             "hub.mode": "subscribe",
-            "hub.verify_token": "barbearia_token_123",
+            "hub.verify_token": "test-whatsapp-verify-token",
             "hub.challenge": "12345",
         },
     )
@@ -20,8 +20,7 @@ def test_whatsapp_verify_webhook_token_invalido(client):
             "hub.challenge": "12345",
         },
     )
-    assert resp.status_code == 200
-    assert resp.json() == {"status": "error"}
+    assert resp.status_code == 403
 
 
 def test_whatsapp_receive_message_ignored_sem_entry(client):
@@ -152,8 +151,7 @@ def test_whatsapp_receive_message_captura_excecao(monkeypatch, client):
     }
 
     resp = client.post("/whatsapp/webhook", json=payload)
-    assert resp.status_code == 200
-    assert resp.json() == {"status": "ok"}
+    assert resp.status_code == 500
 
 
 def test_whatsapp_receive_message_ignored_sem_tenant(monkeypatch, client):

@@ -221,7 +221,7 @@ def responder_mensagem(db: Session, telefone, mensagem, tenant_id: int):
     barbeiro_padrao = _obter_barbeiro_padrao(db, tenant_id)
 
     if not barbeiro_padrao:
-        return "Nao ha barbeiros cadastrados para esta barbearia."
+        return "Nao ha profissionais cadastrados para este estabelecimento."
 
     logger.debug(
         "Mensagem recebida. telefone=%s etapa=%s msg=%s",

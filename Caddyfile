@@ -1,10 +1,22 @@
-virtualbarber.shop {
+{$APP_DOMAIN} {
+    encode zstd gzip
+    header {
+        -Server
+        X-Content-Type-Options "nosniff"
+        Referrer-Policy "no-referrer"
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+    }
     reverse_proxy frontend:3000
 }
 
-api.virtualbarber.shop {
-    @deploy path /deploy
-    reverse_proxy @deploy webhook:9000
-
+{$API_DOMAIN} {
+    encode zstd gzip
+    header {
+        -Server
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Referrer-Policy "no-referrer"
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+    }
     reverse_proxy backend:8000
 }

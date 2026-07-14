@@ -3,14 +3,12 @@ import app.routes.auth as auth_module
 from app.security import hash_senha, verificar_senha
 
 
-def test_auth_admin_check_ok_e_invalido(client):
-    ok = client.post("/auth/admin-check", json={"usuario": auth_module.ADMIN_USUARIO, "senha": auth_module.ADMIN_SENHA})
-    assert ok.status_code == 200
-    assert ok.json()["is_admin"] is True
-
-    invalido = client.post("/auth/admin-check", json={"usuario": "x", "senha": "y"})
-    assert invalido.status_code == 200
-    assert invalido.json()["is_admin"] is False
+def test_auth_admin_check_nao_e_exposto(client):
+    response = client.post(
+        "/auth/admin-check",
+        json={"usuario": auth_module.ADMIN_USUARIO, "senha": auth_module.ADMIN_SENHA},
+    )
+    assert response.status_code == 404
 
 
 def test_auth_login_admin_retorna_token(client):
@@ -53,7 +51,7 @@ def test_barbearias_exige_admin_e_bloqueia_tenant(client, make_tenant_headers):
     assert sem_auth.status_code == 401
 
     tenant_auth = client.get("/barbearias/", headers=make_tenant_headers(tenant_id=1))
-    assert tenant_auth.status_code == 403
+    assert tenant_auth.status_code == 401
 
 
 def test_barbearias_crud_admin(client, make_tenant_headers):
@@ -65,7 +63,7 @@ def test_barbearias_crud_admin(client, make_tenant_headers):
         json={
             "nome": "Barbearia Centro",
             "login": "barbearia.centro",
-            "senha": "senha",
+            "senha": "senha-segura",
             "plano": "basico",
             "status_manual": "ativo",
             "vencimento_em": "2026-12-31",
@@ -117,7 +115,7 @@ def test_barbearias_valida_duplicidades(client, make_tenant_headers):
     payload_base = {
         "nome": "Barbearia A",
         "login": "barbearia.a",
-        "senha": "senha",
+        "senha": "senha-segura",
         "plano": "basico",
         "status_manual": "ativo",
         "vencimento_em": "2026-12-31",

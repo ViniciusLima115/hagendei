@@ -1,16 +1,46 @@
 import os
 import re
 from datetime import datetime, timedelta, timezone
+from urllib.parse import urlsplit
 
 import requests
 from sqlalchemy.orm import Session
 
 from app.models.barbearia import Barbearia
 from app.models.reminder_job import ReminderJob
+from app.services.payments.crypto import decrypt_sensitive_value
 
 
 MEGAAPI_SEND_URL = os.getenv("MEGAAPI_SEND_URL")
-MEGAAPI_SEND_TIMEOUT_SECONDS = int(os.getenv("MEGAAPI_SEND_TIMEOUT_SECONDS", "8"))
+MEGAAPI_SEND_TIMEOUT_SECONDS = max(3, min(int(os.getenv("MEGAAPI_SEND_TIMEOUT_SECONDS", "8")), 20))
+
+
+def _validated_megaapi_url() -> str | None:
+    value = (MEGAAPI_SEND_URL or "").strip()
+    if not value:
+        return None
+    if os.getenv("APP_ENV", "development").strip().lower() not in {"prod", "production"}:
+        return value
+    parsed = urlsplit(value)
+    allowed_hosts = {
+        item.strip().lower()
+        for item in os.getenv("MEGAAPI_ALLOWED_HOSTS", "").split(",")
+        if item.strip()
+    }
+    if parsed.scheme != "https" or not parsed.hostname or parsed.hostname.lower() not in allowed_hosts:
+        return None
+    return value
+
+
+def _messaging_token(value: str | None) -> str | None:
+    token = (value or "").strip()
+    if not token:
+        return None
+    if token.startswith(("v2:", "gAAAA")):
+        return decrypt_sensitive_value(token)
+    if os.getenv("APP_ENV", "development").strip().lower() in {"prod", "production"}:
+        return None
+    return token
 
 
 def _normalizar_telefone(telefone: str) -> str:
@@ -25,7 +55,8 @@ def enviar_mensagem_whatsapp(
     telefone: str,
     mensagem: str,
 ) -> bool:
-    if not MEGAAPI_SEND_URL:
+    send_url = _validated_megaapi_url()
+    if not send_url:
         return False
 
     payload = {
@@ -34,15 +65,17 @@ def enviar_mensagem_whatsapp(
         "message": mensagem,
     }
     headers = {"Content-Type": "application/json"}
-    if barbearia.mega_token:
-        headers["Authorization"] = f"Bearer {barbearia.mega_token}"
+    token = _messaging_token(barbearia.mega_token)
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
 
     try:
         response = requests.post(
-            MEGAAPI_SEND_URL,
+            send_url,
             json=payload,
             headers=headers,
             timeout=MEGAAPI_SEND_TIMEOUT_SECONDS,
+            allow_redirects=False,
         )
         return response.status_code < 300
     except Exception:

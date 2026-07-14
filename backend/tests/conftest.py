@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+import os
 from pathlib import Path
 import sys
 
@@ -10,6 +11,15 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+os.environ.setdefault("ENCRYPTION_KEY", "0123456789abcdef0123456789abcdef")
+os.environ.setdefault("PAYMENT_CREDENTIALS_PEPPER", "test-payment-fingerprint-pepper-at-least-32-bytes")
+os.environ.setdefault("MERCADOPAGO_WEBHOOK_SECRET", "test-mercadopago-webhook-secret")
+os.environ.setdefault("WHATSAPP_VERIFY_TOKEN", "test-whatsapp-verify-token")
+os.environ.setdefault("WHATSAPP_APP_SECRET", "test-whatsapp-app-secret")
+os.environ.setdefault("WHATSAPP_ALLOW_UNSIGNED_WEBHOOKS", "true")
+os.environ.setdefault("JWT_SECRET", "test-jwt-secret-with-at-least-32-bytes")
+os.environ.setdefault("ADMIN_USUARIO", "test-admin")
+os.environ.setdefault("ADMIN_SENHA", "test-admin-password")
 
 from app.database import Base, get_db
 from app.models import Estabelecimento, Profissional, Servico

@@ -1,5 +1,4 @@
 import { API_URL } from "./api";
-import { getAuthSession } from "./auth";
 
 export type PlanoEstabelecimento = "gratis" | "basico" | "premium";
 export type StatusManualEstabelecimento = "ativo" | "inativo";
@@ -18,25 +17,65 @@ export type EstabelecimentoAdmin = {
   ultimoAcessoEm: string | null;
   pagamentoRecusado: boolean;
   criadoEm: string;
-  paymentAccountStatus?: "not_configured" | "active" | "inactive" | "error" | "revoked" | "pending";
+  paymentAccountStatus?: "not_configured" | "active" | "inactive" | "error" | "revoked" | "pending" | "pending_validation" | "disconnected";
   paymentAccountName?: string | null;
   paymentAccountId?: number | null;
+  paymentEnvironment?: "sandbox" | "production" | null;
+  paymentValidationStatus?: "valid" | "invalid" | "not_validated" | "error" | null;
 };
 
 export type AdminPaymentAccount = {
   id: number;
   establishment_id: number;
   provider: string;
+  environment: "sandbox" | "production";
   account_name: string | null;
-  status: "active" | "inactive" | "error" | "revoked" | "pending";
+  status: "active" | "inactive" | "error" | "revoked" | "pending" | "pending_validation" | "disconnected";
   client_id_masked: string | null;
   client_secret_masked: string | null;
   access_token_masked: string | null;
+  webhook_secret_masked: string | null;
   public_key_masked: string | null;
   internal_notes: string | null;
   checkout_hold_minutes: number;
+  validation_status: "valid" | "invalid" | "not_validated" | "error";
+  validation_error: string | null;
+  last_validated_at: string | null;
+  connected_at: string | null;
+  disconnected_at: string | null;
   created_at: string;
   updated_at: string;
+};
+
+export type AdminPaymentIntegration = {
+  provider: string;
+  environment: "sandbox" | "production";
+  status: "active" | "inactive" | "error" | "pending_validation" | "disconnected";
+  validation_status: "valid" | "invalid" | "not_validated" | "error";
+  last_validated_at: string | null;
+  connected_at: string | null;
+  updated_at: string;
+  updated_by: string | null;
+  public_key_masked: string | null;
+  access_token_masked: string | null;
+  webhook_secret_masked: string | null;
+  has_client_id: boolean;
+  has_client_secret: boolean;
+};
+
+export type AdminPaymentIntegrationValidation = {
+  valid: boolean;
+  validation_status: "valid" | "invalid" | "error";
+  message: string;
+  last_validated_at: string | null;
+};
+
+export type AdminPaymentIntegrationTestCheckout = {
+  provider: string;
+  environment: "sandbox" | "production";
+  preference_id: string;
+  checkout_url: string;
+  status: "created";
 };
 
 export type AdminPaymentEstablishment = {
@@ -44,9 +83,11 @@ export type AdminPaymentEstablishment = {
   nome: string;
   slug: string | null;
   login: string | null;
-  payment_account_status: "not_configured" | "active" | "inactive" | "error" | "revoked" | "pending";
+  payment_account_status: "not_configured" | "active" | "inactive" | "error" | "revoked" | "pending" | "pending_validation" | "disconnected";
   payment_account_name: string | null;
   payment_account_id: number | null;
+  payment_environment: "sandbox" | "production" | null;
+  payment_validation_status: "valid" | "invalid" | "not_validated" | "error" | null;
 };
 
 // Backward compat aliases
@@ -100,26 +141,47 @@ function toUi(item: EstabelecimentoApi): EstabelecimentoAdmin {
   };
 }
 
+function formatApiDetail(detail: unknown): string | null {
+  if (!detail) return null;
+  if (typeof detail === "string") return detail;
+  if (Array.isArray(detail)) {
+    const messages = detail
+      .map((item) => {
+        if (typeof item === "string") return item;
+        if (item && typeof item === "object" && "msg" in item) {
+          const record = item as { msg?: unknown; loc?: unknown };
+          const location = Array.isArray(record.loc) ? record.loc.filter((part) => part !== "body").join(".") : "";
+          const message = typeof record.msg === "string" ? record.msg : "";
+          return location && message ? `${location}: ${message}` : message;
+        }
+        return "";
+      })
+      .filter(Boolean);
+    return messages.length ? messages.join(" ") : null;
+  }
+  return null;
+}
+
 async function parseOrThrow(res: Response, fallback: string) {
   if (res.ok) return res.status === 204 ? null : res.json();
   const body = await res.json().catch(() => ({}));
-  throw new Error(body?.detail || fallback);
+  throw new Error(formatApiDetail(body?.detail) || fallback);
 }
 
 function getAdminHeaders(contentTypeJson: boolean = false): HeadersInit {
-  const token = getAuthSession()?.accessToken;
   const headers = new Headers();
-  if (token) {
-    headers.set("Authorization", `Bearer ${token}`);
-  }
   if (contentTypeJson) {
     headers.set("Content-Type", "application/json");
   }
   return headers;
 }
 
+function adminFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  return fetch(input, { ...init, credentials: "include" });
+}
+
 export async function listEstabelecimentosAdmin(): Promise<EstabelecimentoAdmin[]> {
-  const res = await fetch(`${API_URL}/estabelecimentos/`, {
+  const res = await adminFetch(`${API_URL}/estabelecimentos/`, {
     cache: "no-store",
     headers: getAdminHeaders(),
   });
@@ -128,7 +190,7 @@ export async function listEstabelecimentosAdmin(): Promise<EstabelecimentoAdmin[
 }
 
 export async function listPaymentEstablishmentsAdmin(): Promise<AdminPaymentEstablishment[]> {
-  const res = await fetch(`${API_URL}/admin/establishments`, {
+  const res = await adminFetch(`${API_URL}/admin/establishments`, {
     cache: "no-store",
     headers: getAdminHeaders(),
   });
@@ -148,7 +210,7 @@ export async function createEstabelecimentoAdmin(payload: {
   trialFimEm?: string | null;
   pagamentoRecusado?: boolean;
 }): Promise<EstabelecimentoAdmin> {
-  const res = await fetch(`${API_URL}/estabelecimentos/`, {
+  const res = await adminFetch(`${API_URL}/estabelecimentos/`, {
     method: "POST",
     headers: getAdminHeaders(true),
     body: JSON.stringify({
@@ -188,7 +250,7 @@ export async function updateEstabelecimentoAdmin(
     pagamentoRecusado: boolean;
   }
 ): Promise<EstabelecimentoAdmin> {
-  const res = await fetch(`${API_URL}/estabelecimentos/${id}`, {
+  const res = await adminFetch(`${API_URL}/estabelecimentos/${id}`, {
     method: "PUT",
     headers: getAdminHeaders(true),
     body: JSON.stringify({
@@ -214,7 +276,7 @@ export async function updateEstabelecimentoAdmin(
 export const updateBarbeariaAdmin = updateEstabelecimentoAdmin;
 
 export async function deleteEstabelecimentoAdmin(id: number): Promise<void> {
-  const res = await fetch(`${API_URL}/estabelecimentos/${id}`, {
+  const res = await adminFetch(`${API_URL}/estabelecimentos/${id}`, {
     method: "DELETE",
     headers: getAdminHeaders(),
   });
@@ -222,7 +284,7 @@ export async function deleteEstabelecimentoAdmin(id: number): Promise<void> {
 }
 
 export async function getPaymentAccountAdmin(establishmentId: number): Promise<AdminPaymentAccount | null> {
-  const res = await fetch(`${API_URL}/admin/establishments/${establishmentId}/payment-account`, {
+  const res = await adminFetch(`${API_URL}/admin/establishments/${establishmentId}/payment-account`, {
     cache: "no-store",
     headers: getAdminHeaders(),
   });
@@ -230,21 +292,114 @@ export async function getPaymentAccountAdmin(establishmentId: number): Promise<A
   return parseOrThrow(res, "Falha ao carregar conta de pagamento.");
 }
 
+export async function getMercadoPagoIntegrationAdmin(establishmentId: number): Promise<AdminPaymentIntegration | null> {
+  const res = await adminFetch(`${API_URL}/admin/establishments/${establishmentId}/payment-integrations`, {
+    cache: "no-store",
+    headers: getAdminHeaders(),
+  });
+  const integrations = (await parseOrThrow(res, "Falha ao carregar integracoes de pagamento.")) as AdminPaymentIntegration[];
+  return integrations.find((item) => item.provider === "mercadopago") ?? null;
+}
+
+export async function saveMercadoPagoIntegrationAdmin(
+  establishmentId: number,
+  payload: {
+    environment: "sandbox" | "production";
+    public_key?: string | null;
+    access_token?: string | null;
+    client_id?: string | null;
+    client_secret?: string | null;
+    webhook_secret?: string | null;
+    notes?: string | null;
+    status?: "active" | "inactive" | "error" | "pending_validation" | "disconnected";
+  },
+  exists: boolean,
+): Promise<AdminPaymentIntegration> {
+  const res = await adminFetch(`${API_URL}/admin/establishments/${establishmentId}/payment-integrations/mercado-pago`, {
+    method: exists ? "PATCH" : "POST",
+    headers: getAdminHeaders(true),
+    body: JSON.stringify(payload),
+  });
+  return parseOrThrow(res, "Falha ao salvar credenciais Mercado Pago.");
+}
+
+export async function clearMercadoPagoIntegrationFieldAdmin(
+  establishmentId: number,
+  environment: "sandbox" | "production",
+  field: "public_key" | "client_id" | "client_secret" | "webhook_secret" | "notes",
+): Promise<AdminPaymentIntegration> {
+  const clearFlagByField = {
+    public_key: "clear_public_key",
+    client_id: "clear_client_id",
+    client_secret: "clear_client_secret",
+    webhook_secret: "clear_webhook_secret",
+    notes: "clear_notes",
+  } as const;
+  const res = await adminFetch(`${API_URL}/admin/establishments/${establishmentId}/payment-integrations/mercado-pago`, {
+    method: "PATCH",
+    headers: getAdminHeaders(true),
+    body: JSON.stringify({
+      environment,
+      [clearFlagByField[field]]: true,
+    }),
+  });
+  return parseOrThrow(res, "Falha ao limpar campo da integracao Mercado Pago.");
+}
+
+export async function disableMercadoPagoIntegrationAdmin(
+  establishmentId: number,
+  environment: "sandbox" | "production",
+): Promise<AdminPaymentIntegration> {
+  const res = await adminFetch(`${API_URL}/admin/establishments/${establishmentId}/payment-integrations/mercado-pago/disable`, {
+    method: "POST",
+    headers: getAdminHeaders(true),
+    body: JSON.stringify({ environment, status: "inactive" }),
+  });
+  return parseOrThrow(res, "Falha ao desativar integracao Mercado Pago.");
+}
+
+export async function validateMercadoPagoIntegrationAdmin(
+  establishmentId: number,
+  environment: "sandbox" | "production",
+): Promise<AdminPaymentIntegrationValidation> {
+  const res = await adminFetch(`${API_URL}/admin/establishments/${establishmentId}/payment-integrations/mercado-pago/validate`, {
+    method: "POST",
+    headers: getAdminHeaders(true),
+    body: JSON.stringify({ environment }),
+  });
+  return parseOrThrow(res, "Falha ao validar integracao Mercado Pago.");
+}
+
+export async function testMercadoPagoCheckoutAdmin(
+  establishmentId: number,
+  environment: "sandbox" | "production",
+  confirmProduction: boolean,
+): Promise<AdminPaymentIntegrationTestCheckout> {
+  const res = await adminFetch(`${API_URL}/admin/establishments/${establishmentId}/payment-integrations/mercado-pago/test-checkout`, {
+    method: "POST",
+    headers: getAdminHeaders(true),
+    body: JSON.stringify({ environment, confirm_production: confirmProduction }),
+  });
+  return parseOrThrow(res, "Falha ao criar checkout de teste Mercado Pago.");
+}
+
 export async function savePaymentAccountAdmin(
   establishmentId: number,
   payload: {
     account_name?: string | null;
+    environment: "sandbox" | "production";
     client_id?: string | null;
     client_secret?: string | null;
     access_token?: string | null;
     public_key?: string | null;
-    status: "active" | "inactive" | "error";
+    webhook_secret?: string | null;
+    status: "active" | "inactive" | "error" | "pending_validation" | "disconnected";
     internal_notes?: string | null;
     checkout_hold_minutes: number;
   },
   exists: boolean,
 ): Promise<AdminPaymentAccount> {
-  const res = await fetch(`${API_URL}/admin/establishments/${establishmentId}/payment-account`, {
+  const res = await adminFetch(`${API_URL}/admin/establishments/${establishmentId}/payment-account`, {
     method: exists ? "PATCH" : "POST",
     headers: getAdminHeaders(true),
     body: JSON.stringify({
@@ -257,12 +412,13 @@ export async function savePaymentAccountAdmin(
 
 export async function updatePaymentAccountStatusAdmin(
   establishmentId: number,
-  status: "active" | "inactive" | "error" | "revoked",
+  status: "active" | "inactive" | "error" | "revoked" | "disconnected" | "pending_validation",
+  environment: "sandbox" | "production" = "production",
 ): Promise<AdminPaymentAccount> {
-  const res = await fetch(`${API_URL}/admin/establishments/${establishmentId}/payment-account/status`, {
+  const res = await adminFetch(`${API_URL}/admin/establishments/${establishmentId}/payment-account/status`, {
     method: "PATCH",
     headers: getAdminHeaders(true),
-    body: JSON.stringify({ status }),
+    body: JSON.stringify({ status, environment }),
   });
   return parseOrThrow(res, "Falha ao alterar status da conta de pagamento.");
 }

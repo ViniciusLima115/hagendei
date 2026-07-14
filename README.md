@@ -1,227 +1,121 @@
-# Barbearia Chatbot
+# Hagendei
 
-Mini documentação para rodar o projeto localmente do zero.
+Plataforma multi-tenant de agendamento para negocios e profissionais. O sistema inclui painel operacional, pagina publica por estabelecimento, notificacoes e pagamento antecipado via Mercado Pago Checkout Pro.
 
-## Visão geral
+## Arquitetura
 
-O projeto tem duas partes:
+- `frontend/`: Next.js 16 e React 19, servido na porta `3000`.
+- `backend/`: FastAPI, SQLAlchemy e PostgreSQL/Neon, servido na porta `8000`.
+- `Caddyfile`: terminacao TLS e proxy reverso em producao.
+- Mercado Pago: credenciais isoladas por estabelecimento e criptografadas no banco.
 
-- `backend`: API FastAPI + SQLAlchemy + MySQL
-- `frontend`: painel em Next.js para visualizar a agenda
+O backend e a autoridade para autenticacao, tenant, preco, disponibilidade e estado do pagamento. O frontend nunca confirma pagamento por retorno do navegador.
 
-## Pré-requisitos
+## Requisitos
 
-- Python 3.11+ (recomendado usar `venv`)
-- Node.js 20+ e npm
-- MySQL 8+ rodando localmente
+- Python 3.13
+- Node.js 22 e npm
+- PostgreSQL 15+ ou Neon
 
-## 1) Clonar e entrar no projeto
+## Desenvolvimento local
 
-```bash
-git clone <URL_DO_REPOSITORIO>
-cd barbearia-chatbot
-```
+Backend, em PowerShell:
 
-## 2) Subir banco MySQL
-
-Crie um banco e usuário (ajuste senha se quiser):
-
-```sql
-CREATE DATABASE chatbot CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-CREATE USER 'chatbot'@'localhost' IDENTIFIED BY 'chatbot';
-GRANT ALL PRIVILEGES ON chatbot.* TO 'chatbot'@'localhost';
-FLUSH PRIVILEGES;
-```
-
-## 3) Configurar e rodar backend
-
-Entre na pasta:
-
-```bash
+```powershell
 cd backend
+py -3.13 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r requirements-dev.txt
+Copy-Item .env.example .env
 ```
 
-Crie o ambiente virtual e instale dependências:
+Preencha `DATABASE_URL`, `JWT_SECRET`, `ENCRYPTION_KEY`, `PAYMENT_CREDENTIALS_PEPPER`, `ADMIN_USUARIO` e `ADMIN_SENHA` em `backend/.env`. Gere valores independentes; nunca reutilize senha, JWT, chave de criptografia e pepper.
 
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
+```powershell
+python -c "import secrets; print(secrets.token_urlsafe(48))"
+python -c "import base64,secrets; print(base64.urlsafe_b64encode(secrets.token_bytes(32)).decode())"
+python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
-Use arquivos separados por ambiente:
+Frontend, em outro terminal:
 
-- Raiz do projeto: `.env` (bom para integrações que escrevem variáveis automaticamente, como `npx neonctl@latest init`)
-- Local: `backend/.env`
-- Produção: `backend/.env.production`
-
-Se existir `.env` na raiz e também `backend/.env`, o backend prioriza a variável já definida na raiz.
-
-Exemplo de `backend/.env` (local):
-
-```env
-APP_ENV=development
-INIT_DB_CREATE_ALL=true
-DATABASE_URL=postgresql://SEU_USUARIO:SEU_TOKEN@SEU_HOST_NEON/neondb?sslmode=require
-HORARIO_ABERTURA=8
-HORARIO_FECHAMENTO=19
-INTERVALO_MINUTOS=40
-
-# Opcional (integração WhatsApp / webhook MegaAPI)
-WHATSAPP_TOKEN=
-PHONE_NUMBER_ID=
-BOOKING_PUBLIC_BASE_URL=http://localhost:3000
-MEGAAPI_WEBHOOK_TOKEN=
-MEGAAPI_WEBHOOK_SECRET=
-MEGAAPI_WEBHOOK_ALLOW_UNSIGNED=false
-MEGAAPI_WEBHOOK_MAX_SKEW_SECONDS=300
-MEGAAPI_SEND_URL=
-INTERNAL_REMINDER_TOKEN=
-DOCS_USER=admin
-DOCS_PASS=admin
-```
-
-Rode a API:
-
-```bash
-uvicorn app.main:app --reload
-```
-
-Para usar Neon, voce pode gerar a string automaticamente na raiz do projeto:
-
-```bash
-npx neonctl@latest init
-```
-
-Para produção, rode com `APP_ENV=production` para carregar `backend/.env.production`:
-
-```bash
-APP_ENV=production uvicorn app.main:app --host 0.0.0.0 --port 8000
-```
-
-Para staging, use `APP_ENV=staging` (carrega `backend/.env.staging` ou `backend/.env.stage` quando existir):
-
-```bash
-APP_ENV=staging uvicorn app.main:app --host 0.0.0.0 --port 8000
-```
-
-API disponível em:
-
-- `http://127.0.0.1:8000`
-- Swagger: `http://127.0.0.1:8000/docs`
-
-## 4) Configurar e rodar frontend
-
-Em outro terminal:
-
-```bash
+```powershell
 cd frontend
-npm install
+npm ci
+Copy-Item .env.example .env.local
 npm run dev
 ```
 
-Frontend disponível em:
+Enderecos locais:
 
-- `http://localhost:3000`
+- Aplicacao: `http://127.0.0.1:3000`
+- API: `http://127.0.0.1:8000`
+- Login: `http://127.0.0.1:3000/login`
+- Agendamento publico: `http://127.0.0.1:3000/{slug}`
 
-Observação: o frontend já está apontando para `http://127.0.0.1:8000`.
+Swagger fica desabilitado por padrao. Para uso local, defina `DOCS_ENABLED=true` e credenciais proprias; nao exponha a documentacao em producao sem necessidade.
 
-## 5) Carga inicial (dados mínimos)
+## Autenticacao e tenants
 
-Sem dados, a agenda abre vazia. Cadastre pelo menos 1 barbeiro e 1 serviço.
+O login cria um cookie `HttpOnly`, `SameSite=Lax` e `Secure` em producao. O JWT inclui emissor, audiencia, `jti`, expiracao e versao de sessao. Desativar uma conta ou trocar a senha revoga as sessoes anteriores.
 
-### Criar barbeiros
+O `X-Barbearia-Id` e apenas contexto de requisicao: o backend sempre compara esse valor com o tenant assinado no token. Rotas administrativas globais exigem papel `admin` ou `super_admin`.
 
-```bash
-curl -X POST http://127.0.0.1:8000/barbeiros/ \
-  -H "Content-Type: application/json" \
-  -d '{"nome":"João"}'
+## Mercado Pago
+
+1. O administrador salva as credenciais no estabelecimento.
+2. O backend cifra o payload com AES-256-GCM; segredos sao somente de escrita na API.
+3. Use `Validar conexao`. Uma integracao nao validada nao pode abrir checkout.
+4. Cadastre no Mercado Pago o webhook HTTPS `https://SEU_DOMINIO_API/webhooks/mercadopago` e salve a chave secreta correspondente.
+5. O backend valida `x-signature`, rejeita replay, consulta o pagamento na API do provedor e compara referencia, tenant, agendamento, valor, moeda e conta recebedora.
+
+O checkout usa idempotencia e reserva a vaga por no maximo cinco minutos. O retorno do navegador serve apenas para navegacao; aprovacao depende do provedor. Nao execute pagamentos ou estornos reais durante testes automatizados.
+
+Mais detalhes: `docs/admin-payment-credentials.md` e `docs/pagamento-adiantado-mercado-pago.md`.
+
+## Rotacao de chaves
+
+Para trocar a chave de credenciais sem perder dados:
+
+1. Mova a chave atual para `ENCRYPTION_KEYRING`, associada ao identificador antigo.
+2. Defina um novo `ENCRYPTION_KEY_ID` e uma nova `ENCRYPTION_KEY` de 32 bytes.
+3. Reinicie, valide as integracoes e grave novamente cada credencial para cifra-la com a chave nova.
+4. Remova a chave antiga somente depois de confirmar que nenhum registro depende dela e de testar o backup.
+
+Trocar `JWT_SECRET` invalida todas as sessoes. Segredos que ja entraram no Git devem ser revogados no provedor antes de qualquer reescrita de historico.
+
+## Testes e verificacoes
+
+```powershell
+cd backend
+.\.venv\Scripts\python.exe -m pytest -q
+.\.venv\Scripts\python.exe -m pip_audit -r requirements.txt
+.\.venv\Scripts\python.exe -m bandit -r app
+
+cd ..\frontend
+npm run lint
+npm run build
+npm audit --omit=dev
 ```
 
-```bash
-curl -X POST http://127.0.0.1:8000/barbeiros/ \
-  -H "Content-Type: application/json" \
-  -d '{"nome":"Carlos"}'
+O relatorio de seguranca e os riscos residuais ficam em `SECURITY_AUDIT.md`.
+
+## Producao
+
+Use um cofre de segredos e um arquivo local `backend/.env.production` fora do Git. `APP_ENV=production` faz o backend falhar ao iniciar se configuracoes essenciais estiverem ausentes ou inseguras.
+
+```powershell
+$env:APP_DOMAIN="app.seudominio.com"
+$env:API_DOMAIN="api.seudominio.com"
+$env:NEXT_PUBLIC_API_URL="https://api.seudominio.com"
+docker compose up -d --build
 ```
 
-### Criar serviços
+Antes de publicar:
 
-```bash
-curl -X POST http://127.0.0.1:8000/servicos/ \
-  -H "Content-Type: application/json" \
-  -d '{"nome":"Corte","duracao_minutos":40,"preco":45}'
-```
-
-```bash
-curl -X POST http://127.0.0.1:8000/servicos/ \
-  -H "Content-Type: application/json" \
-  -d '{"nome":"Barba","duracao_minutos":30,"preco":35}'
-```
-
-### Criar agendamento de teste
-
-```bash
-curl -X POST http://127.0.0.1:8000/agendamentos/ \
-  -H "Content-Type: application/json" \
-  -d '{
-    "telefone":"11999999999",
-    "nome_cliente":"Cliente Teste",
-    "barbeiro_id":1,
-    "servico_id":1,
-    "data_hora_inicio":"2026-02-20T10:00:00"
-  }'
-```
-
-Depois abra `http://localhost:3000/agenda`.
-
-## Endpoints principais
-
-- `GET /` status da API
-- `GET /agenda/dia?data=YYYY-MM-DDTHH:MM:SS`
-- `GET /agenda/horarios-disponiveis?barbeiro_id=1&servico_id=1&data=YYYY-MM-DDTHH:MM:SS`
-- `POST /barbeiros/`
-- `GET /barbeiros/`
-- `POST /servicos/`
-- `GET /servicos/`
-- `POST /agendamentos/`
-- `POST /chatbot/mensagem`
-- `GET /whatsapp/webhook` e `POST /whatsapp/webhook`
-- `POST /webhooks/megaapi`
-- `POST /webhook` (saudacao automatica com controle de conversa ativa)
-- `GET /public/barbearia/{slug}`
-- `GET /public/barbearia-id/{barbearia_id}`
-- `GET /public/servicos?barbearia_id=`
-- `GET /public/barbeiros?barbearia_id=`
-- `GET /public/horarios-disponiveis?...`
-- `POST /public/agendamentos`
-- `POST /internal/reminders/process` (usar `X-Internal-Token` quando configurado)
-
-## Problemas comuns
-
-- Erro de conexão com banco:
-  - conferir se a `DATABASE_URL` aponta para o Neon/Postgres e se inclui `sslmode=require`.
-- Frontend mostra erro ao carregar agenda:
-  - conferir se backend está rodando em `127.0.0.1:8000`.
-- Agenda vazia:
-  - cadastrar barbeiros, serviços e agendamentos.
-
-## Estrutura resumida
-
-```text
-barbearia-chatbot/
-  backend/
-    app/
-      main.py
-      routes/
-      services/
-      models/
-  frontend/
-    app/
-    services/
-```
-
-## Pagamentos multi-tenant
-
-Documentacao completa da camada de pagamentos por estabelecimento (credenciais Mercado Pago gerenciadas pelo admin, webhook, expiracao e testes):
-
-- `docs/pagamento-adiantado-mercado-pago.md`
+- configure HTTPS, `ALLOWED_HOSTS`, `TRUSTED_PROXY_IPS` e CORS com origens exatas;
+- mantenha docs, bearer token e webhooks sem assinatura desabilitados;
+- aplique migracoes e teste restauracao de backup em staging;
+- restrinja acesso ao banco, ao host Docker e ao painel administrativo;
+- configure alertas para falhas de webhook, divergencias de pagamento e eventos `payment_review_required`;
+- rode testes e auditorias de dependencia em CI.

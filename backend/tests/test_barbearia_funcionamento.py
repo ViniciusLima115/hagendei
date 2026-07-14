@@ -105,7 +105,7 @@ def test_agendamento_bloqueia_horario_fora_do_funcionamento(
 
     resp = client.post("/agendamentos/", json=payload, headers=tenant_headers)
     assert resp.status_code == 400
-    assert resp.json()["detail"] == "Horário fora do funcionamento da barbearia"
+    assert resp.json()["detail"] == "Horário fora do funcionamento do estabelecimento"
 
 
 def test_agendamento_bloqueia_horario_fora_do_funcionamento_do_barbeiro(
@@ -132,7 +132,7 @@ def test_agendamento_bloqueia_horario_fora_do_funcionamento_do_barbeiro(
 
     resp = client.post("/agendamentos/", json=payload, headers=tenant_headers)
     assert resp.status_code == 400
-    assert resp.json()["detail"] == "Horário fora do funcionamento do barbeiro"
+    assert resp.json()["detail"] == "Horário fora da disponibilidade do profissional"
 
 
 def test_obter_funcionamento(client, dados_base, tenant_headers, db_session):
@@ -148,7 +148,7 @@ def test_obter_funcionamento(client, dados_base, tenant_headers, db_session):
 def test_obter_funcionamento_nao_encontrado(client, make_tenant_headers):
     headers = make_tenant_headers(tenant_id=99999)
     resp = client.get("/barbearias/me/funcionamento", headers=headers)
-    assert resp.status_code == 404
+    assert resp.status_code == 401
 
 
 def test_atualizar_funcionamento_nao_encontrado(client, make_tenant_headers):
@@ -158,4 +158,4 @@ def test_atualizar_funcionamento_nao_encontrado(client, make_tenant_headers):
         json=_funcionamento_seg_a_sab(),
         headers=headers,
     )
-    assert resp.status_code == 404
+    assert resp.status_code == 401

@@ -1,6 +1,7 @@
 import logging
 import os
 from datetime import datetime, timedelta, timezone
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from uuid import uuid4
 from urllib.parse import urlencode
 
@@ -17,19 +18,18 @@ from app.services.payments.constants import (
     BOOKING_STATUS_EXPIRED,
     BOOKING_STATUS_FAILED,
     BOOKING_STATUS_PENDING_PAYMENT,
+    BOOKING_STATUS_PAYMENT_REVIEW,
     PAYMENT_PROVIDER_MERCADO_PAGO,
     PAYMENT_STATUS_APPROVED,
     PAYMENT_STATUS_CANCELLED,
+    PAYMENT_STATUS_CHARGED_BACK,
     PAYMENT_STATUS_EXPIRED,
     PAYMENT_STATUS_NOT_REQUIRED,
     PAYMENT_STATUS_PENDING,
     PAYMENT_STATUS_REFUNDED,
     PAYMENT_STATUS_REJECTED,
 )
-from app.services.payments.payment_account_service import (
-    get_active_payment_account,
-    get_decrypted_access_token,
-)
+from app.services.payments.payment_integration_service import get_active_payment_credentials
 from app.services.payments.provider_factory import get_payment_provider
 
 
@@ -39,8 +39,32 @@ PAYMENT_FINAL_STATUSES = {
     PAYMENT_STATUS_APPROVED,
     PAYMENT_STATUS_REJECTED,
     PAYMENT_STATUS_CANCELLED,
+    PAYMENT_STATUS_CHARGED_BACK,
     PAYMENT_STATUS_REFUNDED,
     PAYMENT_STATUS_EXPIRED,
+}
+MAX_CHECKOUT_EXPIRATION_MINUTES = 5
+MONEY_QUANTUM = Decimal("0.01")
+PAYMENT_STATUS_TRANSITIONS = {
+    PAYMENT_STATUS_PENDING: {
+        PAYMENT_STATUS_PENDING,
+        PAYMENT_STATUS_APPROVED,
+        PAYMENT_STATUS_REJECTED,
+        PAYMENT_STATUS_CANCELLED,
+        PAYMENT_STATUS_REFUNDED,
+        PAYMENT_STATUS_EXPIRED,
+        PAYMENT_STATUS_CHARGED_BACK,
+    },
+    PAYMENT_STATUS_REJECTED: {PAYMENT_STATUS_REJECTED, PAYMENT_STATUS_APPROVED},
+    PAYMENT_STATUS_CANCELLED: {PAYMENT_STATUS_CANCELLED, PAYMENT_STATUS_APPROVED},
+    PAYMENT_STATUS_EXPIRED: {PAYMENT_STATUS_EXPIRED, PAYMENT_STATUS_APPROVED},
+    PAYMENT_STATUS_APPROVED: {
+        PAYMENT_STATUS_APPROVED,
+        PAYMENT_STATUS_REFUNDED,
+        PAYMENT_STATUS_CHARGED_BACK,
+    },
+    PAYMENT_STATUS_REFUNDED: {PAYMENT_STATUS_REFUNDED},
+    PAYMENT_STATUS_CHARGED_BACK: {PAYMENT_STATUS_CHARGED_BACK},
 }
 
 
@@ -61,8 +85,10 @@ def normalize_payment_status(raw_status: str | None) -> str:
         return PAYMENT_STATUS_APPROVED
     if status in {"rejected"}:
         return PAYMENT_STATUS_REJECTED
-    if status in {"cancelled", "charged_back"}:
+    if status == "cancelled":
         return PAYMENT_STATUS_CANCELLED
+    if status == "charged_back":
+        return PAYMENT_STATUS_CHARGED_BACK
     if status in {"refunded"}:
         return PAYMENT_STATUS_REFUNDED
     if status in {"expired"}:
@@ -70,7 +96,21 @@ def normalize_payment_status(raw_status: str | None) -> str:
     return PAYMENT_STATUS_PENDING
 
 
-def validate_service_advance_payment_config(servico: Servico) -> tuple[bool, str | None, float | None]:
+def _money(value: object) -> Decimal:
+    try:
+        return Decimal(str(value or 0)).quantize(MONEY_QUANTUM, rounding=ROUND_HALF_UP)
+    except (InvalidOperation, TypeError, ValueError) as exc:
+        raise ValueError("Valor monetario invalido.") from exc
+
+
+def _fail_booking_before_checkout(db: Session, booking: Agendamento) -> None:
+    booking.status = BOOKING_STATUS_FAILED
+    booking.payment_status = PAYMENT_STATUS_CANCELLED
+    booking.payment_hold_expires_at = None
+    db.commit()
+
+
+def validate_service_advance_payment_config(servico: Servico) -> tuple[bool, str | None, Decimal | None]:
     require = bool(getattr(servico, "pagamento_adiantado_obrigatorio", False))
     if not require:
         return False, None, None
@@ -79,16 +119,16 @@ def validate_service_advance_payment_config(servico: Servico) -> tuple[bool, str
     if payment_type not in {"full", "signal"}:
         raise ValueError("Tipo de pagamento adiantado invalido. Use 'full' ou 'signal'.")
 
-    service_price = float(servico.preco or 0)
+    service_price = _money(servico.preco)
     if payment_type == "full":
         if service_price <= 0:
             raise ValueError("Servico com pagamento adiantado deve possuir preco maior que zero.")
-        return True, payment_type, round(service_price, 2)
+        return True, payment_type, service_price
 
     signal_amount = getattr(servico, "advance_payment_amount", None)
     if signal_amount is None:
         raise ValueError("Informe o valor do sinal para este servico.")
-    signal_value = round(float(signal_amount), 2)
+    signal_value = _money(signal_amount)
     if signal_value <= 0:
         raise ValueError("O valor do sinal deve ser maior que zero.")
     if service_price > 0 and signal_value > service_price:
@@ -109,13 +149,28 @@ def apply_payment_snapshot_from_service(booking: Agendamento, servico: Servico) 
         booking.payment_status = PAYMENT_STATUS_NOT_REQUIRED
 
 
-def build_checkout_notification_url(payment_id: int) -> str:
-    base = os.getenv("BACKEND_PUBLIC_BASE_URL", "http://127.0.0.1:8000").rstrip("/")
-    query: dict[str, str] = {"payment_id": str(payment_id)}
-    webhook_token = os.getenv("MERCADOPAGO_WEBHOOK_TOKEN", "").strip()
-    if webhook_token:
-        query["token"] = webhook_token
+def build_checkout_notification_url(external_reference: str) -> str:
+    base = (
+        os.getenv("BACKEND_PUBLIC_BASE_URL", "").strip()
+        or os.getenv("BACKEND_URL", "").strip()
+        or "http://127.0.0.1:8000"
+    ).rstrip("/")
+    query: dict[str, str] = {"external_reference": external_reference}
     return f"{base}/webhooks/mercadopago?{urlencode(query)}"
+
+
+def build_checkout_return_urls(external_reference: str) -> dict[str, str]:
+    base = (
+        os.getenv("BOOKING_PUBLIC_BASE_URL", "").strip()
+        or os.getenv("FRONTEND_URL", "").strip()
+        or "http://localhost:3000"
+    ).rstrip("/")
+    query = urlencode({"external_reference": external_reference})
+    return {
+        "success": f"{base}/agendamento/pagamento/sucesso?{query}",
+        "pending": f"{base}/agendamento/pagamento/pendente?{query}",
+        "failure": f"{base}/agendamento/pagamento/falha?{query}",
+    }
 
 
 def _booking_conflict_filter(now: datetime):
@@ -177,8 +232,61 @@ def _notify_payment_event(
 
 
 def _build_external_reference(booking_id: int) -> str:
-    short = str(uuid4())[:12]
-    return f"booking:{booking_id}:{short}"
+    del booking_id
+    return f"pay_{uuid4().hex}"
+
+
+def _json_safe_scalar(value: object) -> str | int | float | bool | None:
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    if isinstance(value, Decimal):
+        return format(value, "f")
+    if isinstance(value, datetime):
+        return value.isoformat()
+    return str(value)[:500]
+
+
+def _sanitize_provider_payload(payload: dict | None) -> dict:
+    source = payload if isinstance(payload, dict) else {}
+    allowed = {
+        "id",
+        "status",
+        "status_detail",
+        "external_reference",
+        "transaction_amount",
+        "currency_id",
+        "payment_method_id",
+        "payment_type_id",
+        "date_created",
+        "date_approved",
+        "date_last_updated",
+        "collector_id",
+        "notification_url",
+        "expires_at",
+        "amount",
+    }
+    result = {key: _json_safe_scalar(source[key]) for key in allowed if key in source}
+    metadata = source.get("metadata")
+    if isinstance(metadata, dict):
+        metadata_keys = {
+            "booking_id",
+            "appointment_id",
+            "agendamento_id",
+            "establishment_id",
+            "payment_id",
+            "payment_integration_id",
+            "provider",
+            "environment",
+            "test",
+            "admin",
+        }
+        result["metadata"] = {
+            key: _json_safe_scalar(metadata[key]) for key in metadata_keys if key in metadata
+        }
+    order = source.get("order")
+    if isinstance(order, dict) and order.get("id") is not None:
+        result["order"] = {"id": _json_safe_scalar(order["id"])}
+    return result
 
 
 def start_checkout_for_booking(
@@ -196,21 +304,41 @@ def start_checkout_for_booking(
     if booking.estabelecimento_id is None:
         raise ValueError("Agendamento sem estabelecimento associado.")
 
-    account = get_active_payment_account(
-        db,
-        establishment_id=booking.estabelecimento_id,
-        provider=normalized_provider,
+    locked_booking = (
+        db.query(Agendamento)
+        .filter(Agendamento.id == booking.id)
+        .with_for_update()
+        .populate_existing()
+        .first()
     )
-    if not account:
-        raise ValueError("Conta de pagamento ativa nao encontrada para o estabelecimento.")
+    if not locked_booking:
+        raise ValueError("Agendamento nao encontrado.")
+    booking = locked_booking
+
+    try:
+        active_credentials = get_active_payment_credentials(
+            db,
+            establishment_id=booking.estabelecimento_id,
+            provider=normalized_provider,
+        )
+    except ValueError:
+        _fail_booking_before_checkout(db, booking)
+        raise
+    if not active_credentials:
+        _fail_booking_before_checkout(db, booking)
+        raise ValueError("Este estabelecimento ainda nao possui pagamento online configurado.")
+    if not active_credentials.webhook_secret:
+        _fail_booking_before_checkout(db, booking)
+        raise ValueError("A integracao de pagamento nao possui assinatura de webhook configurada.")
 
     now = _utcnow()
-    hold_minutes = max(5, min(int(account.checkout_hold_minutes or 10), 60))
+    hold_minutes = max(1, min(int(active_credentials.checkout_hold_minutes or 10), MAX_CHECKOUT_EXPIRATION_MINUTES))
     expires_at = now + timedelta(minutes=hold_minutes)
 
     existing_payment = (
         db.query(Pagamento)
         .filter(Pagamento.agendamento_id == booking.id)
+        .with_for_update()
         .first()
     )
     if (
@@ -227,29 +355,52 @@ def start_checkout_for_booking(
         db.refresh(existing_payment)
         return existing_payment
 
-    if existing_payment and existing_payment.status == PAYMENT_STATUS_PENDING:
-        existing_payment.status = PAYMENT_STATUS_EXPIRED
-        existing_payment.external_status = PAYMENT_STATUS_EXPIRED
+    if existing_payment and existing_payment.status in {
+        PAYMENT_STATUS_APPROVED,
+        PAYMENT_STATUS_REFUNDED,
+        PAYMENT_STATUS_CHARGED_BACK,
+    }:
+        raise ValueError("Este agendamento ja possui pagamento concluido.")
 
-    amount = float(booking.payment_amount_snapshot or 0)
+    restart_payment = False
+    if existing_payment and existing_payment.status == PAYMENT_STATUS_PENDING:
+        if existing_payment.expires_at and existing_payment.expires_at <= now:
+            restart_payment = True
+    elif existing_payment:
+        restart_payment = True
+
+    amount = _money(booking.payment_amount_snapshot)
     if amount <= 0:
+        _fail_booking_before_checkout(db, booking)
         raise ValueError("Valor de pagamento invalido no snapshot do agendamento.")
 
     payment = existing_payment or Pagamento(
         agendamento_id=booking.id,
         estabelecimento_id=booking.estabelecimento_id,
-        payment_account_id=account.id,
+        payment_account_id=active_credentials.payment_account_id,
+        payment_integration_id=active_credentials.payment_integration_id,
         provider=normalized_provider,
         amount=amount,
         status=PAYMENT_STATUS_PENDING,
         currency="BRL",
-        platform_fee_amount=0.0,
+        platform_fee_amount=Decimal("0.00"),
         expires_at=expires_at,
     )
     if existing_payment is None:
         db.add(payment)
 
-    payment.payment_account_id = account.id
+    if restart_payment:
+        payment.idempotency_key = str(uuid4())
+        payment.external_reference = _build_external_reference(booking.id)
+        payment.provider_payment_id = None
+        payment.preference_id = None
+        payment.external_merchant_order_id = None
+        payment.checkout_url = None
+        payment.raw_payload = None
+        payment.paid_at = None
+
+    payment.payment_account_id = active_credentials.payment_account_id
+    payment.payment_integration_id = active_credentials.payment_integration_id
     payment.provider = normalized_provider
     payment.amount = amount
     payment.status = PAYMENT_STATUS_PENDING
@@ -264,17 +415,18 @@ def start_checkout_for_booking(
     db.flush()
 
     provider_impl = get_payment_provider(normalized_provider)
-    access_token = get_decrypted_access_token(account)
+    access_token = active_credentials.access_token
     title = f"Agendamento #{booking.id}"
     description = f"Pagamento adiantado do servico {booking.servico.nome if booking.servico else ''}".strip()
 
     try:
         checkout = provider_impl.create_checkout(
             access_token=access_token,
+            idempotency_key=payment.idempotency_key,
             external_reference=payment.external_reference,
             title=title,
             description=description,
-            amount=amount,
+            amount=float(amount),
             payer_email=payer_email,
             payer_name=payer_name,
             payer_phone=payer_phone,
@@ -282,23 +434,29 @@ def start_checkout_for_booking(
                 "booking_id": booking.id,
                 "establishment_id": booking.estabelecimento_id,
                 "payment_id": payment.id,
+                "payment_integration_id": active_credentials.payment_integration_id,
                 "provider": normalized_provider,
+                "environment": active_credentials.environment,
             },
-            notification_url=build_checkout_notification_url(payment.id),
+            notification_url=build_checkout_notification_url(payment.external_reference),
+            return_urls=build_checkout_return_urls(payment.external_reference),
             expires_at=expires_at,
         )
-    except Exception:
-        payment.status = PAYMENT_STATUS_REJECTED
-        payment.external_status = "checkout_creation_failed"
-        booking.payment_status = PAYMENT_STATUS_REJECTED
-        booking.status = BOOKING_STATUS_FAILED
-        booking.payment_hold_expires_at = None
+    except Exception as exc:
+        payment.status = PAYMENT_STATUS_PENDING
+        payment.external_status = "checkout_creation_unknown"
+        booking.payment_status = PAYMENT_STATUS_PENDING
+        booking.status = BOOKING_STATUS_PENDING_PAYMENT
         db.commit()
-        raise
+        logger.warning(
+            "Falha ao criar checkout; a mesma chave de idempotencia sera reutilizada (payment_id=%s)",
+            payment.id,
+        )
+        raise ValueError("Nao foi possivel iniciar o checkout no momento. Tente novamente.") from exc
 
     payment.preference_id = checkout["preference_id"]
     payment.checkout_url = checkout["checkout_url"]
-    payment.raw_payload = checkout["raw"]
+    payment.raw_payload = _sanitize_provider_payload(checkout.get("raw"))
     payment.external_status = PAYMENT_STATUS_PENDING
     booking.provider_preference_id = payment.preference_id
     booking.provider_checkout_reference = payment.external_reference
@@ -317,6 +475,19 @@ def apply_payment_update_from_provider(
     now = _utcnow()
     mapped_status = normalize_payment_status(provider_payload.get("status"))
     previous_status = payment.status
+    allowed_transitions = PAYMENT_STATUS_TRANSITIONS.get(previous_status, {previous_status})
+    if mapped_status not in allowed_transitions:
+        payment.external_status = str(provider_payload.get("status") or "")[:80]
+        payment.raw_payload = _sanitize_provider_payload(provider_payload)
+        db.commit()
+        db.refresh(payment)
+        logger.warning(
+            "Transicao de pagamento ignorada (payment_id=%s, from=%s, to=%s)",
+            payment.id,
+            previous_status,
+            mapped_status,
+        )
+        return payment
 
     provider_payment_id = provider_payload.get("id")
     if provider_payment_id:
@@ -330,7 +501,7 @@ def apply_payment_update_from_provider(
         or payment.payment_method
     )
     payment.external_status = str(provider_payload.get("status") or "")
-    payment.raw_payload = provider_payload
+    payment.raw_payload = _sanitize_provider_payload(provider_payload)
     payment.status = mapped_status
 
     booking = payment.agendamento
@@ -338,36 +509,55 @@ def apply_payment_update_from_provider(
         booking.payment_status = mapped_status
         if mapped_status == PAYMENT_STATUS_APPROVED:
             payment.paid_at = now
-            booking.status = BOOKING_STATUS_CONFIRMED
             booking.payment_hold_expires_at = None
+            conflicting_booking = booking_conflict_query(
+                db,
+                establishment_id=booking.estabelecimento_id,
+                profissional_id=booking.profissional_id,
+                start_at=booking.data_hora_inicio,
+                end_at=booking.data_hora_fim,
+                exclude_booking_id=booking.id,
+            ).first()
+            booking.status = BOOKING_STATUS_PAYMENT_REVIEW if conflicting_booking else BOOKING_STATUS_CONFIRMED
             if previous_status != PAYMENT_STATUS_APPROVED:
                 _notify_payment_event(
                     db,
                     booking=booking,
                     notif_type="pagamento_aprovado",
-                    title="Pagamento aprovado",
-                    body=f"Pagamento do agendamento #{booking.id} foi aprovado.",
+                    title="Pagamento aprovado - revisar horario" if conflicting_booking else "Pagamento aprovado",
+                    body=(
+                        f"Pagamento do agendamento #{booking.id} foi aprovado, mas o horario possui conflito."
+                        if conflicting_booking
+                        else f"Pagamento do agendamento #{booking.id} foi aprovado."
+                    ),
                 )
         elif mapped_status == PAYMENT_STATUS_EXPIRED:
             booking.status = BOOKING_STATUS_EXPIRED
             booking.payment_hold_expires_at = None
-            _notify_payment_event(
-                db,
-                booking=booking,
-                notif_type="pagamento_expirado",
-                title="Pagamento expirado",
-                body=f"O pagamento do agendamento #{booking.id} expirou.",
-            )
-        elif mapped_status in {PAYMENT_STATUS_REJECTED, PAYMENT_STATUS_CANCELLED, PAYMENT_STATUS_REFUNDED}:
+            if previous_status != mapped_status:
+                _notify_payment_event(
+                    db,
+                    booking=booking,
+                    notif_type="pagamento_expirado",
+                    title="Pagamento expirado",
+                    body=f"O pagamento do agendamento #{booking.id} expirou.",
+                )
+        elif mapped_status in {
+            PAYMENT_STATUS_REJECTED,
+            PAYMENT_STATUS_CANCELLED,
+            PAYMENT_STATUS_REFUNDED,
+            PAYMENT_STATUS_CHARGED_BACK,
+        }:
             booking.status = BOOKING_STATUS_CANCELLED
             booking.payment_hold_expires_at = None
-            _notify_payment_event(
-                db,
-                booking=booking,
-                notif_type="pagamento_falhou",
-                title="Pagamento nao concluido",
-                body=f"O pagamento do agendamento #{booking.id} nao foi concluido.",
-            )
+            if previous_status != mapped_status:
+                _notify_payment_event(
+                    db,
+                    booking=booking,
+                    notif_type="pagamento_falhou",
+                    title="Pagamento nao concluido",
+                    body=f"O pagamento do agendamento #{booking.id} nao foi concluido.",
+                )
         else:
             booking.status = BOOKING_STATUS_PENDING_PAYMENT
 

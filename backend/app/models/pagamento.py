@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import uuid4
 
-from sqlalchemy import JSON, Column, DateTime, Float, ForeignKey, Index, Integer, String
+from sqlalchemy import JSON, Column, DateTime, ForeignKey, Index, Integer, Numeric, String
 from sqlalchemy.orm import relationship, synonym
 
 from app.database import Base
@@ -21,6 +21,7 @@ class Pagamento(Base):
     agendamento_id = Column(Integer, ForeignKey("agendamentos.id"), nullable=False, unique=True, index=True)
     estabelecimento_id = Column(Integer, ForeignKey("estabelecimentos.id"), nullable=True)
     payment_account_id = Column(Integer, ForeignKey("payment_accounts.id"), nullable=True, index=True)
+    payment_integration_id = Column(Integer, ForeignKey("payment_integrations.id"), nullable=True, index=True)
     provider = Column(String(50), nullable=False, default="mercado_pago")
     idempotency_key = Column(String(120), nullable=False, unique=True, index=True, default=lambda: str(uuid4()))
     provider_payment_id = Column(String(120), nullable=True, unique=True)
@@ -28,8 +29,8 @@ class Pagamento(Base):
     external_merchant_order_id = Column(String(120), nullable=True, index=True)
     external_status = Column(String(80), nullable=True)
     external_reference = Column(String(120), nullable=False, unique=True, index=True)
-    amount = Column(Float, nullable=False)
-    platform_fee_amount = Column(Float, nullable=False, default=0.0)
+    amount = Column(Numeric(12, 2), nullable=False)
+    platform_fee_amount = Column(Numeric(12, 2), nullable=False, default=0)
     currency = Column(String(10), nullable=False, default="BRL")
     payment_method = Column(String(80), nullable=True)
     status = Column(String(30), nullable=False, default="pending")

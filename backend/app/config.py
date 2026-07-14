@@ -14,7 +14,7 @@ def _env_candidates(app_env: str) -> list[str]:
         return [".env.production", ".env.prod", "env.production", "env.prod", ".env"]
     if app_env in {"stage", "staging"}:
         return [".env.staging", ".env.stage", "env.staging", "env.stage", ".env"]
-    return [".env", ".env.production", ".env.prod"]
+    return [".env"]
 
 
 def _resolve_env_files() -> list[Path]:
@@ -41,7 +41,10 @@ def _get_database_url() -> str:
         if value:
             return _normalize_database_url(value)
 
-    return "postgresql+psycopg2://postgres:postgres@localhost:5432/barbearia"
+    app_env = os.getenv("APP_ENV", "development").strip().lower()
+    if app_env in {"prod", "production"}:
+        raise RuntimeError("DATABASE_URL e obrigatoria em producao.")
+    return "postgresql+psycopg2://postgres:postgres@localhost:5432/hagendei"
 
 
 def _normalize_database_url(database_url: str) -> str:

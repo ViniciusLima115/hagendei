@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { AlertTriangle, BellRing, Building2, CalendarDays, ChevronLeft, ChevronRight, Clock, CreditCard, KeyRound, Lock, RefreshCw, Search, ShieldCheck, Trash2, UserRound, X } from "lucide-react";
+import { AlertTriangle, BellRing, Building2, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Clock, CreditCard, Eye, EyeOff, KeyRound, Lock, Power, RefreshCw, Search, ShieldCheck, Trash2, UserRound, X } from "lucide-react";
 import Alert from "../../components/Alert";
 import Button from "../../components/Button";
 import FormInput from "../../components/FormInput";
@@ -9,19 +9,22 @@ import Modal from "../../components/Modal";
 import styles from "./master.module.css";
 import {
   BarbeariaAdmin,
-  AdminPaymentAccount,
+  AdminPaymentIntegration,
   PlanoBarbearia,
+  clearMercadoPagoIntegrationFieldAdmin,
   createBarbeariaAdmin,
   deleteBarbeariaAdmin,
-  getPaymentAccountAdmin,
+  disableMercadoPagoIntegrationAdmin,
+  getMercadoPagoIntegrationAdmin,
   getStatusAssinaturaBarbearia,
   listBarbeariasAdmin,
   listPaymentEstablishmentsAdmin,
-  savePaymentAccountAdmin,
+  saveMercadoPagoIntegrationAdmin,
   StatusManualBarbearia,
   StatusAssinaturaBarbearia,
-  updatePaymentAccountStatusAdmin,
+  testMercadoPagoCheckoutAdmin,
   updateBarbeariaAdmin,
+  validateMercadoPagoIntegrationAdmin,
 } from "@/services/estabelecimentos-admin";
 
 function plusDaysISO(days: number): string {
@@ -44,8 +47,9 @@ function paymentStatusLabel(status?: BarbeariaAdmin["paymentAccountStatus"]): st
   if (status === "active") return "Conta ativa";
   if (status === "inactive") return "Conta inativa";
   if (status === "error") return "Erro";
-  if (status === "revoked") return "Removida";
+  if (status === "revoked" || status === "disconnected") return "Desconectada";
   if (status === "pending") return "Pendente";
+  if (status === "pending_validation") return "Aguardando validacao";
   return "Sem conta";
 }
 
@@ -70,15 +74,86 @@ const initialFiltros = {
 };
 
 const initialPaymentForm = {
-  accountName: "",
+  environment: "production" as "sandbox" | "production",
   clientId: "",
   clientSecret: "",
   accessToken: "",
   publicKey: "",
-  status: "active" as "active" | "inactive" | "error",
-  internalNotes: "",
-  checkoutHoldMinutes: 10,
+  webhookSecret: "",
+  notes: "",
 };
+
+const initialPaymentSecretVisibility = {
+  accessToken: false,
+  clientSecret: false,
+  webhookSecret: false,
+};
+
+type PaymentSecretField = keyof typeof initialPaymentSecretVisibility;
+
+function paymentIntegrationStateLabel(integration: AdminPaymentIntegration | null): string {
+  if (!integration) return "Nao configurado";
+  if (integration.status === "error") return "Erro";
+  if (integration.validation_status === "invalid") return "Invalido";
+  if (integration.status === "inactive" || integration.status === "disconnected") return "Desativado";
+  if (integration.status === "active") return "Ativo";
+  return "Configurado";
+}
+
+function paymentIntegrationBadgeClass(integration: AdminPaymentIntegration | null): string {
+  const state = paymentIntegrationStateLabel(integration);
+  if (state === "Ativo") return "badge-confirmado";
+  if (state === "Nao configurado") return "badge-livre";
+  if (state === "Erro" || state === "Invalido" || state === "Desativado") return "badge-cancelado";
+  return "badge-pendente";
+}
+
+function SecretPaymentInput({
+  label,
+  value,
+  placeholder,
+  required,
+  visible,
+  onToggle,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  placeholder?: string;
+  required?: boolean;
+  visible: boolean;
+  onToggle: () => void;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div className="form-field">
+      <label className="field-label">
+        {label}
+        {required && <span className="field-required">*</span>}
+      </label>
+      <div className={styles.secretInputWrap}>
+        <input
+          className="input"
+          type={visible ? "text" : "password"}
+          value={value}
+          placeholder={placeholder}
+          required={required}
+          autoComplete="new-password"
+          onChange={(e) => onChange(e.target.value)}
+        />
+        <button
+          type="button"
+          className={styles.secretToggleButton}
+          onClick={onToggle}
+          aria-label={visible ? `Ocultar ${label}` : `Mostrar ${label}`}
+          title={visible ? `Ocultar ${label}` : `Mostrar ${label}`}
+        >
+          {visible ? <EyeOff size={16} /> : <Eye size={16} />}
+        </button>
+      </div>
+    </div>
+  );
+}
 
 export default function AdminPage() {
   const [barbearias, setBarbearias] = useState<BarbeariaAdmin[]>([]);
@@ -105,9 +180,12 @@ export default function AdminPage() {
     pagamentoRecusado: false,
   });
   const [paymentSelected, setPaymentSelected] = useState<BarbeariaAdmin | null>(null);
-  const [paymentAccount, setPaymentAccount] = useState<AdminPaymentAccount | null>(null);
+  const [paymentIntegration, setPaymentIntegration] = useState<AdminPaymentIntegration | null>(null);
   const [paymentForm, setPaymentForm] = useState(initialPaymentForm);
+  const [paymentSecretVisible, setPaymentSecretVisible] = useState(initialPaymentSecretVisibility);
   const [paymentLoading, setPaymentLoading] = useState(false);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
+  const [paymentSuccess, setPaymentSuccess] = useState<string | null>(null);
 
   async function recarregar() {
     try {
@@ -125,6 +203,8 @@ export default function AdminPage() {
             paymentAccountStatus: payment?.payment_account_status ?? "not_configured",
             paymentAccountName: payment?.payment_account_name ?? null,
             paymentAccountId: payment?.payment_account_id ?? null,
+            paymentEnvironment: payment?.payment_environment ?? null,
+            paymentValidationStatus: payment?.payment_validation_status ?? null,
           };
         })
       );
@@ -287,6 +367,12 @@ export default function AdminPage() {
     setSuccess(null);
   }
 
+  function limparMensagensPagamento() {
+    limparMensagens();
+    setPaymentError(null);
+    setPaymentSuccess(null);
+  }
+
   async function submitCadastro(e: FormEvent) {
     e.preventDefault();
     limparMensagens();
@@ -332,28 +418,28 @@ export default function AdminPage() {
   }
 
   async function abrirModalPagamento(item: BarbeariaAdmin) {
-    limparMensagens();
+    limparMensagensPagamento();
     setPaymentSelected(item);
-    setPaymentAccount(null);
+    setPaymentIntegration(null);
     setPaymentForm(initialPaymentForm);
+    setPaymentSecretVisible(initialPaymentSecretVisibility);
     setPaymentLoading(true);
     try {
-      const account = await getPaymentAccountAdmin(item.id);
-      setPaymentAccount(account);
-      if (account) {
+      const integration = await getMercadoPagoIntegrationAdmin(item.id);
+      setPaymentIntegration(integration);
+      if (integration) {
         setPaymentForm({
-          accountName: account.account_name ?? "",
+          environment: integration.environment ?? "production",
           clientId: "",
           clientSecret: "",
           accessToken: "",
           publicKey: "",
-          status: account.status === "active" || account.status === "error" ? account.status : "inactive",
-          internalNotes: account.internal_notes ?? "",
-          checkoutHoldMinutes: account.checkout_hold_minutes ?? 10,
+          webhookSecret: "",
+          notes: "",
         });
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Falha ao carregar configuracao de pagamento.");
+      setPaymentError(err instanceof Error ? err.message : "Falha ao carregar integracao de pagamento.");
     } finally {
       setPaymentLoading(false);
     }
@@ -362,54 +448,171 @@ export default function AdminPage() {
   async function salvarPagamento(e: FormEvent) {
     e.preventDefault();
     if (!paymentSelected) return;
-    limparMensagens();
+    limparMensagensPagamento();
 
-    if (paymentForm.status === "active" && !paymentAccount && !paymentForm.accessToken.trim()) {
-      setError("Informe o access token para ativar pagamentos online.");
+    const trimmedPaymentForm = {
+      environment: paymentForm.environment,
+      publicKey: paymentForm.publicKey.trim(),
+      accessToken: paymentForm.accessToken.trim(),
+      clientId: paymentForm.clientId.trim(),
+      clientSecret: paymentForm.clientSecret.trim(),
+      webhookSecret: paymentForm.webhookSecret.trim(),
+      notes: paymentForm.notes.trim(),
+    };
+    if (trimmedPaymentForm.environment !== "sandbox" && trimmedPaymentForm.environment !== "production") {
+      setPaymentError("Selecione sandbox ou production para o ambiente.");
+      return;
+    }
+    if (!paymentIntegration?.access_token_masked && !trimmedPaymentForm.accessToken) {
+      setPaymentError("Informe o access token para salvar as credenciais de API.");
+      return;
+    }
+    if (trimmedPaymentForm.accessToken && trimmedPaymentForm.accessToken.length < 8) {
+      setPaymentError("Access Token muito curto. Confira a credencial de API informada.");
+      return;
+    }
+    if (trimmedPaymentForm.publicKey && trimmedPaymentForm.publicKey.length < 8) {
+      setPaymentError("Public Key muito curta. Confira a credencial informada.");
+      return;
+    }
+    if (trimmedPaymentForm.clientId && trimmedPaymentForm.clientId.length < 4) {
+      setPaymentError("Client ID muito curto.");
+      return;
+    }
+    if (trimmedPaymentForm.clientSecret && trimmedPaymentForm.clientSecret.length < 8) {
+      setPaymentError("Client Secret muito curto.");
+      return;
+    }
+    if (trimmedPaymentForm.webhookSecret && trimmedPaymentForm.webhookSecret.length < 8) {
+      setPaymentError("Webhook Secret muito curto.");
+      return;
+    }
+    if (trimmedPaymentForm.notes.length > 1000) {
+      setPaymentError("Observacoes internas devem ter no maximo 1000 caracteres.");
       return;
     }
 
+    const confirmar = window.confirm(
+      "Voce esta prestes a atualizar as credenciais de pagamento deste estabelecimento. Essa acao pode afetar os pagamentos online. Deseja continuar?"
+    );
+    if (!confirmar) return;
+
     setPaymentLoading(true);
     try {
-      await savePaymentAccountAdmin(
+      const updated = await saveMercadoPagoIntegrationAdmin(
         paymentSelected.id,
         {
-          account_name: paymentForm.accountName || null,
-          client_id: paymentForm.clientId || null,
-          client_secret: paymentForm.clientSecret || null,
-          access_token: paymentForm.accessToken || null,
-          public_key: paymentForm.publicKey || null,
-          status: paymentForm.status,
-          internal_notes: paymentForm.internalNotes || null,
-          checkout_hold_minutes: paymentForm.checkoutHoldMinutes,
+          environment: trimmedPaymentForm.environment,
+          client_id: trimmedPaymentForm.clientId || null,
+          client_secret: trimmedPaymentForm.clientSecret || null,
+          access_token: trimmedPaymentForm.accessToken || null,
+          public_key: trimmedPaymentForm.publicKey || null,
+          webhook_secret: trimmedPaymentForm.webhookSecret || null,
+          notes: trimmedPaymentForm.notes || null,
+          status: "active",
         },
-        Boolean(paymentAccount),
+        Boolean(paymentIntegration),
       );
-      setSuccess(`Pagamento de "${paymentSelected.nome}" atualizado com sucesso.`);
-      setPaymentSelected(null);
+      setPaymentIntegration(updated);
+      setPaymentForm({ ...initialPaymentForm, environment: updated.environment });
+      setPaymentSecretVisible(initialPaymentSecretVisibility);
+      setPaymentSuccess(`Pagamento de "${paymentSelected.nome}" atualizado com sucesso.`);
       await recarregar();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Falha ao salvar configuracao de pagamento.");
+      setPaymentError(err instanceof Error ? err.message : "Falha ao salvar credenciais Mercado Pago.");
     } finally {
       setPaymentLoading(false);
     }
   }
 
-  async function alterarStatusPagamento(status: "active" | "inactive" | "error" | "revoked") {
-    if (!paymentSelected) return;
-    limparMensagens();
+  function togglePaymentSecret(field: PaymentSecretField) {
+    setPaymentSecretVisible((prev) => ({ ...prev, [field]: !prev[field] }));
+  }
+
+  async function validarPagamento() {
+    if (!paymentSelected || !paymentIntegration) return;
+    limparMensagensPagamento();
     setPaymentLoading(true);
     try {
-      const updated = await updatePaymentAccountStatusAdmin(paymentSelected.id, status);
-      setPaymentAccount(updated);
-      setPaymentForm((prev) => ({
-        ...prev,
-        status: updated.status === "active" || updated.status === "error" ? updated.status : "inactive",
-      }));
-      setSuccess("Status da conta de pagamento atualizado.");
+      const result = await validateMercadoPagoIntegrationAdmin(paymentSelected.id, paymentForm.environment);
+      const updated = await getMercadoPagoIntegrationAdmin(paymentSelected.id);
+      setPaymentIntegration(updated);
+      setPaymentSuccess(result.message);
       await recarregar();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Falha ao alterar status da conta.");
+      setPaymentError(err instanceof Error ? err.message : "Falha ao validar integracao Mercado Pago.");
+    } finally {
+      setPaymentLoading(false);
+    }
+  }
+
+  async function desativarPagamento() {
+    if (!paymentSelected || !paymentIntegration) return;
+    limparMensagensPagamento();
+    const confirmar = window.confirm(
+      "Desativar esta integracao impedira novos pagamentos online para este estabelecimento. Deseja continuar?"
+    );
+    if (!confirmar) return;
+
+    setPaymentLoading(true);
+    try {
+      const updated = await disableMercadoPagoIntegrationAdmin(paymentSelected.id, paymentForm.environment);
+      setPaymentIntegration(updated);
+      setPaymentSuccess("Integracao Mercado Pago desativada.");
+      await recarregar();
+    } catch (err) {
+      setPaymentError(err instanceof Error ? err.message : "Falha ao desativar integracao Mercado Pago.");
+    } finally {
+      setPaymentLoading(false);
+    }
+  }
+
+  async function testarCheckoutPagamento() {
+    if (!paymentSelected || !paymentIntegration) return;
+    limparMensagensPagamento();
+    const confirmProduction =
+      paymentForm.environment === "production"
+        ? window.confirm("Criar checkout de teste em production exige confirmacao explicita. Deseja continuar?")
+        : false;
+    if (paymentForm.environment === "production" && !confirmProduction) return;
+
+    setPaymentLoading(true);
+    try {
+      const result = await testMercadoPagoCheckoutAdmin(paymentSelected.id, paymentForm.environment, confirmProduction);
+      setPaymentSuccess(`Checkout de teste criado: ${result.preference_id}`);
+      window.open(result.checkout_url, "_blank", "noopener,noreferrer");
+    } catch (err) {
+      setPaymentError(err instanceof Error ? err.message : "Falha ao testar checkout Mercado Pago.");
+    } finally {
+      setPaymentLoading(false);
+    }
+  }
+
+  async function limparCampoPagamento(
+    field: "public_key" | "client_id" | "client_secret" | "webhook_secret" | "notes",
+    label: string,
+  ) {
+    if (!paymentSelected || !paymentIntegration) return;
+    limparMensagensPagamento();
+    const confirmar = window.confirm(`Limpar ${label}? Essa acao remove o valor salvo deste campo.`);
+    if (!confirmar) return;
+
+    setPaymentLoading(true);
+    try {
+      const updated = await clearMercadoPagoIntegrationFieldAdmin(paymentSelected.id, paymentForm.environment, field);
+      setPaymentIntegration(updated);
+      setPaymentForm((prev) => ({
+        ...prev,
+        publicKey: field === "public_key" ? "" : prev.publicKey,
+        clientId: field === "client_id" ? "" : prev.clientId,
+        clientSecret: field === "client_secret" ? "" : prev.clientSecret,
+        webhookSecret: field === "webhook_secret" ? "" : prev.webhookSecret,
+        notes: field === "notes" ? "" : prev.notes,
+      }));
+      setPaymentSuccess(`${label} limpo com sucesso.`);
+      await recarregar();
+    } catch (err) {
+      setPaymentError(err instanceof Error ? err.message : `Falha ao limpar ${label}.`);
     } finally {
       setPaymentLoading(false);
     }
@@ -588,7 +791,7 @@ export default function AdminPage() {
                 <FormInput
                   label="Nome do Estabelecimento"
                   value={form.nome}
-                  placeholder="Ex: Barbearia Central / Salao Beleza"
+                  placeholder="Ex.: Studio Central / Consultorio Vida"
                   onChange={(e) => setForm((prev) => ({ ...prev, nome: e.target.value }))}
                   required
                 />
@@ -705,7 +908,7 @@ export default function AdminPage() {
               <FormInput
                 label="Busca (Estabelecimento)"
                 value={filtros.busca}
-                placeholder="Ex: Barbearia Central"
+                placeholder="Ex.: Studio Central"
                 onChange={(e) => setFiltros((prev) => ({ ...prev, busca: e.target.value }))}
               />
               <FormInput
@@ -938,7 +1141,7 @@ export default function AdminPage() {
       <Modal
         isOpen={Boolean(paymentSelected)}
         onClose={() => setPaymentSelected(null)}
-        title="Configurar Pagamento"
+        title="Pagamentos"
       >
         {!paymentSelected ? null : (
           <form onSubmit={salvarPagamento} className={styles.formStack}>
@@ -946,102 +1149,156 @@ export default function AdminPage() {
               <p className={styles.modalInfoName}>{paymentSelected.nome}</p>
               <p className={styles.modalInfoLogin}>
                 <CreditCard size={14} />
-                {paymentAccount ? paymentStatusLabel(paymentAccount.status) : "Sem conta configurada"}
+                Mercado Pago
               </p>
             </div>
 
             {paymentLoading && <p className={styles.panelSubtitle}>Carregando configuracao...</p>}
 
-            {paymentAccount && (
+            <div className={styles.paymentSectionHeader}>
+              <div>
+                <p className={styles.panelTitle}>Mercado Pago</p>
+                <p className={styles.panelSubtitle}>Credenciais de API e integracao por estabelecimento.</p>
+              </div>
+              <span className={`badge ${paymentIntegrationBadgeClass(paymentIntegration)}`}>
+                {paymentIntegrationStateLabel(paymentIntegration)}
+              </span>
+            </div>
+
+            <div className={styles.securityNotice}>
+              <ShieldCheck size={17} />
+              <span>
+                As credenciais serao criptografadas no backend e nao poderao ser visualizadas novamente em texto puro apos salvar.
+              </span>
+            </div>
+
+            {paymentError && (
+              <div className={styles.modalAlertError} role="alert">
+                <AlertTriangle size={17} />
+                <span>{paymentError}</span>
+              </div>
+            )}
+            {paymentSuccess && (
+              <div className={styles.modalAlertSuccess} role="status">
+                <CheckCircle2 size={17} />
+                <span>{paymentSuccess}</span>
+              </div>
+            )}
+
+            {paymentIntegration && (
               <div className={styles.secretGrid}>
-                <span>Client ID: {paymentAccount.client_id_masked || "-"}</span>
-                <span>Client Secret: {paymentAccount.client_secret_masked || "-"}</span>
-                <span>Access Token: {paymentAccount.access_token_masked || "-"}</span>
-                <span>Public Key: {paymentAccount.public_key_masked || "-"}</span>
+                <span>Ambiente: {paymentIntegration.environment === "sandbox" ? "Sandbox" : "Production"}</span>
+                <span>Status: {paymentIntegration.status}</span>
+                <span>Validacao: {paymentIntegration.validation_status}</span>
+                <span>Access Token: {paymentIntegration.access_token_masked || "-"}</span>
+                <span>Public Key: {paymentIntegration.public_key_masked || "-"}</span>
+                <span>Webhook Secret: {paymentIntegration.webhook_secret_masked || "-"}</span>
+                <span>Client ID: {paymentIntegration.has_client_id ? "configurado" : "-"}</span>
+                <span>Client Secret: {paymentIntegration.has_client_secret ? "configurado" : "-"}</span>
               </div>
             )}
 
             <FormInput
-              label="Nome amigavel da conta"
-              value={paymentForm.accountName}
-              placeholder="Ex: Mercado Pago Barbearia Central"
-              onChange={(e) => setPaymentForm((prev) => ({ ...prev, accountName: e.target.value }))}
-            />
-            <FormInput
               as="select"
-              label="Status"
-              value={paymentForm.status}
+              label="Ambiente"
+              value={paymentForm.environment}
               onChange={(e) =>
-                setPaymentForm((prev) => ({ ...prev, status: e.target.value as "active" | "inactive" | "error" }))
+                setPaymentForm((prev) => ({ ...prev, environment: e.target.value as "sandbox" | "production" }))
               }
             >
-              <option value="active">Ativo</option>
-              <option value="inactive">Inativo</option>
-              <option value="error">Erro</option>
+              <option value="production">Production</option>
+              <option value="sandbox">Sandbox</option>
             </FormInput>
-            <FormInput
-              label="Client ID"
-              value={paymentForm.clientId}
-              placeholder={paymentAccount?.client_id_masked || "Client ID do Mercado Pago"}
-              onChange={(e) => setPaymentForm((prev) => ({ ...prev, clientId: e.target.value }))}
-            />
-            <FormInput
-              label="Client Secret"
-              type="password"
-              value={paymentForm.clientSecret}
-              placeholder={paymentAccount?.client_secret_masked || "Client Secret do Mercado Pago"}
-              onChange={(e) => setPaymentForm((prev) => ({ ...prev, clientSecret: e.target.value }))}
-            />
-            <FormInput
-              label="Access Token"
-              type="password"
-              value={paymentForm.accessToken}
-              placeholder={paymentAccount?.access_token_masked || "Access token usado para criar checkout"}
-              onChange={(e) => setPaymentForm((prev) => ({ ...prev, accessToken: e.target.value }))}
-              required={!paymentAccount && paymentForm.status === "active"}
-            />
+
             <FormInput
               label="Public Key"
               value={paymentForm.publicKey}
-              placeholder={paymentAccount?.public_key_masked || "Public key, se aplicavel"}
+              placeholder={paymentIntegration?.public_key_masked || "Public key, se aplicavel"}
               onChange={(e) => setPaymentForm((prev) => ({ ...prev, publicKey: e.target.value }))}
             />
             <FormInput
-              label="Tempo de reserva do horario (minutos)"
-              type="number"
-              min={5}
-              max={60}
-              value={paymentForm.checkoutHoldMinutes}
-              onChange={(e) =>
-                setPaymentForm((prev) => ({ ...prev, checkoutHoldMinutes: Number(e.target.value) || 10 }))
-              }
+              label="Client ID"
+              value={paymentForm.clientId}
+              placeholder={paymentIntegration?.has_client_id ? "Client ID configurado" : "Opcional, se a integracao exigir"}
+              onChange={(e) => setPaymentForm((prev) => ({ ...prev, clientId: e.target.value }))}
+            />
+            <SecretPaymentInput
+              label="Access Token da API"
+              value={paymentForm.accessToken}
+              placeholder={paymentIntegration?.access_token_masked || "Token de API usado para criar checkout"}
+              required={!paymentIntegration?.access_token_masked}
+              visible={paymentSecretVisible.accessToken}
+              onToggle={() => togglePaymentSecret("accessToken")}
+              onChange={(value) => setPaymentForm((prev) => ({ ...prev, accessToken: value }))}
+            />
+            <SecretPaymentInput
+              label="Client Secret da aplicacao"
+              value={paymentForm.clientSecret}
+              placeholder={paymentIntegration?.has_client_secret ? "Client Secret configurado" : "Opcional, se a integracao exigir"}
+              visible={paymentSecretVisible.clientSecret}
+              onToggle={() => togglePaymentSecret("clientSecret")}
+              onChange={(value) => setPaymentForm((prev) => ({ ...prev, clientSecret: value }))}
+            />
+            <SecretPaymentInput
+              label="Webhook Secret"
+              value={paymentForm.webhookSecret}
+              placeholder={paymentIntegration?.webhook_secret_masked || "Segredo HMAC do webhook, se configurado"}
+              visible={paymentSecretVisible.webhookSecret}
+              onToggle={() => togglePaymentSecret("webhookSecret")}
+              onChange={(value) => setPaymentForm((prev) => ({ ...prev, webhookSecret: value }))}
             />
             <FormInput
               as="textarea"
               label="Observacoes internas"
-              value={paymentForm.internalNotes}
+              value={paymentForm.notes}
               placeholder="Notas visiveis apenas para administradores."
               rows={3}
-              onChange={(e) => setPaymentForm((prev) => ({ ...prev, internalNotes: e.target.value }))}
+              onChange={(e) => setPaymentForm((prev) => ({ ...prev, notes: e.target.value }))}
             />
 
-            <div className="flex justify-end gap-3">
-              {paymentAccount && paymentAccount.status === "active" && (
-                <Button type="button" variant="secondary" onClick={() => alterarStatusPagamento("inactive")} disabled={paymentLoading}>
-                  Desativar
+            {paymentIntegration && (
+              <div className={styles.clearActions}>
+                <Button type="button" variant="secondary" size="sm" onClick={() => limparCampoPagamento("public_key", "Public Key")} disabled={paymentLoading}>
+                  Limpar Public Key
                 </Button>
-              )}
-              {paymentAccount && paymentAccount.status !== "revoked" && (
-                <Button type="button" variant="danger" onClick={() => alterarStatusPagamento("revoked")} disabled={paymentLoading}>
-                  Remover
+                <Button type="button" variant="secondary" size="sm" onClick={() => limparCampoPagamento("client_id", "Client ID")} disabled={paymentLoading}>
+                  Limpar Client ID
                 </Button>
+                <Button type="button" variant="secondary" size="sm" onClick={() => limparCampoPagamento("client_secret", "Client Secret")} disabled={paymentLoading}>
+                  Limpar Client Secret
+                </Button>
+                <Button type="button" variant="secondary" size="sm" onClick={() => limparCampoPagamento("webhook_secret", "Webhook Secret")} disabled={paymentLoading}>
+                  Limpar Webhook Secret
+                </Button>
+                <Button type="button" variant="secondary" size="sm" onClick={() => limparCampoPagamento("notes", "Observacoes internas")} disabled={paymentLoading}>
+                  Limpar Observacoes
+                </Button>
+              </div>
+            )}
+
+            <div className={styles.modalActionRow}>
+              {paymentIntegration && (
+                <>
+                  <Button type="button" variant="secondary" onClick={validarPagamento} disabled={paymentLoading}>
+                    <ShieldCheck size={16} />
+                    Validar conexao
+                  </Button>
+                  <Button type="button" variant="secondary" onClick={testarCheckoutPagamento} disabled={paymentLoading}>
+                    <CreditCard size={16} />
+                    Testar checkout
+                  </Button>
+                  <Button type="button" variant="danger" onClick={desativarPagamento} disabled={paymentLoading}>
+                    <Power size={16} />
+                    Desativar integracao
+                  </Button>
+                </>
               )}
               <Button variant="secondary" onClick={() => setPaymentSelected(null)}>
                 Cancelar
               </Button>
               <Button type="submit" disabled={paymentLoading}>
                 <CreditCard size={16} />
-                Salvar Pagamento
+                Salvar credenciais
               </Button>
             </div>
           </form>

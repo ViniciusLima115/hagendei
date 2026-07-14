@@ -318,8 +318,8 @@ def test_telefone_com_ddi_55_e_armazenado_sem_prefixo(client, db_session, barbea
     assert agendamento.cliente_telefone == "82991234567"
 
 
-def test_buscar_cliente_por_telefone_com_ddi(client, db_session, barbearia_com_barbeiro_e_servico):
-    """Cliente criado com '5582991234567' deve ser encontrado pela busca pública."""
+def test_busca_publica_nao_enumera_cliente_por_telefone(client, db_session, barbearia_com_barbeiro_e_servico):
+    """O cadastro existente nao deve ser revelado por uma consulta publica."""
     fix = barbearia_com_barbeiro_e_servico
     data_hora = datetime.now() + timedelta(days=2)
     payload = {
@@ -338,16 +338,14 @@ def test_buscar_cliente_por_telefone_com_ddi(client, db_session, barbearia_com_b
         f"/public/{fix['barbearia'].id}/cliente",
         params={"telefone": "5582991234567"},
     )
-    assert resp.status_code == 200
-    assert resp.json()["nome"] == "Cliente Busca DDI"
+    assert resp.status_code == 404
 
     # Busca sem DDI
     resp_sem_ddi = client.get(
         f"/public/{fix['barbearia'].id}/cliente",
         params={"telefone": "82991234567"},
     )
-    assert resp_sem_ddi.status_code == 200
-    assert resp_sem_ddi.json()["nome"] == "Cliente Busca DDI"
+    assert resp_sem_ddi.status_code == 404
 
 
 # ---------------------------------------------------------------------------

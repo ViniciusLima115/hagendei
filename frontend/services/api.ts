@@ -1,6 +1,6 @@
 import { getAuthSession, logout } from "./auth";
 
-const DEFAULT_API_URL = "https://api.virtualbarber.shop";
+const DEFAULT_API_URL = "http://127.0.0.1:8000";
 const _rawApiUrl = (process.env.NEXT_PUBLIC_API_URL?.trim() || DEFAULT_API_URL).replace(/\/+$/, "");
 // Força HTTPS apenas quando não for localhost/127.0.0.1 (evita quebrar dev local)
 export const API_URL = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(_rawApiUrl)
@@ -78,20 +78,17 @@ export type Agendamento = {
     | "pending_payment"
     | "pendente"
     | "confirmado"
+    | "payment_review_required"
     | "cancelado"
     | "failed"
     | "reagendamento_solicitado"
     | "compareceu"
     | "no_show"
     | "expired";
-  payment_status?: "not_required" | "pending" | "approved" | "rejected" | "cancelled" | "refunded" | "expired";
+  payment_status?: "not_required" | "pending" | "approved" | "rejected" | "cancelled" | "refunded" | "charged_back" | "expired";
   payment_required?: boolean;
   payment_amount?: number | null;
   payment_type?: "full" | "signal" | null;
-};
-
-export type AdminCheckResponse = {
-  is_admin: boolean;
 };
 
 export type TipoNotificacao =
@@ -119,7 +116,7 @@ export type LoginResponse = {
   tenant_id: number | null;
   tenant_name: string | null;
   plano: "basico" | "premium" | null;
-  access_token: string;
+  access_token?: string | null;
   token_type: "bearer";
 };
 
@@ -194,29 +191,32 @@ export type PublicPaymentInitResponse = {
   preference_id: string;
   checkout_url: string;
   amount: number;
-  pagamento_status: "pending" | "approved" | "rejected" | "cancelled" | "refunded" | "expired";
-  agendamento_status: "pending_payment" | "pendente" | "confirmado" | "cancelado" | "failed" | "expired";
+  pagamento_status: "pending" | "approved" | "rejected" | "cancelled" | "refunded" | "charged_back" | "expired";
+  agendamento_status: "pending_payment" | "pendente" | "confirmado" | "payment_review_required" | "cancelado" | "failed" | "expired";
   expires_at?: string | null;
 };
 
 export type PublicPaymentStatusResponse = {
   external_reference: string;
   agendamento_id: number;
-  pagamento_status: "pending" | "approved" | "rejected" | "cancelled" | "refunded" | "expired";
-  agendamento_status: "pending_payment" | "pendente" | "confirmado" | "cancelado" | "failed" | "expired";
+  pagamento_status: "pending" | "approved" | "rejected" | "cancelled" | "refunded" | "charged_back" | "expired";
+  agendamento_status: "pending_payment" | "pendente" | "confirmado" | "payment_review_required" | "cancelado" | "failed" | "expired";
   amount: number;
 };
 
 export type PaymentAccountStatus = {
   connected: boolean;
   provider: string;
-  status: "pending" | "active" | "inactive" | "revoked" | "error";
+  status: "pending" | "active" | "inactive" | "revoked" | "error" | "pending_validation" | "disconnected";
   establishment_id: number;
+  environment?: "sandbox" | "production" | null;
   external_account_email_masked?: string | null;
   external_user_id_masked?: string | null;
   last_sync_at?: string | null;
   token_expires_at?: string | null;
   checkout_hold_minutes?: number;
+  validation_status?: "valid" | "invalid" | "not_validated" | "error" | null;
+  validation_error?: string | null;
 };
 
 export type WorkingDayKey = "seg" | "ter" | "qua" | "qui" | "sex" | "sab" | "dom";
@@ -231,11 +231,6 @@ export type BarbershopWorkingHours = Record<WorkingDayKey, WorkingHoursDay> & {
   intervalo_minutos?: number;
 };
 
-function getAccessToken(): string | null {
-  const accessToken = getAuthSession()?.accessToken ?? null;
-  return accessToken || null;
-}
-
 function getTenantId(): string | null {
   const tenantId = getAuthSession()?.tenantId ?? null;
   if (!tenantId) return null;
@@ -243,13 +238,8 @@ function getTenantId(): string | null {
 }
 
 async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
-  const accessToken = getAccessToken();
   const tenantId = getTenantId();
   const headers = new Headers(init?.headers);
-
-  if (accessToken) {
-    headers.set("Authorization", `Bearer ${accessToken}`);
-  }
 
   if (tenantId) {
     headers.set("X-Barbearia-Id", tenantId);
@@ -260,6 +250,7 @@ async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
     res = await fetch(`${API_URL}${path}`, {
       ...init,
       headers,
+      credentials: "include",
     });
   } catch {
     throw new Error("Nao foi possivel conectar com a API. Verifique a URL e a disponibilidade do backend.");
@@ -461,6 +452,7 @@ export async function updateAgendamento(
       | "pending_payment"
       | "pendente"
       | "confirmado"
+      | "payment_review_required"
       | "cancelado"
       | "reagendamento_solicitado"
       | "compareceu"
@@ -513,19 +505,6 @@ export async function getMercadoPagoStatus(): Promise<PaymentAccountStatus> {
 export async function deleteAgendamento(id: number): Promise<void> {
   const res = await apiFetch(`/agendamentos/${id}`, { method: "DELETE" });
   await parseOrThrow(res, "Falha ao remover agendamento.");
-}
-
-export async function checkAdminLogin(payload: {
-  usuario: string;
-  senha: string;
-}): Promise<AdminCheckResponse> {
-  const res = await apiFetch("/auth/admin-check", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-
-  return parseOrThrow(res, "Falha ao validar login.");
 }
 
 export async function loginUsuario(payload: {
@@ -655,24 +634,6 @@ export async function getPublicPaymentStatus(externalReference: string): Promise
     cache: "no-store",
   });
   return parseOrThrow(res, "Falha ao consultar status do pagamento.");
-}
-
-export type PublicClienteLookupResponse = {
-  nome: string;
-  email: string | null;
-  telefone: string;
-};
-
-export async function lookupClienteByTelefone(
-  barbeariaId: number,
-  telefone: string,
-): Promise<PublicClienteLookupResponse | null> {
-  const params = new URLSearchParams({ telefone });
-  const res = await fetch(`${API_URL}/public/${barbeariaId}/cliente?${params}`, {
-    cache: "no-store",
-  });
-  if (res.status === 404) return null;
-  return parseOrThrow(res, "Falha ao buscar cliente.");
 }
 
 export async function getBookingByToken(token: string): Promise<PublicAgendamentoTokenResponse> {

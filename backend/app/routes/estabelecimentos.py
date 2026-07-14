@@ -1,13 +1,14 @@
 import re
 import unicodedata
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.estabelecimento import Estabelecimento
 from app.routes.deps import require_admin
-from app.security import hash_senha
+from app.security import TokenClaims, hash_senha
+from app.services.admin_audit_service import create_admin_audit_log
 from app.schemas.barbearia import (
     BarbeariaAdminCreate,
     BarbeariaAdminResponse,
@@ -15,6 +16,31 @@ from app.schemas.barbearia import (
 )
 
 router = APIRouter(prefix="/estabelecimentos", dependencies=[Depends(require_admin)])
+
+
+def _audit_tenant_action(
+    db: Session,
+    request: Request,
+    claims: TokenClaims,
+    estabelecimento: Estabelecimento,
+    action: str,
+) -> None:
+    create_admin_audit_log(
+        db,
+        admin_user_id=claims.sub,
+        establishment_id=estabelecimento.id,
+        action=action,
+        entity_type="establishment",
+        entity_id=estabelecimento.id,
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+        metadata={
+            "result": "success",
+            "correlation_id": request.headers.get("x-request-id"),
+            "status": estabelecimento.status_manual,
+            "plan": estabelecimento.plano,
+        },
+    )
 
 
 def _slugify(texto: str) -> str:
@@ -45,7 +71,12 @@ def listar(db: Session = Depends(get_db)):
 
 
 @router.post("/", response_model=BarbeariaAdminResponse)
-def criar(dados: BarbeariaAdminCreate, db: Session = Depends(get_db)):
+def criar(
+    dados: BarbeariaAdminCreate,
+    request: Request,
+    claims: TokenClaims = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
     slug = _gerar_slug_unico(db, dados.nome, dados.slug)
     login = dados.login.strip().lower()
 
@@ -70,11 +101,18 @@ def criar(dados: BarbeariaAdminCreate, db: Session = Depends(get_db)):
     db.add(estabelecimento)
     db.commit()
     db.refresh(estabelecimento)
+    _audit_tenant_action(db, request, claims, estabelecimento, "tenant_account_created")
     return estabelecimento
 
 
 @router.put("/{estabelecimento_id}", response_model=BarbeariaAdminResponse)
-def atualizar(estabelecimento_id: int, dados: BarbeariaAdminUpdate, db: Session = Depends(get_db)):
+def atualizar(
+    estabelecimento_id: int,
+    dados: BarbeariaAdminUpdate,
+    request: Request,
+    claims: TokenClaims = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
     estabelecimento = db.query(Estabelecimento).filter(Estabelecimento.id == estabelecimento_id).first()
     if not estabelecimento:
         raise HTTPException(status_code=404, detail="Estabelecimento nao encontrado.")
@@ -94,6 +132,7 @@ def atualizar(estabelecimento_id: int, dados: BarbeariaAdminUpdate, db: Session 
     estabelecimento.slug = slug
     estabelecimento.login = login
     estabelecimento.senha = hash_senha(dados.senha)
+    estabelecimento.auth_version = int(estabelecimento.auth_version or 0) + 1
     estabelecimento.plano = dados.plano
     estabelecimento.status_manual = dados.status_manual
     estabelecimento.vencimento_em = dados.vencimento_em
@@ -104,14 +143,21 @@ def atualizar(estabelecimento_id: int, dados: BarbeariaAdminUpdate, db: Session 
     estabelecimento.endereco = dados.endereco.strip()
     db.commit()
     db.refresh(estabelecimento)
+    _audit_tenant_action(db, request, claims, estabelecimento, "tenant_account_updated")
     return estabelecimento
 
 
 @router.delete("/{estabelecimento_id}", status_code=204)
-def remover(estabelecimento_id: int, db: Session = Depends(get_db)):
+def remover(
+    estabelecimento_id: int,
+    request: Request,
+    claims: TokenClaims = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
     estabelecimento = db.query(Estabelecimento).filter(Estabelecimento.id == estabelecimento_id).first()
     if not estabelecimento:
         raise HTTPException(status_code=404, detail="Estabelecimento nao encontrado.")
 
-    db.delete(estabelecimento)
-    db.commit()
+    estabelecimento.status_manual = "inativo"
+    estabelecimento.auth_version = int(estabelecimento.auth_version or 0) + 1
+    _audit_tenant_action(db, request, claims, estabelecimento, "tenant_account_disabled")

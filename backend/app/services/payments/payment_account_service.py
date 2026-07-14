@@ -73,10 +73,9 @@ def start_connect_flow(
     db.commit()
 
     logger.info(
-        "Fluxo OAuth iniciado (provider=%s, establishment_id=%s, state=%s)",
+        "Fluxo OAuth iniciado (provider=%s, establishment_id=%s)",
         normalized_provider,
         establishment_id,
-        mask_secret(oauth_state, head=8, tail=6),
     )
 
     return provider_impl.build_connect_url(state=oauth_state)
@@ -96,6 +95,7 @@ def _consume_state(
             PaymentOAuthState.state == state,
             PaymentOAuthState.consumed_at.is_(None),
         )
+        .with_for_update()
         .first()
     )
     if not row:

@@ -26,7 +26,10 @@ PROVIDER_MEGAAPI = "megaapi"
 MEGAAPI_WEBHOOK_TOKEN = os.getenv("MEGAAPI_WEBHOOK_TOKEN")
 MEGAAPI_WEBHOOK_SECRET = os.getenv("MEGAAPI_WEBHOOK_SECRET")
 MEGAAPI_WEBHOOK_ALLOW_UNSIGNED = os.getenv("MEGAAPI_WEBHOOK_ALLOW_UNSIGNED", "false").lower() == "true"
-MEGAAPI_WEBHOOK_MAX_SKEW_SECONDS = int(os.getenv("MEGAAPI_WEBHOOK_MAX_SKEW_SECONDS", "300"))
+MEGAAPI_WEBHOOK_MAX_SKEW_SECONDS = max(
+    30,
+    min(int(os.getenv("MEGAAPI_WEBHOOK_MAX_SKEW_SECONDS", "300")), 900),
+)
 
 
 def _token_valido(headers: Headers) -> bool:
@@ -87,7 +90,8 @@ def _validar_autenticacao_webhook(raw_body: bytes, headers: Headers) -> None:
         return
     if _assinatura_valida(raw_body, headers):
         return
-    if MEGAAPI_WEBHOOK_ALLOW_UNSIGNED:
+    is_production = os.getenv("APP_ENV", "development").strip().lower() in {"prod", "production"}
+    if MEGAAPI_WEBHOOK_ALLOW_UNSIGNED and not is_production:
         return
     raise HTTPException(status_code=401, detail="Assinatura do webhook invalida.")
 
@@ -115,7 +119,8 @@ def _extrair_event_id(payload: dict, raw_body: bytes, value: dict) -> str:
 
     for candidato in candidatos:
         if isinstance(candidato, str) and candidato.strip():
-            return candidato.strip()
+            cleaned = candidato.strip()
+            return cleaned if len(cleaned) <= 255 else hashlib.sha256(cleaned.encode("utf-8")).hexdigest()
 
     return hashlib.sha256(raw_body).hexdigest()
 
@@ -145,12 +150,19 @@ async def receive_megaapi_webhook(
     request: Request,
     db: Session = Depends(get_db),
 ):
+    content_length = request.headers.get("content-length", "")
+    if content_length.isdigit() and int(content_length) > 65536:
+        raise HTTPException(status_code=413, detail="Payload de webhook excede o limite permitido.")
     raw_body = await request.body()
+    if len(raw_body) > 65536:
+        raise HTTPException(status_code=413, detail="Payload de webhook excede o limite permitido.")
     _validar_autenticacao_webhook(raw_body, request.headers)
 
     try:
         payload = json.loads(raw_body.decode("utf-8") or "{}")
     except Exception:
+        raise HTTPException(status_code=400, detail="Payload JSON invalido.")
+    if not isinstance(payload, dict):
         raise HTTPException(status_code=400, detail="Payload JSON invalido.")
 
     telefone, texto, value = _extrair_dados_mensagem(payload)

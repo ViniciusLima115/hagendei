@@ -1,20 +1,23 @@
 from datetime import datetime
+from decimal import Decimal
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 AdvancePaymentType = Literal["full", "signal"]
 
 
 class _ServicoBase(BaseModel):
-    nome: str
-    duracao_minutos: int
-    preco: float
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    nome: str = Field(min_length=1, max_length=120)
+    duracao_minutos: int = Field(ge=5, le=1440)
+    preco: Decimal = Field(ge=Decimal("0"), le=Decimal("9999999999.99"), decimal_places=2)
     pagamento_adiantado_obrigatorio: bool = False
     advance_payment_type: AdvancePaymentType | None = None
-    advance_payment_amount: float | None = None
-    payment_description_override: str | None = None
+    advance_payment_amount: Decimal | None = Field(default=None, gt=Decimal("0"), decimal_places=2)
+    payment_description_override: str | None = Field(default=None, max_length=500)
 
     @model_validator(mode="after")
     def validar_pagamento_adiantado(self):

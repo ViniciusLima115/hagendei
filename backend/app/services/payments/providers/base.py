@@ -28,12 +28,23 @@ class PaymentProvider(ABC):
         payer_phone: str | None,
         metadata: dict[str, Any],
         notification_url: str,
+        return_urls: dict[str, str] | None,
         expires_at: datetime | None,
     ) -> dict[str, Any]:
         raise NotImplementedError
 
     @abstractmethod
     def get_payment(self, *, access_token: str, payment_id: str) -> dict[str, Any]:
+        raise NotImplementedError
+
+    @abstractmethod
+    def search_payment_by_external_reference(
+        self,
+        *,
+        access_token: str,
+        idempotency_key: str,
+        external_reference: str,
+    ) -> dict[str, Any] | None:
         raise NotImplementedError
 
     @abstractmethod

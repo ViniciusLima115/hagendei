@@ -58,9 +58,11 @@ def _ensure_token_blacklist_table():
 
 
 def init_db():
+    from app.services.payments.crypto import ensure_encryption_key_for_production
     from app.models import (
         barbeiro,
         barbearia,
+        admin_audit_log,
         cliente,
         servico,
         agendamento,
@@ -68,11 +70,13 @@ def init_db():
         reminder_job,
         pagamento,
         payment_account,
+        payment_integration,
         payment_oauth_state,
         payment_webhook_event,
         webhook_event,
         token_blacklist,
     )
+    ensure_encryption_key_for_production()
     if _should_run_create_all():
         Base.metadata.create_all(bind=engine)
     _ensure_clientes_email_column()
@@ -84,6 +88,7 @@ def init_db():
     _ensure_servicos_payment_columns()
     _ensure_agendamentos_payment_columns()
     _ensure_pagamentos_table()
+    _ensure_admin_audit_logs_table()
     _ensure_postgres_schema_guards()
     if IS_MYSQL:
         _ensure_clientes_contexto_column()
@@ -102,6 +107,8 @@ def init_db():
     _ensure_tipo_servico_column()
     _ensure_configuracoes_columns()
     _ensure_intervalo_minutos_column()
+    _ensure_auth_version_column()
+    _encrypt_legacy_mega_tokens()
 
 
 def _ensure_configuracoes_columns():
@@ -113,6 +120,10 @@ def _ensure_configuracoes_columns():
         "ALTER TABLE estabelecimentos ADD COLUMN notif_ativo BOOLEAN NOT NULL DEFAULT TRUE",
         "ALTER TABLE estabelecimentos ADD COLUMN notif_horas_antes INTEGER NOT NULL DEFAULT 2",
     ])
+    if IS_POSTGRES:
+        _run_best_effort(["ALTER TABLE estabelecimentos ALTER COLUMN mega_token TYPE TEXT"])
+    elif IS_MYSQL:
+        _run_best_effort(["ALTER TABLE estabelecimentos MODIFY COLUMN mega_token TEXT NULL"])
 
 
 def _ensure_intervalo_minutos_column():
@@ -120,6 +131,34 @@ def _ensure_intervalo_minutos_column():
     _run_best_effort([
         "ALTER TABLE estabelecimentos ADD COLUMN intervalo_minutos INTEGER NOT NULL DEFAULT 30",
     ])
+
+
+def _ensure_auth_version_column():
+    _run_best_effort([
+        "ALTER TABLE estabelecimentos ADD COLUMN auth_version INTEGER NOT NULL DEFAULT 0",
+    ])
+
+
+def _encrypt_legacy_mega_tokens():
+    from app.models.estabelecimento import Estabelecimento
+    from app.services.payments.crypto import encrypt_sensitive_value
+
+    session = SessionLocal()
+    try:
+        rows = session.query(Estabelecimento).filter(Estabelecimento.mega_token.is_not(None)).all()
+        changed = False
+        for row in rows:
+            token = (row.mega_token or "").strip()
+            if token and not token.startswith(("v2:", "gAAAA")):
+                row.mega_token = encrypt_sensitive_value(token)
+                changed = True
+        if changed:
+            session.commit()
+    except Exception:
+        session.rollback()
+        logger.exception("Falha ao migrar tokens legados de mensageria.")
+    finally:
+        session.close()
 
 
 def _ensure_clientes_email_column():
@@ -139,7 +178,7 @@ def _ensure_servicos_payment_columns():
     _run_best_effort([
         "ALTER TABLE servicos ADD COLUMN pagamento_adiantado_obrigatorio BOOLEAN NOT NULL DEFAULT FALSE",
         "ALTER TABLE servicos ADD COLUMN advance_payment_type VARCHAR(20) NULL",
-        "ALTER TABLE servicos ADD COLUMN advance_payment_amount FLOAT NULL",
+        "ALTER TABLE servicos ADD COLUMN advance_payment_amount NUMERIC(12, 2) NULL",
         "ALTER TABLE servicos ADD COLUMN payment_description_override TEXT NULL",
         "ALTER TABLE servicos ADD COLUMN updated_at TIMESTAMP NULL",
     ])
@@ -149,7 +188,7 @@ def _ensure_agendamentos_payment_columns():
     _run_best_effort([
         "ALTER TABLE agendamentos ADD COLUMN pagamento_adiantado_exigido BOOLEAN NOT NULL DEFAULT FALSE",
         "ALTER TABLE agendamentos ADD COLUMN payment_type_snapshot VARCHAR(20) NULL",
-        "ALTER TABLE agendamentos ADD COLUMN payment_amount_snapshot FLOAT NULL",
+        "ALTER TABLE agendamentos ADD COLUMN payment_amount_snapshot NUMERIC(12, 2) NULL",
         "ALTER TABLE agendamentos ADD COLUMN payment_status VARCHAR(30) NOT NULL DEFAULT 'not_required'",
         "ALTER TABLE agendamentos ADD COLUMN payment_hold_expires_at TIMESTAMP NULL",
         "ALTER TABLE agendamentos ADD COLUMN provider_checkout_reference VARCHAR(255) NULL",
@@ -163,11 +202,13 @@ def _ensure_agendamentos_payment_columns():
 def _ensure_pagamentos_table():
     try:
         from app.models.payment_account import PaymentAccount
+        from app.models.payment_integration import PaymentIntegration
         from app.models.payment_oauth_state import PaymentOAuthState
         from app.models.payment_webhook_event import PaymentWebhookEvent
         from app.models.pagamento import Pagamento
 
         PaymentAccount.__table__.create(bind=engine, checkfirst=True)
+        PaymentIntegration.__table__.create(bind=engine, checkfirst=True)
         PaymentOAuthState.__table__.create(bind=engine, checkfirst=True)
         Pagamento.__table__.create(bind=engine, checkfirst=True)
         PaymentWebhookEvent.__table__.create(bind=engine, checkfirst=True)
@@ -181,12 +222,21 @@ def _ensure_pagamentos_table():
         "ALTER TABLE payment_accounts ADD COLUMN internal_notes TEXT NULL",
         "ALTER TABLE payment_accounts ADD COLUMN created_by_admin_id VARCHAR(120) NULL",
         "ALTER TABLE payment_accounts ADD COLUMN updated_by_admin_id VARCHAR(120) NULL",
+        "ALTER TABLE payment_integrations ADD COLUMN account_name VARCHAR(120) NULL",
+        "ALTER TABLE payment_integrations ADD COLUMN internal_notes TEXT NULL",
+        "ALTER TABLE payment_integrations ADD COLUMN checkout_hold_minutes INTEGER NOT NULL DEFAULT 10",
+        "CREATE INDEX ix_payment_integrations_establishment_id ON payment_integrations (establishment_id)",
+        "CREATE INDEX ix_payment_integrations_provider ON payment_integrations (provider)",
+        "CREATE INDEX ix_payment_integrations_environment ON payment_integrations (environment)",
+        "CREATE INDEX ix_payment_integrations_status ON payment_integrations (status)",
+        "CREATE INDEX ix_payment_integrations_validation_status ON payment_integrations (validation_status)",
         "ALTER TABLE pagamentos ADD COLUMN estabelecimento_id INTEGER NULL",
         "ALTER TABLE pagamentos ADD COLUMN payment_account_id INTEGER NULL",
+        "ALTER TABLE pagamentos ADD COLUMN payment_integration_id INTEGER NULL",
         "ALTER TABLE pagamentos ADD COLUMN idempotency_key VARCHAR(120) NULL",
         "ALTER TABLE pagamentos ADD COLUMN external_merchant_order_id VARCHAR(120) NULL",
         "ALTER TABLE pagamentos ADD COLUMN external_status VARCHAR(80) NULL",
-        "ALTER TABLE pagamentos ADD COLUMN platform_fee_amount FLOAT NOT NULL DEFAULT 0",
+        "ALTER TABLE pagamentos ADD COLUMN platform_fee_amount NUMERIC(12, 2) NOT NULL DEFAULT 0",
         "ALTER TABLE pagamentos ADD COLUMN currency VARCHAR(10) NOT NULL DEFAULT 'BRL'",
         "ALTER TABLE pagamentos ADD COLUMN payment_method VARCHAR(80) NULL",
         "ALTER TABLE pagamentos ADD COLUMN paid_at TIMESTAMP NULL",
@@ -194,8 +244,18 @@ def _ensure_pagamentos_table():
         "CREATE UNIQUE INDEX ux_pagamentos_idempotency_key ON pagamentos (idempotency_key)",
         "CREATE INDEX ix_pagamentos_estabelecimento_id ON pagamentos (estabelecimento_id)",
         "CREATE INDEX ix_pagamentos_payment_account_id ON pagamentos (payment_account_id)",
+        "CREATE INDEX ix_pagamentos_payment_integration_id ON pagamentos (payment_integration_id)",
         "CREATE INDEX ix_pagamentos_expires_at ON pagamentos (expires_at)",
     ])
+
+
+def _ensure_admin_audit_logs_table():
+    try:
+        from app.models.admin_audit_log import AdminAuditLog
+
+        AdminAuditLog.__table__.create(bind=engine, checkfirst=True)
+    except Exception:
+        pass
 
 
 def _ensure_postgres_schema_guards():
@@ -231,7 +291,7 @@ def _ensure_postgres_schema_guards():
         """,
         """
         ALTER TABLE servicos
-        ADD COLUMN IF NOT EXISTS advance_payment_amount FLOAT NULL
+        ADD COLUMN IF NOT EXISTS advance_payment_amount NUMERIC(12, 2) NULL
         """,
         """
         ALTER TABLE servicos
@@ -253,7 +313,7 @@ def _ensure_postgres_schema_guards():
         """,
         """
         ALTER TABLE agendamentos
-        ADD COLUMN IF NOT EXISTS payment_amount_snapshot FLOAT NULL
+        ADD COLUMN IF NOT EXISTS payment_amount_snapshot NUMERIC(12, 2) NULL
         """,
         """
         ALTER TABLE agendamentos
@@ -304,6 +364,51 @@ def _ensure_postgres_schema_guards():
         ADD COLUMN IF NOT EXISTS updated_by_admin_id VARCHAR(120) NULL
         """,
 
+        # payment_integrations administrado pelo master
+        """
+        CREATE TABLE IF NOT EXISTS payment_integrations (
+            id SERIAL PRIMARY KEY,
+            establishment_id INTEGER NOT NULL REFERENCES estabelecimentos(id),
+            provider VARCHAR(50) NOT NULL DEFAULT 'mercadopago',
+            environment VARCHAR(20) NOT NULL DEFAULT 'production',
+            status VARCHAR(30) NOT NULL DEFAULT 'pending_validation',
+            credentials_encrypted TEXT NOT NULL,
+            credentials_fingerprint VARCHAR(64) NULL,
+            public_metadata_encrypted TEXT NULL,
+            account_name VARCHAR(120) NULL,
+            internal_notes TEXT NULL,
+            checkout_hold_minutes INTEGER NOT NULL DEFAULT 10,
+            last_validated_at TIMESTAMP NULL,
+            validation_status VARCHAR(30) NOT NULL DEFAULT 'not_validated',
+            validation_error TEXT NULL,
+            created_by_admin_id VARCHAR(120) NULL,
+            updated_by_admin_id VARCHAR(120) NULL,
+            connected_at TIMESTAMP NULL,
+            disconnected_at TIMESTAMP NULL,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+        """,
+        """
+        ALTER TABLE payment_integrations
+        ADD COLUMN IF NOT EXISTS account_name VARCHAR(120) NULL
+        """,
+        """
+        ALTER TABLE payment_integrations
+        ADD COLUMN IF NOT EXISTS internal_notes TEXT NULL
+        """,
+        """
+        ALTER TABLE payment_integrations
+        ADD COLUMN IF NOT EXISTS checkout_hold_minutes INTEGER NOT NULL DEFAULT 10
+        """,
+        "CREATE UNIQUE INDEX IF NOT EXISTS ux_payment_integrations_establishment_provider_environment ON payment_integrations (establishment_id, provider, environment)",
+        "CREATE UNIQUE INDEX IF NOT EXISTS ux_payment_integrations_provider_environment_fingerprint ON payment_integrations (provider, environment, credentials_fingerprint)",
+        "CREATE INDEX IF NOT EXISTS ix_payment_integrations_establishment_id ON payment_integrations (establishment_id)",
+        "CREATE INDEX IF NOT EXISTS ix_payment_integrations_provider ON payment_integrations (provider)",
+        "CREATE INDEX IF NOT EXISTS ix_payment_integrations_environment ON payment_integrations (environment)",
+        "CREATE INDEX IF NOT EXISTS ix_payment_integrations_status ON payment_integrations (status)",
+        "CREATE INDEX IF NOT EXISTS ix_payment_integrations_validation_status ON payment_integrations (validation_status)",
+
         # pagamentos v2
         """
         ALTER TABLE pagamentos
@@ -312,6 +417,10 @@ def _ensure_postgres_schema_guards():
         """
         ALTER TABLE pagamentos
         ADD COLUMN IF NOT EXISTS payment_account_id INTEGER NULL
+        """,
+        """
+        ALTER TABLE pagamentos
+        ADD COLUMN IF NOT EXISTS payment_integration_id INTEGER NULL
         """,
         """
         ALTER TABLE pagamentos
@@ -327,7 +436,7 @@ def _ensure_postgres_schema_guards():
         """,
         """
         ALTER TABLE pagamentos
-        ADD COLUMN IF NOT EXISTS platform_fee_amount FLOAT NOT NULL DEFAULT 0
+        ADD COLUMN IF NOT EXISTS platform_fee_amount NUMERIC(12, 2) NOT NULL DEFAULT 0
         """,
         """
         ALTER TABLE pagamentos
@@ -348,7 +457,13 @@ def _ensure_postgres_schema_guards():
         "CREATE UNIQUE INDEX IF NOT EXISTS ux_pagamentos_idempotency_key ON pagamentos (idempotency_key)",
         "CREATE INDEX IF NOT EXISTS ix_pagamentos_estabelecimento_id ON pagamentos (estabelecimento_id)",
         "CREATE INDEX IF NOT EXISTS ix_pagamentos_payment_account_id ON pagamentos (payment_account_id)",
+        "CREATE INDEX IF NOT EXISTS ix_pagamentos_payment_integration_id ON pagamentos (payment_integration_id)",
         "CREATE INDEX IF NOT EXISTS ix_pagamentos_expires_at ON pagamentos (expires_at)",
+        "ALTER TABLE servicos ALTER COLUMN preco TYPE NUMERIC(12, 2) USING ROUND(preco::numeric, 2)",
+        "ALTER TABLE servicos ALTER COLUMN advance_payment_amount TYPE NUMERIC(12, 2) USING ROUND(advance_payment_amount::numeric, 2)",
+        "ALTER TABLE agendamentos ALTER COLUMN payment_amount_snapshot TYPE NUMERIC(12, 2) USING ROUND(payment_amount_snapshot::numeric, 2)",
+        "ALTER TABLE pagamentos ALTER COLUMN amount TYPE NUMERIC(12, 2) USING ROUND(amount::numeric, 2)",
+        "ALTER TABLE pagamentos ALTER COLUMN platform_fee_amount TYPE NUMERIC(12, 2) USING ROUND(platform_fee_amount::numeric, 2)",
     ]
 
     for sql in statements:
@@ -606,10 +721,15 @@ def _ensure_agendamentos_notification_columns():
         [
             "ALTER TABLE agendamentos ADD COLUMN cliente_email VARCHAR(255) NULL",
             "ALTER TABLE agendamentos ADD COLUMN confirmation_token VARCHAR(36) NULL",
+            "ALTER TABLE agendamentos ADD COLUMN confirmation_token_expires_at TIMESTAMP NULL",
             "ALTER TABLE agendamentos ADD COLUMN lembrete_24h_enviado BOOLEAN NOT NULL DEFAULT FALSE",
             "ALTER TABLE agendamentos ADD COLUMN lembrete_2h_enviado BOOLEAN NOT NULL DEFAULT FALSE",
             "CREATE INDEX ix_agendamentos_cliente_email ON agendamentos (cliente_email)",
             "CREATE UNIQUE INDEX ux_agendamentos_confirmation_token ON agendamentos (confirmation_token)",
+            (
+                "UPDATE agendamentos SET confirmation_token_expires_at = "
+                "data_hora_fim + INTERVAL '1 day' WHERE confirmation_token_expires_at IS NULL"
+            ),
         ]
     )
 

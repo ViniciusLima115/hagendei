@@ -1,4 +1,5 @@
 import pytest
+from app.routes.deps import require_admin
 from app.security import hash_senha, verificar_senha, create_access_token, decode_access_token, TokenClaims
 
 
@@ -23,9 +24,9 @@ def test_hashes_diferentes_para_mesma_senha():
     assert h1 != h2  # salt diferente a cada chamada
 
 
-def test_verificar_senha_plaintext_correto():
+def test_verificar_senha_plaintext_rejeitado():
     """Fallback: aceita plaintext ainda não migrado."""
-    assert verificar_senha("abc", "abc") is True
+    assert verificar_senha("abc", "abc") is False
 
 
 def test_verificar_senha_plaintext_errado():
@@ -47,6 +48,14 @@ def test_create_and_decode_token_admin():
     claims = decode_access_token(token)
     assert claims.is_admin is True
     assert claims.tenant_id is None
+
+
+def test_require_admin_accepts_super_admin_role():
+    token = create_access_token(sub="super", tenant_id=None, is_admin=False, role="super_admin")
+    claims = decode_access_token(token)
+    assert claims.is_admin is False
+    assert claims.role == "super_admin"
+    assert require_admin(claims) is claims
 
 
 def test_token_expirado_levanta_erro():

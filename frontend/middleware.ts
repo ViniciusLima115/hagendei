@@ -14,8 +14,8 @@ export function middleware(req: NextRequest) {
     pathname.startsWith("/admin");
 
   if (isProtectedPath) {
-    const token = req.cookies.get("token")?.value;
-    if (!token) {
+    const hasUiSession = req.cookies.get("hagendei_ui_session")?.value === "1";
+    if (!hasUiSession) {
       const url = new URL("/login", req.url);
       url.searchParams.set("next", pathname);
       return NextResponse.redirect(url);

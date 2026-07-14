@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Eye, Headset, Laptop, MessageCircle, User, X } from "lucide-react";
 import { login, fetchMe } from "@/services/auth";
 import { loginUsuario } from "@/services/api";
+import { PRODUCT_NAME } from "@/lib/brand";
 import styles from "./page.module.css";
 
 export default function LoginPage() {
@@ -42,7 +43,6 @@ export default function LoginPage() {
           tenantId: "admin",
           tenantName: "Administrador",
           plan: "premium",
-          accessToken: resposta.access_token,
         });
         router.replace("/");
         return;
@@ -53,13 +53,12 @@ export default function LoginPage() {
         return;
       }
 
-      const me = await fetchMe(resposta.access_token);
+      const me = await fetchMe();
       login({
         email: usuario,
         tenantId: String(resposta.tenant_id),
         tenantName: resposta.tenant_name,
         plan: resposta.plano === "premium" ? "premium" : "basico",
-        accessToken: resposta.access_token,
         accentColor: me?.accent_color,
         bgColor: me?.bg_color,
         logoUrl: me?.logo_url,
@@ -84,7 +83,7 @@ export default function LoginPage() {
           </div>
           <div>
             <div className={styles.leftEyebrow}>Sistema de gestão</div>
-            <div className={styles.leftBrandName}>VirtualBarber</div>
+            <div className={styles.leftBrandName}>{PRODUCT_NAME}</div>
           </div>
         </div>
 

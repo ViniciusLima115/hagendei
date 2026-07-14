@@ -35,11 +35,11 @@ import {
   CalendarDays,
   CheckCircle2,
   CircleAlert,
+  ClipboardList,
   Clock3,
   Edit2,
   Plus,
   RefreshCw,
-  Scissors,
   Trash2,
   Users,
 } from "lucide-react";
@@ -81,7 +81,7 @@ const tabs: Array<{
     key: "servicos",
     label: "Servicos",
     description: "Catalogo e duracao dos atendimentos",
-    icon: Scissors,
+    icon: ClipboardList,
   },
   {
     key: "funcionamento",
@@ -359,6 +359,7 @@ function PaymentPill({
     rejected: "Recusado",
     cancelled: "Cancelado",
     refunded: "Estornado",
+    charged_back: "Contestado",
     expired: "Expirado",
     not_required: "Nao obrigatorio",
   };
@@ -369,7 +370,7 @@ function PaymentPill({
         styles.statusPill,
         value === "approved" && styles.statusConfirmado,
         value === "pending" && styles.statusPendente,
-        (value === "rejected" || value === "cancelled" || value === "expired") && styles.statusCancelado
+        (value === "rejected" || value === "cancelled" || value === "charged_back" || value === "expired") && styles.statusCancelado
       )}
     >
       {labels[value] ?? value}
@@ -498,16 +499,7 @@ export default function GestaoPage() {
     barbeiroId: "",
     servicoId: "",
     dataHora: "",
-    status: "confirmado" as
-      | "pending_payment"
-      | "pendente"
-      | "confirmado"
-      | "cancelado"
-      | "reagendamento_solicitado"
-      | "compareceu"
-      | "no_show"
-      | "failed"
-      | "expired",
+    status: "confirmado" as Agendamento["status"],
   });
   const [editAgendamentoId, setEditAgendamentoId] = useState<number | null>(null);
 
@@ -738,10 +730,10 @@ export default function GestaoPage() {
     try {
       if (editBarbeiroId) {
         await updateBarbeiro(editBarbeiroId, novoBarbeiro);
-        setSuccess("Barbeiro atualizado com sucesso!");
+        setSuccess("Profissional atualizado com sucesso!");
       } else {
         await createBarbeiro(novoBarbeiro);
-        setSuccess("Barbeiro criado com sucesso!");
+        setSuccess("Profissional criado com sucesso!");
       }
 
       setNovoBarbeiro(createBarbeiroForm(funcionamento));
@@ -797,6 +789,9 @@ export default function GestaoPage() {
         });
         setSuccess("Agendamento atualizado com sucesso!");
       } else {
+        if (formAgendamento.status === "payment_review_required") {
+          throw new Error("O status de pagamento em analise so pode ser definido pelo sistema.");
+        }
         await createAgendamento({
           telefone: cliente.telefone,
           nome_cliente: cliente.nome,
@@ -891,7 +886,7 @@ export default function GestaoPage() {
     try {
       limparMensagens();
       await deleteBarbeiro(id);
-      setSuccess("Barbeiro removido com sucesso!");
+      setSuccess("Profissional removido com sucesso!");
       await carregarTudo();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Erro ao remover profissional.");
@@ -940,7 +935,7 @@ export default function GestaoPage() {
             helper={clientes.length > 0 ? "Base pronta para novos atendimentos" : "Comece criando o primeiro cliente"}
           />
           <StatCard
-            icon={<Scissors size={20} />}
+            icon={<ClipboardList size={20} />}
             label="Servicos"
             value={String(servicos.length)}
             helper={servicos.length > 0 ? "Catalogo ativo para agendamentos" : "Adicione servicos para liberar a agenda"}
@@ -1827,20 +1822,14 @@ export default function GestaoPage() {
                 onChange={(e) =>
                   setFormAgendamento((prev) => ({
                     ...prev,
-                    status: e.target.value as
-                      | "pending_payment"
-                      | "pendente"
-                      | "confirmado"
-                      | "cancelado"
-                      | "reagendamento_solicitado"
-                      | "compareceu"
-                      | "no_show"
-                      | "failed"
-                      | "expired",
+                    status: e.target.value as Agendamento["status"],
                   }))
                 }
               >
                 <option value="pending_payment">Aguardando pagamento</option>
+                <option value="payment_review_required" disabled>
+                  Pagamento em analise
+                </option>
                 <option value="confirmado">Confirmado</option>
                 <option value="pendente">Pendente</option>
                 <option value="cancelado">Cancelado</option>

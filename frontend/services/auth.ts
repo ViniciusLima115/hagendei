@@ -14,10 +14,11 @@ export type MeResponse = {
   notif_horas_antes?: number;
 };
 
-export async function fetchMe(accessToken: string): Promise<MeResponse | null> {
+export async function fetchMe(): Promise<MeResponse | null> {
   try {
     const resp = await fetch(`${API_URL}/auth/me`, {
-      headers: { Authorization: `Bearer ${accessToken}` },
+      credentials: "include",
+      cache: "no-store",
     });
     if (!resp.ok) return null;
     return resp.json();
@@ -26,20 +27,19 @@ export async function fetchMe(accessToken: string): Promise<MeResponse | null> {
   }
 }
 
-export const AUTH_STORAGE_KEY = "barbershop_auth_session";
-const AUTH_CHANGE_EVENT = "barbershop_auth_changed";
+export const AUTH_STORAGE_KEY = "hagendei_auth_session";
+const LEGACY_AUTH_STORAGE_KEY = "barbershop_auth_session";
+const AUTH_CHANGE_EVENT = "hagendei_auth_changed";
+const UI_SESSION_COOKIE_NAME = "hagendei_ui_session";
 
 let cachedRawSession: string | null = null;
 let cachedParsedSession: AuthSession | null = null;
-const TOKEN_COOKIE_NAME = "token";
 
 export type AuthSession = {
   email: string;
   tenantId: string;
   tenantName: string;
   plan: "basico" | "premium";
-  accessToken: string;
-  // Tema por tenant (opcionais — ausentes para admin)
   accentColor?: string;
   bgColor?: string;
   logoUrl?: string | null;
@@ -49,9 +49,7 @@ export function getAuthSession(): AuthSession | null {
   if (typeof window === "undefined") return null;
 
   const raw = window.localStorage.getItem(AUTH_STORAGE_KEY);
-  if (raw === cachedRawSession) {
-    return cachedParsedSession;
-  }
+  if (raw === cachedRawSession) return cachedParsedSession;
 
   cachedRawSession = raw;
   if (!raw) {
@@ -61,19 +59,15 @@ export function getAuthSession(): AuthSession | null {
 
   try {
     const parsed = JSON.parse(raw) as Partial<AuthSession>;
-    if (!parsed.email || !parsed.tenantId || !parsed.tenantName || !parsed.accessToken) {
+    if (!parsed.email || !parsed.tenantId || !parsed.tenantName) {
       cachedParsedSession = null;
       return null;
     }
-    const rawPlan = parsed.plan;
-    const plan = rawPlan === "premium" ? "premium" : "basico";
-
     cachedParsedSession = {
       email: parsed.email,
       tenantId: parsed.tenantId,
       tenantName: parsed.tenantName,
-      plan,
-      accessToken: parsed.accessToken,
+      plan: parsed.plan === "premium" ? "premium" : "basico",
       accentColor: parsed.accentColor,
       bgColor: parsed.bgColor,
       logoUrl: parsed.logoUrl ?? null,
@@ -91,37 +85,40 @@ export function isAuthenticated(): boolean {
 
 export function login(session: AuthSession): void {
   if (typeof window === "undefined") return;
+  window.localStorage.removeItem(LEGACY_AUTH_STORAGE_KEY);
   window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(session));
   const secure = window.location.protocol === "https:" ? "; Secure" : "";
-  document.cookie = `${TOKEN_COOKIE_NAME}=${encodeURIComponent(session.accessToken)}; Path=/; SameSite=Lax${secure}`;
+  document.cookie = `${UI_SESSION_COOKIE_NAME}=1; Path=/; SameSite=Lax${secure}`;
   window.dispatchEvent(new Event(AUTH_CHANGE_EVENT));
 }
 
 export function logout(): void {
   if (typeof window === "undefined") return;
-  // Limpa seenIds das notificações do tenant atual antes de remover a sessão
   const session = getAuthSession();
-  if (session?.tenantId) {
-    window.localStorage.removeItem(`notif_seen_${session.tenantId}`);
-  }
+  if (session?.tenantId) window.localStorage.removeItem(`notif_seen_${session.tenantId}`);
+
+  void fetch(`${API_URL}/auth/logout`, {
+    method: "POST",
+    credentials: "include",
+  }).catch(() => undefined);
+
   window.localStorage.removeItem(AUTH_STORAGE_KEY);
+  window.localStorage.removeItem(LEGACY_AUTH_STORAGE_KEY);
   const secure = window.location.protocol === "https:" ? "; Secure" : "";
-  document.cookie = `${TOKEN_COOKIE_NAME}=; Path=/; Max-Age=0; SameSite=Lax${secure}`;
+  document.cookie = `${UI_SESSION_COOKIE_NAME}=; Path=/; Max-Age=0; SameSite=Lax${secure}`;
+  cachedRawSession = null;
+  cachedParsedSession = null;
   window.dispatchEvent(new Event(AUTH_CHANGE_EVENT));
 }
 
 function subscribe(onStoreChange: () => void): () => void {
   if (typeof window === "undefined") return () => {};
-
-  const onStorage = () => onStoreChange();
-  const onAuthChanged = () => onStoreChange();
-
-  window.addEventListener("storage", onStorage);
-  window.addEventListener(AUTH_CHANGE_EVENT, onAuthChanged);
-
+  const listener = () => onStoreChange();
+  window.addEventListener("storage", listener);
+  window.addEventListener(AUTH_CHANGE_EVENT, listener);
   return () => {
-    window.removeEventListener("storage", onStorage);
-    window.removeEventListener(AUTH_CHANGE_EVENT, onAuthChanged);
+    window.removeEventListener("storage", listener);
+    window.removeEventListener(AUTH_CHANGE_EVENT, listener);
   };
 }
 

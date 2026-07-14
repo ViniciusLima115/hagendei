@@ -9,10 +9,12 @@ StatusManualBarbearia = Literal["ativo", "inativo"]
 
 
 class BarbeariaAdminCreate(BaseModel):
-    nome: str
-    slug: str | None = None
-    login: str
-    senha: str
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    nome: str = Field(min_length=2, max_length=255)
+    slug: str | None = Field(default=None, min_length=1, max_length=120, pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+    login: str = Field(min_length=3, max_length=255, pattern=r"^[A-Za-z0-9._@+-]+$")
+    senha: str = Field(min_length=8, max_length=128)
     plano: PlanoBarbearia = "basico"
     status_manual: StatusManualBarbearia = "ativo"
     vencimento_em: date
@@ -20,14 +22,23 @@ class BarbeariaAdminCreate(BaseModel):
     trial_fim_em: date | None = None
     ultimo_acesso_em: datetime | None = None
     pagamento_recusado: bool = False
-    endereco: str = ""
+    endereco: str = Field(default="", max_length=255)
+
+    @field_validator("senha")
+    @classmethod
+    def validar_tamanho_bcrypt(cls, value: str) -> str:
+        if len(value.encode("utf-8")) > 72:
+            raise ValueError("A senha deve ter no maximo 72 bytes.")
+        return value
 
 
 class BarbeariaAdminUpdate(BaseModel):
-    nome: str
-    slug: str | None = None
-    login: str
-    senha: str
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    nome: str = Field(min_length=2, max_length=255)
+    slug: str | None = Field(default=None, min_length=1, max_length=120, pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+    login: str = Field(min_length=3, max_length=255, pattern=r"^[A-Za-z0-9._@+-]+$")
+    senha: str = Field(min_length=8, max_length=128)
     plano: PlanoBarbearia
     status_manual: StatusManualBarbearia
     vencimento_em: date
@@ -35,7 +46,14 @@ class BarbeariaAdminUpdate(BaseModel):
     trial_fim_em: date | None = None
     ultimo_acesso_em: datetime | None = None
     pagamento_recusado: bool = False
-    endereco: str = ""
+    endereco: str = Field(default="", max_length=255)
+
+    @field_validator("senha")
+    @classmethod
+    def validar_tamanho_bcrypt(cls, value: str) -> str:
+        if len(value.encode("utf-8")) > 72:
+            raise ValueError("A senha deve ter no maximo 72 bytes.")
+        return value
 
 
 class BarbeariaAdminResponse(BaseModel):

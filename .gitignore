@@ -7,10 +7,34 @@ backend/.env.*
 frontend/.env.local
 frontend/.env.*.local
 
+# Segredos e certificados locais
+*.pem
+*.key
+*.p12
+*.pfx
+secrets/
+
 __pycache__/
 *.py[cod]
 .pytest_cache/
 backend/pytest-cache-files-*/
+backend/.venv/
+.venv/
+
+# Frontend e artefatos
+frontend/node_modules/
+frontend/.next/
+node_modules/
+.next/
+dist/
+coverage/
+
+# Logs e relatorios locais
+*.log
+*.out
+*.err
+.coverage
+htmlcov/
 
 .superpowers/
 .worktrees/

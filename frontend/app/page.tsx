@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarDays, CheckCircle2, Scissors, Settings2, Users } from "lucide-react";
+import { CalendarDays, CheckCircle2, ClipboardList, Settings2, Users } from "lucide-react";
 import { listAgendamentos, listClientes, listServicos } from "@/services/api";
 import { useAuthSession } from "@/services/auth";
 import styles from "./page.module.css";
@@ -181,7 +181,7 @@ export default function Home() {
             label="Servicos"
             value={loading ? "..." : String(data.totalServicos)}
             helper="Itens disponiveis para agendamento"
-            icon={<Scissors size={20} />}
+            icon={<ClipboardList size={20} />}
           />
         </section>
 

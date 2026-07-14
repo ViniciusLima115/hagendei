@@ -1,18 +1,11 @@
-from pydantic import BaseModel
-
-
-class AdminCheckRequest(BaseModel):
-    usuario: str
-    senha: str
-
-
-class AdminCheckResponse(BaseModel):
-    is_admin: bool
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class LoginRequest(BaseModel):
-    usuario: str
-    senha: str
+    model_config = ConfigDict(extra="forbid")
+
+    usuario: str = Field(min_length=1, max_length=255)
+    senha: str = Field(min_length=1, max_length=1024)
 
 
 class LoginResponse(BaseModel):
@@ -20,7 +13,7 @@ class LoginResponse(BaseModel):
     tenant_id: int | None = None
     tenant_name: str | None = None
     plano: str | None = None
-    access_token: str
+    access_token: str | None = None
     token_type: str = "bearer"
 
 

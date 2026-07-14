@@ -27,13 +27,21 @@ class BookingRepository:
             .all()
         )
 
-    def get_barbeiro(self, tenant_id: int, barbeiro_id: int, only_active: bool = True) -> Barbeiro | None:
+    def get_barbeiro(
+        self,
+        tenant_id: int,
+        barbeiro_id: int,
+        only_active: bool = True,
+        for_update: bool = False,
+    ) -> Barbeiro | None:
         query = self.db.query(Barbeiro).filter(
             Barbeiro.id == barbeiro_id,
             Barbeiro.barbershop_id == tenant_id,
         )
         if only_active:
             query = query.filter(Barbeiro.ativo.is_(True))
+        if for_update:
+            query = query.with_for_update()
         return query.first()
 
     def get_servico(self, tenant_id: int, servico_id: int) -> Servico | None:
@@ -149,6 +157,7 @@ class BookingRepository:
             data_hora_fim=fim,
             status=status,
             pagamento_adiantado_exigido=pagamento_adiantado_exigido,
+            confirmation_token_expires_at=fim + timedelta(days=1),
         )
         self.db.add(agendamento)
         self.db.flush()

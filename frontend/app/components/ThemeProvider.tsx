@@ -18,7 +18,8 @@ type ThemeContextValue = {
   setTheme: (theme: ThemeMode) => void;
 };
 
-const STORAGE_KEY = "virtualbarber:theme";
+const STORAGE_KEY = "hagendei:theme";
+const LEGACY_STORAGE_KEY = "virtualbarber:theme";
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 function getSystemTheme(): ResolvedTheme {
@@ -41,7 +42,13 @@ function getSavedTheme(): ThemeMode {
     return "system";
   }
 
-  const savedTheme = window.localStorage.getItem(STORAGE_KEY);
+  const savedTheme =
+    window.localStorage.getItem(STORAGE_KEY) ??
+    window.localStorage.getItem(LEGACY_STORAGE_KEY);
+  if (savedTheme) {
+    window.localStorage.setItem(STORAGE_KEY, savedTheme);
+    window.localStorage.removeItem(LEGACY_STORAGE_KEY);
+  }
   return savedTheme === "light" || savedTheme === "dark" || savedTheme === "system"
     ? savedTheme
     : "system";
@@ -53,10 +60,11 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const resolvedTheme = theme === "system" ? systemTheme : theme;
 
   useEffect(() => {
-    const saved = getSavedTheme();
-    const system = getSystemTheme();
-    setThemeState(saved);
-    setSystemTheme(system);
+    const frame = window.requestAnimationFrame(() => {
+      setThemeState(getSavedTheme());
+      setSystemTheme(getSystemTheme());
+    });
+    return () => window.cancelAnimationFrame(frame);
   }, []);
 
   useEffect(() => {

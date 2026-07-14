@@ -36,11 +36,16 @@ def test_barbeiros_criar_e_listar(client, db_session, make_tenant_headers):
     assert body[0]["horarios_funcionamento"]["seg"]["inicio"] == "13:00"
 
 
-def test_barbeiros_exige_header_tenant(client, make_tenant_headers):
+def test_barbeiros_exige_header_tenant(client, db_session, make_tenant_headers):
+    from app.models.barbearia import Barbearia
+
+    tenant = Barbearia(nome="Tenant sem header", plano="premium")
+    db_session.add(tenant)
+    db_session.commit()
     criar = client.post(
         "/barbeiros/",
         json={"nome": "Carlos"},
-        headers=make_tenant_headers(tenant_id=1, include_tenant_header=False),
+        headers=make_tenant_headers(tenant_id=tenant.id, include_tenant_header=False),
     )
     assert criar.status_code == 400
     assert criar.json()["detail"] == "X-Tenant-Id obrigatorio."

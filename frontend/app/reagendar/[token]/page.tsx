@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import { CalendarDays } from "lucide-react";
 
+import { PRODUCT_NAME } from "@/lib/brand";
 import {
   getBookingByToken,
   lookupPublicBarbershopById,
@@ -187,13 +189,12 @@ export default function ReagendarPage() {
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            fontSize: 16,
           }}
         >
-          ✂
+          <CalendarDays size={17} color="#ffffff" aria-hidden="true" />
         </div>
         <span style={{ color: "#f5efe7", fontWeight: 700, fontSize: 15, letterSpacing: "0.02em" }}>
-          Virtual Barber
+          {PRODUCT_NAME}
         </span>
       </div>
 
@@ -299,7 +300,7 @@ export default function ReagendarPage() {
                   <p style={{ margin: 0, fontSize: 14, color: "#1a120b" }}>{booking.servico_nome}</p>
                 </div>
                 <div>
-                  <p style={{ ...labelTextStyle, marginBottom: 4 }}>Barbeiro</p>
+                  <p style={{ ...labelTextStyle, marginBottom: 4 }}>Profissional</p>
                   <p style={{ margin: 0, fontSize: 14, color: "#1a120b" }}>{booking.barbeiro_nome}</p>
                 </div>
               </div>
@@ -367,7 +368,7 @@ export default function ReagendarPage() {
                       }}
                     >
                       <label style={labelStyle}>
-                        <span style={labelTextStyle}>Barbeiro</span>
+                        <span style={labelTextStyle}>Profissional</span>
                         <select
                           style={inputStyle}
                           value={barbeiroId ?? ""}
@@ -525,7 +526,7 @@ export default function ReagendarPage() {
 
       {/* Footer */}
       <p style={{ fontSize: 12, color: "#a18070", marginBottom: 32 }}>
-        Powered by Virtual Barber
+        Agendamento por {PRODUCT_NAME}
       </p>
     </div>
   );

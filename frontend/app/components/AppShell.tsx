@@ -3,7 +3,6 @@
 import { ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import Header from "./Header";
-import ThemeToggle from "./ThemeToggle";
 import { useTenantTheme } from "@/hooks/useTenantTheme";
 import { NotificacoesProvider } from "./NotificacoesProvider";
 
@@ -31,7 +30,6 @@ export default function AppShell({ children }: AppShellProps) {
   const content = (
     <>
       {!hideHeader && <Header />}
-      {(isPublicBookingPath || isPublicBookingById) && <ThemeToggle floating />}
       {children}
     </>
   );

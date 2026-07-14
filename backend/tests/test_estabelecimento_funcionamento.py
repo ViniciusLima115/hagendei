@@ -36,7 +36,7 @@ def test_atualizar_funcionamento(client, dados_base, tenant_headers, db_session)
 def test_obter_funcionamento_nao_encontrado(client, make_tenant_headers):
     headers = make_tenant_headers(tenant_id=99999)
     resp = client.get("/estabelecimentos/me/funcionamento", headers=headers)
-    assert resp.status_code == 404
+    assert resp.status_code == 401
 
 
 def test_atualizar_funcionamento_nao_encontrado(client, make_tenant_headers):
@@ -46,4 +46,4 @@ def test_atualizar_funcionamento_nao_encontrado(client, make_tenant_headers):
         json=_funcionamento_padrao(),
         headers=headers,
     )
-    assert resp.status_code == 404
+    assert resp.status_code == 401

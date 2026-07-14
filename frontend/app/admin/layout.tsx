@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode, useEffect, useState } from "react";
+import { ReactNode, useEffect, useSyncExternalStore } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
 import Loading from "../components/Loading";
@@ -11,16 +11,13 @@ type AdminLayoutProps = {
   children: ReactNode;
 };
 
+const subscribeToMount = () => () => {};
 
 export default function AdminLayout({ children }: AdminLayoutProps) {
   const pathname = usePathname();
   const router = useRouter();
   const session = useAuthSession();
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const mounted = useSyncExternalStore(subscribeToMount, () => true, () => false);
 
   useEffect(() => {
     if (!mounted) return;

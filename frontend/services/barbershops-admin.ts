@@ -1,5 +1,4 @@
 import { API_URL } from "./api";
-import { getAuthSession } from "./auth";
 
 export type PlanoBarbearia = "basico" | "premium";
 export type StatusManualBarbearia = "ativo" | "inativo";
@@ -72,19 +71,19 @@ async function parseOrThrow(res: Response, fallback: string) {
 }
 
 function getAdminHeaders(contentTypeJson: boolean = false): HeadersInit {
-  const token = getAuthSession()?.accessToken;
   const headers = new Headers();
-  if (token) {
-    headers.set("Authorization", `Bearer ${token}`);
-  }
   if (contentTypeJson) {
     headers.set("Content-Type", "application/json");
   }
   return headers;
 }
 
+function adminFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  return fetch(input, { ...init, credentials: "include" });
+}
+
 export async function listBarbeariasAdmin(): Promise<BarbeariaAdmin[]> {
-  const res = await fetch(`${API_URL}/barbearias/`, {
+  const res = await adminFetch(`${API_URL}/barbearias/`, {
     cache: "no-store",
     headers: getAdminHeaders(),
   });
@@ -102,7 +101,7 @@ export async function createBarbeariaAdmin(payload: {
   trialFimEm?: string | null;
   pagamentoRecusado?: boolean;
 }): Promise<BarbeariaAdmin> {
-  const res = await fetch(`${API_URL}/barbearias/`, {
+  const res = await adminFetch(`${API_URL}/barbearias/`, {
     method: "POST",
     headers: getAdminHeaders(true),
     body: JSON.stringify({
@@ -139,7 +138,7 @@ export async function updateBarbeariaAdmin(
     pagamentoRecusado: boolean;
   }
 ): Promise<BarbeariaAdmin> {
-  const res = await fetch(`${API_URL}/barbearias/${id}`, {
+  const res = await adminFetch(`${API_URL}/barbearias/${id}`, {
     method: "PUT",
     headers: getAdminHeaders(true),
     body: JSON.stringify({
@@ -162,7 +161,7 @@ export async function updateBarbeariaAdmin(
 }
 
 export async function deleteBarbeariaAdmin(id: number): Promise<void> {
-  const res = await fetch(`${API_URL}/barbearias/${id}`, {
+  const res = await adminFetch(`${API_URL}/barbearias/${id}`, {
     method: "DELETE",
     headers: getAdminHeaders(),
   });

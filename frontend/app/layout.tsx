@@ -27,7 +27,7 @@ export const metadata: Metadata = {
 const themeScript = `
   (function () {
     try {
-      var savedTheme = localStorage.getItem("virtualbarber:theme") || "system";
+      var savedTheme = localStorage.getItem("hagendei:theme") || "system";
       var systemTheme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
       var resolvedTheme = savedTheme === "system" ? systemTheme : savedTheme;
       document.documentElement.dataset.theme = resolvedTheme;
@@ -37,7 +37,7 @@ const themeScript = `
       document.documentElement.style.colorScheme = "light";
     }
     try {
-      var raw = localStorage.getItem("barbershop_auth_session");
+      var raw = localStorage.getItem("hagendei_auth_session");
       if (raw) {
         var s = JSON.parse(raw);
         if (s.accentColor) document.documentElement.style.setProperty("--accent", s.accentColor);

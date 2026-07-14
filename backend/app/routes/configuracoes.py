@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -6,6 +6,7 @@ from app.models.estabelecimento import Estabelecimento
 from app.routes.deps import get_current_claims
 from app.schemas.configuracoes import NotificacoesUpdate, PerfilUpdate, SenhaUpdate, TemaUpdate
 from app.security import TokenClaims, hash_senha, verificar_senha
+from app.services.admin_audit_service import create_admin_audit_log
 
 router = APIRouter(prefix="/configuracoes", tags=["configuracoes"])
 
@@ -49,13 +50,28 @@ def atualizar_perfil(
 @router.patch("/senha")
 def trocar_senha(
     dados: SenhaUpdate,
+    request: Request,
     pair: tuple[TokenClaims, Estabelecimento, Session] = Depends(_get_tenant_estabelecimento),
 ):
-    _, est, db = pair
+    claims, est, db = pair
     if not est.senha or not verificar_senha(dados.senha_atual, est.senha):
         raise HTTPException(status_code=400, detail="Senha atual incorreta.")
     est.senha = hash_senha(dados.nova_senha)
-    db.commit()
+    est.auth_version = int(est.auth_version or 0) + 1
+    create_admin_audit_log(
+        db,
+        admin_user_id=claims.sub,
+        establishment_id=est.id,
+        action="tenant_password_changed",
+        entity_type="establishment",
+        entity_id=est.id,
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+        metadata={
+            "result": "success",
+            "correlation_id": request.headers.get("x-request-id"),
+        },
+    )
     return {"detail": "Senha alterada com sucesso."}
 
 

@@ -1,14 +1,13 @@
 import os
 import re
 from datetime import date, datetime, time, timedelta
+from decimal import Decimal
 from zoneinfo import ZoneInfo
 
 from sqlalchemy.orm import Session
 
-from app.models.agendamento import Agendamento
 from app.models.barbeiro import Barbeiro
 from app.models.barbearia import Barbearia
-from app.models.reminder_job import ReminderJob
 from app.models.servico import Servico
 from app.repositories.booking_repository import BookingRepository
 from app.repositories.tenant_repository import TenantRepository
@@ -21,7 +20,7 @@ from app.services.notificacao_service import (
 )
 
 
-BOOKING_PUBLIC_BASE_URL = os.getenv("BOOKING_PUBLIC_BASE_URL", "https://app.virtualbarber.shop")
+BOOKING_PUBLIC_BASE_URL = os.getenv("BOOKING_PUBLIC_BASE_URL", "http://127.0.0.1:3000")
 _TZ_BRASIL = ZoneInfo("America/Sao_Paulo")
 STATUS_VALIDOS = {"pending_payment", "pendente", "confirmado", "cancelado", "failed", "reagendamento_solicitado", "compareceu", "no_show", "expired"}
 
@@ -196,7 +195,7 @@ def obter_lookup_publico(
 ) -> dict:
     barbearia = _obter_barbearia(db, slug=slug)
     if not barbearia:
-        raise ValueError("Barbearia nao encontrada.")
+        raise ValueError("Estabelecimento nao encontrado.")
     return obter_lookup_publico_por_id(
         db,
         barbearia_id=barbearia.id,
@@ -216,7 +215,7 @@ def obter_lookup_publico_por_id(
 ) -> dict:
     barbearia = _obter_barbearia(db, barbearia_id=barbearia_id)
     if not barbearia:
-        raise ValueError("Barbearia nao encontrada.")
+        raise ValueError("Estabelecimento nao encontrado.")
 
     barbeiros = listar_barbeiros_publico(db, barbearia_id=barbearia.id)
     servicos_model = BookingRepository(db).list_public_servicos(barbearia.id)
@@ -286,12 +285,12 @@ def criar_agendamento_publico(
 ) -> dict:
     barbearia = _obter_barbearia(db, slug=slug, barbearia_id=barbearia_id)
     if not barbearia:
-        raise ValueError("Barbearia nao encontrada.")
+        raise ValueError("Estabelecimento nao encontrado.")
 
     repo = BookingRepository(db)
-    barbeiro = repo.get_barbeiro(barbearia.id, barbeiro_id, only_active=True)
+    barbeiro = repo.get_barbeiro(barbearia.id, barbeiro_id, only_active=True, for_update=True)
     if not barbeiro:
-        raise ValueError("Barbeiro nao encontrado.")
+        raise ValueError("Profissional nao encontrado.")
 
     servico = repo.get_servico(barbearia.id, servico_id)
     if not servico:
@@ -304,9 +303,9 @@ def criar_agendamento_publico(
     duracao = _duracao_servico(barbeiro=barbeiro, servico=servico)
     fim = inicio + timedelta(minutes=duracao)
     if not is_within_working_hours(barbearia, inicio, fim):
-        raise ValueError("Horario fora do funcionamento da barbearia.")
+        raise ValueError("Horario fora do funcionamento do estabelecimento.")
     if not is_within_working_hours(barbearia, inicio, fim, barbeiro=barbeiro):
-        raise ValueError("Horario fora do funcionamento do barbeiro.")
+        raise ValueError("Horario fora da disponibilidade do profissional.")
 
     conflito = repo.get_conflicting_agendamento(
         tenant_id=barbearia.id,
@@ -341,9 +340,9 @@ def criar_agendamento_publico(
     agendamento.payment_required_snapshot = bool(pagamento_adiantado_exigido)
     if pagamento_adiantado_exigido:
         payment_type = (servico.advance_payment_type or "full").strip().lower()
-        amount_snapshot = float(servico.preco or 0)
+        amount_snapshot = servico.preco or 0
         if payment_type == "signal" and servico.advance_payment_amount is not None:
-            amount_snapshot = float(servico.advance_payment_amount)
+            amount_snapshot = servico.advance_payment_amount
         agendamento.payment_type_snapshot = payment_type
         agendamento.payment_amount_snapshot = amount_snapshot
         agendamento.payment_status = "pending"
@@ -398,90 +397,13 @@ def servico_exige_pagamento_adiantado_publico(
     slug: str | None = None,
     barbearia_id: int | None = None,
     servico_id: int,
-) -> tuple[bool, float, int]:
+) -> tuple[bool, Decimal, int]:
     barbearia = _obter_barbearia(db, slug=slug, barbearia_id=barbearia_id)
     if not barbearia:
-        raise ValueError("Barbearia nao encontrada.")
+        raise ValueError("Estabelecimento nao encontrado.")
 
     servico = BookingRepository(db).get_servico(barbearia.id, servico_id)
     if not servico:
         raise ValueError("Servico nao encontrado.")
 
-    return _servico_exige_pagamento_adiantado(servico, barbearia), float(servico.preco), int(barbearia.id)
-
-
-def confirmar_agendamento_publico_pos_pagamento(
-    db: Session,
-    *,
-    agendamento_id: int,
-) -> dict:
-    agendamento = db.query(Agendamento).filter(Agendamento.id == agendamento_id).first()
-    if not agendamento:
-        raise ValueError("Agendamento nao encontrado.")
-
-    barbearia = _obter_barbearia(db, barbearia_id=agendamento.barbearia_id)
-    if not barbearia:
-        raise ValueError("Barbearia nao encontrada.")
-
-    repo = BookingRepository(db)
-    barbeiro = repo.get_barbeiro(barbearia.id, agendamento.barbeiro_id, only_active=False)
-    servico = repo.get_servico(barbearia.id, agendamento.servico_id)
-    if not barbeiro or not servico:
-        raise ValueError("Dados do agendamento estao inconsistentes.")
-
-    agendamento.status = "confirmado"
-    agendamento.payment_status = "approved"
-    agendamento.payment_hold_expires_at = None
-    db.flush()
-
-    lembretes_existentes = (
-        db.query(ReminderJob)
-        .filter(ReminderJob.agendamento_id == agendamento.id)
-        .count()
-    )
-    if lembretes_existentes == 0:
-        lembretes = agendar_lembretes_agendamento(
-            db,
-            tenant_id=barbearia.id,
-            agendamento_id=agendamento.id,
-            cliente_nome=agendamento.cliente_nome or "",
-            cliente_telefone=agendamento.cliente_telefone or "",
-            nome_barbearia=barbearia.nome,
-            servico_nome=servico.nome,
-            inicio=agendamento.data_hora_inicio,
-        )
-    else:
-        lembretes = lembretes_existentes
-
-    db.commit()
-    db.refresh(agendamento)
-
-    if agendamento.cliente_telefone:
-        mensagem_confirmacao = montar_mensagem_confirmacao(
-            nome_barbearia=barbearia.nome,
-            cliente_nome=agendamento.cliente_nome or "",
-            servico_nome=servico.nome,
-            inicio=agendamento.data_hora_inicio,
-        )
-        enviar_mensagem_whatsapp(
-            barbearia,
-            _normalizar_telefone_whatsapp(agendamento.cliente_telefone),
-            mensagem_confirmacao,
-        )
-
-    return {
-        "id": agendamento.id,
-        "tenant_id": barbearia.id,
-        "barbearia_id": barbearia.id,
-        "slug": barbearia.slug,
-        "cliente_nome": agendamento.cliente_nome,
-        "cliente_telefone": agendamento.cliente_telefone,
-        "cliente_email": agendamento.cliente_email,
-        "barbeiro_id": agendamento.barbeiro_id,
-        "servico_id": agendamento.servico_id,
-        "data_hora_inicio": agendamento.data_hora_inicio,
-        "data_hora_fim": agendamento.data_hora_fim,
-        "status": _normalizar_status_saida(agendamento.status),
-        "confirmation_token": agendamento.confirmation_token,
-        "lembretes_agendados": lembretes,
-    }
+    return _servico_exige_pagamento_adiantado(servico, barbearia), Decimal(str(servico.preco)), int(barbearia.id)

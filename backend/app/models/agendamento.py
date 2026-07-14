@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import uuid4
 
-from sqlalchemy import Boolean, Column, Date, DateTime, Float, ForeignKey, Index, Integer, String, Time
+from sqlalchemy import Boolean, Column, Date, DateTime, ForeignKey, Index, Integer, Numeric, String, Time
 from sqlalchemy.orm import relationship, synonym
 from app.database import Base
 
@@ -30,12 +30,13 @@ class Agendamento(Base):
     data_hora_fim = Column(DateTime, nullable=False)
     status = Column(String(50), nullable=False, default="pendente")
     confirmation_token = Column(String(36), nullable=False, unique=True, index=True, default=lambda: str(uuid4()))
+    confirmation_token_expires_at = Column(DateTime, nullable=True)
     lembrete_24h_enviado = Column(Boolean, nullable=False, default=False)
     lembrete_2h_enviado = Column(Boolean, nullable=False, default=False)
     compareceu_em = Column(DateTime, nullable=True)
     pagamento_adiantado_exigido = Column(Boolean, nullable=False, default=False, index=True)
     payment_type_snapshot = Column(String(20), nullable=True)
-    payment_amount_snapshot = Column(Float, nullable=True)
+    payment_amount_snapshot = Column(Numeric(12, 2), nullable=True)
     payment_status = Column(String(30), nullable=False, default="not_required")
     payment_hold_expires_at = Column(DateTime, nullable=True)
     provider_checkout_reference = Column(String(255), nullable=True)

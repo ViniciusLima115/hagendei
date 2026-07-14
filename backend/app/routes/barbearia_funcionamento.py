@@ -18,7 +18,7 @@ def obter_funcionamento(
 ):
     barbearia = db.query(Barbearia).filter(Barbearia.id == tenant_id).first()
     if not barbearia:
-        raise HTTPException(status_code=404, detail="Barbearia nao encontrada.")
+        raise HTTPException(status_code=404, detail="Estabelecimento nao encontrado.")
     result = normalize_working_hours(barbearia.horarios_funcionamento)
     result["intervalo_minutos"] = getattr(barbearia, "intervalo_minutos", 30) or 30
     return result
@@ -32,7 +32,7 @@ def atualizar_funcionamento(
 ):
     barbearia = db.query(Barbearia).filter(Barbearia.id == tenant_id).first()
     if not barbearia:
-        raise HTTPException(status_code=404, detail="Barbearia nao encontrada.")
+        raise HTTPException(status_code=404, detail="Estabelecimento nao encontrado.")
 
     if dados.intervalo_minutos is not None:
         valor = max(5, min(120, dados.intervalo_minutos))  # clamp 5–120

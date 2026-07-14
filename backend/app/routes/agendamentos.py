@@ -1,10 +1,11 @@
 from datetime import date
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.limiter import RATE_LIMIT_PUBLIC, limiter
 from app.models.agendamento import Agendamento as AgendamentoModel
 from app.models.estabelecimento import Estabelecimento
 from app.routes.deps import tenant_id_from_header
@@ -36,6 +37,7 @@ from app.services.notificacao_inapp_service import (
     task_notificacao_novo_agendamento,
     task_notificacao_confirmado,
 )
+from app.services.payments.webhook_service import sync_pending_payment_statuses
 from datetime import datetime as _datetime, timezone as _timezone
 
 from app.repositories import notificacao_repository as notif_repo
@@ -95,6 +97,7 @@ def listar(
     tenant_id: int = Depends(tenant_id_from_header),
     db: Session = Depends(get_db),
 ):
+    sync_pending_payment_statuses(db, establishment_id=tenant_id, limit=20)
     return listar_agendamentos(
         db,
         tenant_id=tenant_id,
@@ -104,7 +107,9 @@ def listar(
 
 
 @router.get("/{token}/dados", response_model=AgendamentoTokenDataResponse)
+@limiter.limit(RATE_LIMIT_PUBLIC)
 def dados_por_token(
+    request: Request,
     token: str,
     db: Session = Depends(get_db),
 ):
@@ -115,7 +120,9 @@ def dados_por_token(
 
 
 @router.post("/{token}/confirmar", response_model=AgendamentoTokenDataResponse)
+@limiter.limit(RATE_LIMIT_PUBLIC)
 def confirmar_por_token(
+    request: Request,
     token: str,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
@@ -137,7 +144,9 @@ def confirmar_por_token(
 
 
 @router.post("/{token}/cancelar", response_model=AgendamentoTokenDataResponse)
+@limiter.limit(RATE_LIMIT_PUBLIC)
 def cancelar_por_token(
+    request: Request,
     token: str,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
@@ -155,7 +164,9 @@ def cancelar_por_token(
 
 
 @router.post("/{token}/reagendar", response_model=AgendamentoTokenDataResponse)
+@limiter.limit(RATE_LIMIT_PUBLIC)
 def reagendar_por_token(
+    request: Request,
     token: str,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
@@ -173,7 +184,9 @@ def reagendar_por_token(
 
 
 @router.put("/{token}/remarcar", response_model=AgendamentoTokenDataResponse)
+@limiter.limit(RATE_LIMIT_PUBLIC)
 def remarcar_por_token(
+    request: Request,
     token: str,
     dados: AgendamentoRemarcacaoRequest,
     background_tasks: BackgroundTasks,

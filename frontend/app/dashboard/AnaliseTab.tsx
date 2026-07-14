@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { BarChart2, DollarSign, Scissors, TrendingUp } from "lucide-react";
+import { BarChart2, CalendarCheck2, DollarSign, TrendingUp } from "lucide-react";
 import { useAuthSession } from "@/services/auth";
 import { getDashboardAnalise, type AnaliseResponse } from "@/services/api";
 import styles from "./page.module.css";
@@ -50,7 +50,7 @@ export default function AnaliseTab() {
       {/* Bloco 1 — Resumo do mês */}
       <div className={styles.statsGrid}>
         <article className={styles.statCard}>
-          <div className={styles.statIcon}><Scissors size={22} /></div>
+          <div className={styles.statIcon}><CalendarCheck2 size={22} /></div>
           <div className={styles.statContent}>
             <span className={styles.statLabel}>Agendamentos</span>
             <strong className={styles.statValue}>{data.resumo.agendamentos}</strong>

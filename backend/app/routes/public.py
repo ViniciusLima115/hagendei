@@ -1,11 +1,12 @@
 from datetime import date, datetime
-import os
+import logging
 import re
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.limiter import RATE_LIMIT_PAYMENT_STATUS, RATE_LIMIT_PUBLIC, limiter
 from app.models.agendamento import Agendamento as AgendamentoModel
 from app.models.pagamento import Pagamento
 from app.models.servico import Servico
@@ -14,13 +15,11 @@ from app.schemas.public import (
     PublicAgendamentoResponse,
     PublicBarbeiroItem,
     PublicBarbeariaLookupResponse,
-    PublicClienteLookupResponse,
     PublicPagamentoInitResponse,
     PublicPagamentoStatusResponse,
     PublicServicoItem,
 )
 from app.services.public_booking_service import (
-    buscar_cliente_publico,
     criar_agendamento_publico,
     listar_barbeiros_publico,
     listar_horarios_disponiveis_publico,
@@ -39,14 +38,13 @@ from app.services.payments.payment_service import (
     start_checkout_for_booking,
     validate_service_advance_payment_config,
 )
-from app.services.payments.webhook_service import (
-    process_mercadopago_webhook,
-)
+from app.services.payments.webhook_service import sync_payment_status_from_provider
 from app.services.email_service import send_email_payload
 from app.services.notificacao_inapp_service import task_notificacao_novo_agendamento
 
 
 router = APIRouter(prefix="/public", tags=["public"])
+logger = logging.getLogger(__name__)
 
 
 def _normalizar_telefone_storage(telefone: str) -> str:
@@ -57,7 +55,9 @@ def _normalizar_telefone_storage(telefone: str) -> str:
 
 
 @router.get("/barbearia/{slug}", response_model=PublicBarbeariaLookupResponse)
+@limiter.limit(RATE_LIMIT_PUBLIC)
 def lookup_barbearia_publica(
+    request: Request,
     slug: str,
     data: date | None = Query(default=None),
     barbeiro_id: int | None = Query(default=None),
@@ -81,7 +81,9 @@ def lookup_barbearia_publica(
 
 
 @router.get("/barbearia-id/{barbearia_id}", response_model=PublicBarbeariaLookupResponse)
+@limiter.limit(RATE_LIMIT_PUBLIC)
 def lookup_barbearia_publica_por_id(
+    request: Request,
     barbearia_id: int,
     data: date | None = Query(default=None),
     barbeiro_id: int | None = Query(default=None),
@@ -105,7 +107,9 @@ def lookup_barbearia_publica_por_id(
 
 
 @router.get("/servicos", response_model=list[PublicServicoItem])
+@limiter.limit(RATE_LIMIT_PUBLIC)
 def listar_servicos_public(
+    request: Request,
     barbearia_id: int = Query(...),
     db: Session = Depends(get_db),
 ):
@@ -113,7 +117,9 @@ def listar_servicos_public(
 
 
 @router.get("/barbeiros", response_model=list[PublicBarbeiroItem])
+@limiter.limit(RATE_LIMIT_PUBLIC)
 def listar_barbeiros_public(
+    request: Request,
     barbearia_id: int = Query(...),
     db: Session = Depends(get_db),
 ):
@@ -121,7 +127,9 @@ def listar_barbeiros_public(
 
 
 @router.get("/horarios-disponiveis")
+@limiter.limit(RATE_LIMIT_PUBLIC)
 def horarios_disponiveis_public(
+    request: Request,
     barbearia_id: int = Query(...),
     barbeiro_id: int = Query(...),
     servico_id: int = Query(...),
@@ -137,25 +145,26 @@ def horarios_disponiveis_public(
     )
 
 
-@router.get("/{barbearia_id}/cliente", response_model=PublicClienteLookupResponse)
-def lookup_cliente_por_telefone(
-    barbearia_id: int,
-    telefone: str = Query(...),
-    db: Session = Depends(get_db),
-):
-    cliente = buscar_cliente_publico(db, barbearia_id=barbearia_id, telefone=telefone)
-    if not cliente:
-        raise HTTPException(status_code=404, detail="Cliente não encontrado.")
-    return cliente
-
-
 @router.post("/agendamentos", response_model=PublicAgendamentoResponse)
+@limiter.limit(RATE_LIMIT_PUBLIC)
 def criar_agendamento_public(
+    request: Request,
     dados: PublicAgendamentoCreate,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
 ):
     try:
+        exige_pagamento, _, _ = servico_exige_pagamento_adiantado_publico(
+            db,
+            slug=dados.slug,
+            barbearia_id=dados.barbearia_id,
+            servico_id=dados.servico_id,
+        )
+        if exige_pagamento:
+            raise HTTPException(
+                status_code=409,
+                detail="Este servico exige pagamento adiantado. Inicie o checkout para reservar o horario.",
+            )
         agendamento = criar_agendamento_publico(
             db,
             slug=dados.slug,
@@ -184,7 +193,9 @@ def criar_agendamento_public(
 
 
 @router.post("/agendamentos/pagamento/iniciar", response_model=PublicPagamentoInitResponse)
+@limiter.limit(RATE_LIMIT_PUBLIC)
 def iniciar_pagamento_agendamento_public(
+    request: Request,
     dados: PublicAgendamentoCreate,
     db: Session = Depends(get_db),
 ):
@@ -225,6 +236,7 @@ def iniciar_pagamento_agendamento_public(
                 AgendamentoModel.status == "pending_payment",
             )
             .order_by(AgendamentoModel.id.desc())
+            .with_for_update()
             .first()
         )
         if existente:
@@ -237,6 +249,8 @@ def iniciar_pagamento_agendamento_public(
                 pagamento_existente
                 and pagamento_existente.checkout_url
                 and pagamento_existente.status == PAYMENT_STATUS_PENDING
+                and pagamento_existente.expires_at
+                and pagamento_existente.expires_at > datetime.utcnow()
             ):
                 return {
                     "agendamento_id": existente.id,
@@ -248,6 +262,24 @@ def iniciar_pagamento_agendamento_public(
                     "agendamento_status": existente.status,
                     "expires_at": pagamento_existente.expires_at,
                 }
+            pagamento_retentativa = start_checkout_for_booking(
+                db,
+                booking=existente,
+                provider=PAYMENT_PROVIDER_MERCADO_PAGO,
+                payer_name=existente.cliente_nome,
+                payer_email=existente.cliente_email,
+                payer_phone=existente.cliente_telefone,
+            )
+            return {
+                "agendamento_id": existente.id,
+                "external_reference": pagamento_retentativa.external_reference,
+                "preference_id": pagamento_retentativa.preference_id or "",
+                "checkout_url": pagamento_retentativa.checkout_url or "",
+                "amount": float(pagamento_retentativa.amount or amount),
+                "pagamento_status": pagamento_retentativa.status,
+                "agendamento_status": existente.status,
+                "expires_at": pagamento_retentativa.expires_at,
+            }
 
         agendamento = criar_agendamento_publico(
             db,
@@ -305,13 +337,20 @@ def iniciar_pagamento_agendamento_public(
 
 
 @router.get("/pagamentos/status", response_model=PublicPagamentoStatusResponse)
+@limiter.limit(RATE_LIMIT_PAYMENT_STATUS)
 def consultar_status_pagamento(
+    request: Request,
     external_reference: str = Query(...),
     db: Session = Depends(get_db),
 ):
     pagamento = db.query(Pagamento).filter(Pagamento.external_reference == external_reference).first()
     if not pagamento or not pagamento.agendamento:
         raise HTTPException(status_code=404, detail="Pagamento nao encontrado.")
+    try:
+        pagamento, _ = sync_payment_status_from_provider(db, payment=pagamento)
+    except Exception as exc:
+        logger.warning("Falha ao sincronizar status publico do pagamento %s: %s", pagamento.id, exc)
+        db.rollback()
 
     return {
         "external_reference": pagamento.external_reference,
@@ -320,43 +359,3 @@ def consultar_status_pagamento(
         "agendamento_status": pagamento.agendamento.status,
         "amount": pagamento.amount,
     }
-
-
-@router.post("/pagamentos/mercado-pago/webhook")
-async def webhook_mercado_pago(
-    request: Request,
-    topic: str | None = Query(default=None),
-    webhook_id: str | None = Query(default=None, alias="id"),
-    payment_id_query: str | None = Query(default=None, alias="data.id"),
-    payment_id: int | None = Query(default=None),
-    token: str | None = Query(default=None),
-    db: Session = Depends(get_db),
-):
-    expected_token = os.getenv("MERCADOPAGO_WEBHOOK_TOKEN", "").strip()
-    if expected_token and token != expected_token:
-        raise HTTPException(status_code=401, detail="Webhook token invalido.")
-
-    raw_body = await request.body()
-    try:
-        payload = await request.json()
-        if not isinstance(payload, dict):
-            payload = {}
-    except Exception:
-        payload = {}
-
-    signature_header = request.headers.get("x-signature") or request.headers.get("x-hub-signature")
-    signature_secret = os.getenv("MERCADOPAGO_WEBHOOK_SECRET", "").strip() or None
-    try:
-        return process_mercadopago_webhook(
-            db,
-            payload=payload,
-            raw_body=raw_body,
-            local_payment_id=payment_id,
-            provider_payment_id_query=payment_id_query,
-            webhook_id=webhook_id,
-            topic=topic,
-            signature_header=signature_header,
-            signature_secret=signature_secret,
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc

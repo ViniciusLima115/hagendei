@@ -1,6 +1,6 @@
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timedelta
 
-from pydantic import AliasChoices, BaseModel, ConfigDict, Field, model_validator
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class PublicBarbeiroItem(BaseModel):
@@ -50,20 +50,35 @@ class PublicClienteLookupResponse(BaseModel):
 
 
 class PublicAgendamentoCreate(BaseModel):
-    slug: str | None = None
-    barbearia_id: int | None = None
-    cliente_nome: str
-    cliente_telefone: str
-    cliente_email: str | None = None
-    barbeiro_id: int
-    servico_id: int
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    slug: str | None = Field(default=None, min_length=1, max_length=120, pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+    barbearia_id: int | None = Field(default=None, gt=0)
+    cliente_nome: str = Field(min_length=2, max_length=120)
+    cliente_telefone: str = Field(min_length=8, max_length=30, pattern=r"^[0-9+().\s-]+$")
+    cliente_email: str | None = Field(
+        default=None,
+        max_length=255,
+        pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$",
+    )
+    barbeiro_id: int = Field(gt=0)
+    servico_id: int = Field(gt=0)
     data: date
     hora_inicio: time
 
+    @field_validator("cliente_nome")
+    @classmethod
+    def validar_nome(cls, value: str) -> str:
+        if any(ord(char) < 32 for char in value) or "<" in value or ">" in value:
+            raise ValueError("Nome contem caracteres invalidos.")
+        return value
+
     @model_validator(mode="after")
     def validar_tenant_identificador(self):
-        if not self.slug and not self.barbearia_id:
-            raise ValueError("Informe slug ou estabelecimento_id para identificar o estabelecimento.")
+        if bool(self.slug) == bool(self.barbearia_id):
+            raise ValueError("Informe apenas slug ou estabelecimento_id para identificar o estabelecimento.")
+        if self.data > date.today() + timedelta(days=730):
+            raise ValueError("Data fora da janela permitida para agendamento.")
         return self
 
 

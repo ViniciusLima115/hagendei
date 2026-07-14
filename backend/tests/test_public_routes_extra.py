@@ -80,15 +80,14 @@ def test_lookup_barbearia_por_id_com_data_e_params(client, db_session):
 
 # ── GET /public/{barbearia_id}/cliente ───────────────────────────────────────
 
-def test_lookup_cliente_retorna_200_quando_existe(client, db_session):
+def test_lookup_cliente_nao_permite_enumerar_cadastro_existente(client, db_session):
     b = _barbearia(db_session, "cliente-lookup")
     c = Cliente(telefone="11999990001", nome="Joana", barbearia_id=b.id)
     db_session.add(c)
     db_session.commit()
 
     resp = client.get(f"/public/{b.id}/cliente", params={"telefone": "11999990001"})
-    assert resp.status_code == 200
-    assert resp.json()["nome"] == "Joana"
+    assert resp.status_code == 404
 
 
 def test_lookup_cliente_retorna_404_quando_nao_existe(client, db_session):

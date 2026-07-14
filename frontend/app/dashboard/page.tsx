@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Lock, TrendingUp, Users, Scissors, DollarSign, ArrowLeft } from "lucide-react";
+import { ArrowLeft, CalendarCheck2, DollarSign, Lock, TrendingUp, Users } from "lucide-react";
 import Link from "next/link";
 import {
   LineChart,
@@ -112,7 +112,7 @@ function DashboardBasico({ tenantId }: { tenantId: string }) {
 
         <div className={styles.statsGrid}>
           <article className={styles.statCard}>
-            <div className={styles.statIcon}><Scissors size={22} /></div>
+            <div className={styles.statIcon}><CalendarCheck2 size={22} /></div>
             <div className={styles.statContent}>
               <span className={styles.statLabel}>Agendamentos hoje</span>
               <strong className={styles.statValue}>{resumo.agendamentos_hoje}</strong>
@@ -207,9 +207,12 @@ export default function DashboardPage() {
   }, [isPremium, tenantId]);
 
   useEffect(() => {
-    carregarDadosPremium();
+    const frame = window.requestAnimationFrame(carregarDadosPremium);
     window.addEventListener("presenca-confirmada", carregarDadosPremium);
-    return () => window.removeEventListener("presenca-confirmada", carregarDadosPremium);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener("presenca-confirmada", carregarDadosPremium);
+    };
   }, [carregarDadosPremium]);
 
   if (!session) return null;
@@ -312,7 +315,7 @@ export default function DashboardPage() {
           </article>
 
           <article className={styles.statCard}>
-            <div className={styles.statIcon}><Scissors size={22} /></div>
+            <div className={styles.statIcon}><CalendarCheck2 size={22} /></div>
             <div className={styles.statContent}>
               <span className={styles.statLabel}>Agendamentos</span>
               <strong className={styles.statValue}>{financeiro.total_agendamentos}</strong>

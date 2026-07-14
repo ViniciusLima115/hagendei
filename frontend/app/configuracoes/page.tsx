@@ -36,15 +36,14 @@ const PRESETS: Preset[] = [
 async function patchConfiguracao(
   section: string,
   body: Record<string, unknown>,
-  token: string,
 ): Promise<{ ok: boolean; detail?: string }> {
   try {
     const resp = await fetch(`${API_URL}/configuracoes/${section}`, {
       method: "PATCH",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
       },
+      credentials: "include",
       body: JSON.stringify(body),
     });
     const data = await resp.json().catch(() => ({}));
@@ -59,7 +58,13 @@ function ConfiguracoesContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const [activeSection, setActiveSection] = useState<Section>("perfil");
+  const requestedSection = searchParams.get("aba");
+  const activeSection: Section =
+    requestedSection === "senha" ||
+    requestedSection === "tema" ||
+    requestedSection === "notificacoes"
+      ? requestedSection
+      : "perfil";
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -85,13 +90,6 @@ function ConfiguracoesContent() {
     if (session?.tenantId === "admin") router.replace("/admin");
   }, [session?.tenantId, router]);
 
-  useEffect(() => {
-    const aba = searchParams.get("aba");
-    if (aba === "perfil" || aba === "senha" || aba === "tema" || aba === "notificacoes") {
-      setActiveSection(aba);
-    }
-  }, [searchParams]);
-
   function clearMessages() {
     setSuccess(null);
     setError(null);
@@ -106,7 +104,7 @@ function ConfiguracoesContent() {
 
   async function handleSalvarPerfil(e: React.FormEvent) {
     e.preventDefault();
-    if (!session?.accessToken) return;
+    if (!session) return;
     clearMessages();
     setLoading(true);
     const result = await patchConfiguracao(
@@ -117,7 +115,6 @@ function ConfiguracoesContent() {
         whatsapp_number: whatsapp || undefined,
         slug: slug || undefined,
       },
-      session.accessToken,
     );
     setLoading(false);
     if (result.ok) setSuccess("Perfil atualizado com sucesso.");
@@ -126,7 +123,7 @@ function ConfiguracoesContent() {
 
   async function handleSalvarSenha(e: React.FormEvent) {
     e.preventDefault();
-    if (!session?.accessToken) return;
+    if (!session) return;
     clearMessages();
     if (novaSenha !== confirmarSenha) {
       setError("Nova senha e confirmacao nao coincidem.");
@@ -141,7 +138,6 @@ function ConfiguracoesContent() {
     const result = await patchConfiguracao(
       "senha",
       { senha_atual: senhaAtual, nova_senha: novaSenha },
-      session.accessToken,
     );
     setLoading(false);
 
@@ -157,14 +153,13 @@ function ConfiguracoesContent() {
 
   async function handleSalvarTema(e: React.FormEvent) {
     e.preventDefault();
-    if (!session?.accessToken) return;
+    if (!session) return;
     clearMessages();
 
     setLoading(true);
     const result = await patchConfiguracao(
       "tema",
       { accent_color: accentColor, bg_color: bgColor, logo_url: logoUrl || null },
-      session.accessToken,
     );
     setLoading(false);
 
@@ -191,14 +186,13 @@ function ConfiguracoesContent() {
 
   async function handleSalvarNotificacoes(e: React.FormEvent) {
     e.preventDefault();
-    if (!session?.accessToken) return;
+    if (!session) return;
     clearMessages();
 
     setLoading(true);
     const result = await patchConfiguracao(
       "notificacoes",
       { notif_ativo: notifAtivo, notif_horas_antes: notifHoras },
-      session.accessToken,
     );
     setLoading(false);
     if (result.ok) setSuccess("Preferencias salvas.");
@@ -224,7 +218,7 @@ function ConfiguracoesContent() {
                 type="button"
                 className={`${styles.navItem} ${activeSection === id ? styles.navItemActive : ""}`}
                 onClick={() => {
-                  setActiveSection(id);
+                  router.replace(`/configuracoes?aba=${id}`, { scroll: false });
                   clearMessages();
                 }}
               >
@@ -384,6 +378,8 @@ function ConfiguracoesContent() {
                   <div className={styles.field}>
                     <label className={styles.fieldLabel} htmlFor="logo-url">URL do logotipo</label>
                     <input id="logo-url" className="input" value={logoUrl ?? ""} onChange={(e) => setLogoUrl(e.target.value)} />
+                    {/* URLs de tenant nao passam pelo otimizador do servidor, evitando fetch interno. */}
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     {logoUrl && <img src={logoUrl} alt="Preview do logo" className={styles.logoPreview} />}
                   </div>
                 </div>

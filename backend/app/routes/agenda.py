@@ -12,6 +12,7 @@ from app.models.pagamento import Pagamento
 from app.routes.deps import tenant_id_from_header
 from app.services.barbershop_hours_service import build_day_slots, get_working_window
 from app.services.agenda_service import gerar_horarios_disponiveis
+from app.services.payments.webhook_service import sync_pending_payment_statuses
 
 router = APIRouter(prefix="/agenda")
 
@@ -68,6 +69,7 @@ def agenda_dia(
         agora = datetime.utcnow()
         inicio_dia = min(datetime.combine(data.date(), janela[0]) for janela in intervalos_ativos)
         fim_dia = max(datetime.combine(data.date(), janela[1]) for janela in intervalos_ativos)
+        sync_pending_payment_statuses(db, establishment_id=tenant_id, limit=20)
         agendamentos = (
             db.query(Agendamento)
             .options(

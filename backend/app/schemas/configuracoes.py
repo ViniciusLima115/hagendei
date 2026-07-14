@@ -1,33 +1,39 @@
 import re
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 _HEX_COLOR_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
 
 
 class PerfilUpdate(BaseModel):
-    nome: str | None = None
-    endereco: str | None = None
-    whatsapp_number: str | None = None
-    slug: str | None = None
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    nome: str | None = Field(default=None, min_length=2, max_length=255)
+    endereco: str | None = Field(default=None, max_length=255)
+    whatsapp_number: str | None = Field(default=None, max_length=30, pattern=r"^[0-9+().\s-]+$")
+    slug: str | None = Field(default=None, min_length=1, max_length=120, pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 
 
 class SenhaUpdate(BaseModel):
-    senha_atual: str
-    nova_senha: str
+    model_config = ConfigDict(extra="forbid")
+
+    senha_atual: str = Field(min_length=1, max_length=1024)
+    nova_senha: str = Field(min_length=8, max_length=128)
 
     @field_validator("nova_senha")
     @classmethod
     def nova_senha_minima(cls, v: str) -> str:
-        if len(v) < 8:
-            raise ValueError("A nova senha deve ter pelo menos 8 caracteres.")
+        if len(v.encode("utf-8")) > 72:
+            raise ValueError("A nova senha deve ter no maximo 72 bytes.")
         return v
 
 
 class TemaUpdate(BaseModel):
-    accent_color: str | None = None
-    bg_color: str | None = None
-    logo_url: str | None = None
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    accent_color: str | None = Field(default=None, max_length=7)
+    bg_color: str | None = Field(default=None, max_length=7)
+    logo_url: str | None = Field(default=None, max_length=500)
 
     @field_validator("accent_color", "bg_color")
     @classmethod
@@ -49,6 +55,8 @@ class TemaUpdate(BaseModel):
 
 
 class NotificacoesUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     notif_ativo: bool | None = None
     notif_horas_antes: int | None = None
 

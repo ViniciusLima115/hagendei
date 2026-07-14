@@ -14,7 +14,7 @@ from app.services.webhook_payload_service import (
 
 
 PROVIDER_META_WEBHOOK = "meta-webhook"
-_BOOKING_BASE = os.getenv("BOOKING_PUBLIC_BASE_URL", "https://app.virtualbarber.shop")
+_BOOKING_BASE = os.getenv("BOOKING_PUBLIC_BASE_URL", "http://127.0.0.1:3000")
 
 
 def _normalizar_telefone(telefone: str) -> str:

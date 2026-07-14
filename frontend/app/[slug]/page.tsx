@@ -3,14 +3,32 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import {
+  AlertCircle,
+  CalendarCheck,
+  CalendarDays,
+  Check,
+  CheckCircle2,
+  ClipboardList,
+  Clock3,
+  CreditCard,
+  LoaderCircle,
+  Mail,
+  MessageCircle,
+  ShieldCheck,
+  UserRound,
+} from "lucide-react";
+import {
   createPublicBooking,
   lookupPublicBarbershop,
   PublicLookupResponse,
   startPublicBookingPayment,
 } from "@/services/api";
+import styles from "./page.module.css";
 
 function hojeISO() {
-  return new Date().toISOString().slice(0, 10);
+  const agora = new Date();
+  const local = new Date(agora.getTime() - agora.getTimezoneOffset() * 60_000);
+  return local.toISOString().slice(0, 10);
 }
 
 function moedaBRL(valor: number) {
@@ -24,11 +42,32 @@ function normalizarTelefone(valor: string) {
   return valor.replace(/\D/g, "");
 }
 
+function formatarTelefone(valor: string) {
+  const numeros = normalizarTelefone(valor).slice(0, 11);
+  if (numeros.length <= 2) return numeros;
+  if (numeros.length <= 7) return `(${numeros.slice(0, 2)}) ${numeros.slice(2)}`;
+  if (numeros.length <= 10) {
+    return `(${numeros.slice(0, 2)}) ${numeros.slice(2, 6)}-${numeros.slice(6)}`;
+  }
+  return `(${numeros.slice(0, 2)}) ${numeros.slice(2, 7)}-${numeros.slice(7)}`;
+}
+
+function formatarData(data: string) {
+  const [ano, mes, dia] = data.split("-").map(Number);
+  if (!ano || !mes || !dia) return "-";
+  return new Intl.DateTimeFormat("pt-BR", {
+    weekday: "short",
+    day: "2-digit",
+    month: "short",
+  }).format(new Date(ano, mes - 1, dia));
+}
+
 export default function PublicBookingPage() {
   const params = useParams<{ slug: string }>();
   const slug = (params?.slug || "").trim().toLowerCase();
 
   const [loading, setLoading] = useState(true);
+  const [loadingHorarios, setLoadingHorarios] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [sucesso, setSucesso] = useState<string | null>(null);
@@ -60,7 +99,7 @@ export default function PublicBookingPage() {
         setServicoId(primeiroServico);
       } catch (err) {
         if (!ativo) return;
-        setErro(err instanceof Error ? err.message : "Nao foi possivel carregar o estabelecimento.");
+        setErro(err instanceof Error ? err.message : "Não foi possível carregar o estabelecimento.");
       } finally {
         if (ativo) setLoading(false);
       }
@@ -77,6 +116,7 @@ export default function PublicBookingPage() {
 
     async function carregarDisponibilidade() {
       if (!slug || !barbeiroId || !servicoId) return;
+      setLoadingHorarios(true);
       setErro(null);
       try {
         const atualizado = await lookupPublicBarbershop({
@@ -96,7 +136,9 @@ export default function PublicBookingPage() {
         });
       } catch (err) {
         if (!ativo) return;
-        setErro(err instanceof Error ? err.message : "Falha ao carregar horarios.");
+        setErro(err instanceof Error ? err.message : "Falha ao carregar horários.");
+      } finally {
+        if (ativo) setLoadingHorarios(false);
       }
     }
 
@@ -116,21 +158,26 @@ export default function PublicBookingPage() {
     return lookup.barbeiros.find((item) => item.id === barbeiroId) ?? null;
   }, [lookup, barbeiroId]);
 
-  const pagamentoAdiantadoObrigatorio = Boolean(servicoSelecionado?.pagamento_adiantado_obrigatorio_efetivo);
+  const pagamentoAdiantadoObrigatorio = Boolean(
+    servicoSelecionado?.pagamento_adiantado_obrigatorio_efetivo
+  );
   const tipoPagamentoAdiantado = servicoSelecionado?.advance_payment_type ?? "full";
   const valorPagamentoAdiantado =
     tipoPagamentoAdiantado === "signal"
       ? Number(servicoSelecionado?.advance_payment_amount || 0)
       : Number(servicoSelecionado?.preco || 0);
+  const dadosClientePreenchidos = Boolean(
+    nomeCliente.trim() && normalizarTelefone(telefoneCliente) && emailCliente.trim()
+  );
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!slug || !barbeiroId || !servicoId || !horaInicio) {
-      setErro("Preencha todos os campos e selecione um horario disponivel.");
+      setErro("Preencha todos os campos e selecione um horário disponível.");
       return;
     }
     if (!nomeCliente.trim() || !normalizarTelefone(telefoneCliente) || !emailCliente.trim()) {
-      setErro("Preencha nome, telefone e email.");
+      setErro("Preencha nome, telefone e e-mail.");
       return;
     }
 
@@ -150,14 +197,14 @@ export default function PublicBookingPage() {
       };
 
       if (pagamentoAdiantadoObrigatorio) {
-        setSucesso("Seu horario foi reservado por alguns minutos. Redirecionando para o checkout...");
+        setSucesso("Seu horário foi reservado por 5 minutos. Redirecionando para o checkout...");
         const pagamento = await startPublicBookingPayment(payload);
         window.location.href = pagamento.checkout_url;
         return;
       }
 
       await createPublicBooking(payload);
-      setSucesso("Agendamento criado. Enviamos a confirmacao por email.");
+      setSucesso("Agendamento criado. Enviamos a confirmação por e-mail.");
       setHoraInicio(null);
 
       const atualizado = await lookupPublicBarbershop({
@@ -168,7 +215,7 @@ export default function PublicBookingPage() {
       });
       setLookup(atualizado);
     } catch (err) {
-      setErro(err instanceof Error ? err.message : "Nao foi possivel concluir o agendamento.");
+      setErro(err instanceof Error ? err.message : "Não foi possível concluir o agendamento.");
     } finally {
       setSubmitting(false);
     }
@@ -176,9 +223,13 @@ export default function PublicBookingPage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-slate-100 px-4 py-10">
-        <div className="mx-auto max-w-4xl rounded-2xl bg-white p-6 shadow-sm">
-          <p className="text-sm text-slate-600">Carregando pagina de agendamento...</p>
+      <main className={styles.page}>
+        <div className={styles.statePanel} role="status">
+          <LoaderCircle className={styles.stateSpinner} size={24} aria-hidden="true" />
+          <div>
+            <strong>Preparando seu agendamento</strong>
+            <p>Buscando profissionais, serviços e horários disponíveis.</p>
+          </div>
         </div>
       </main>
     );
@@ -186,196 +237,349 @@ export default function PublicBookingPage() {
 
   if (!lookup) {
     return (
-      <main className="min-h-screen bg-slate-100 px-4 py-10">
-        <div className="mx-auto max-w-4xl rounded-2xl bg-white p-6 shadow-sm">
-          <p className="text-sm font-medium text-red-600">
-            {erro ?? "Estabelecimento nao encontrado para este link."}
-          </p>
+      <main className={styles.page}>
+        <div className={styles.statePanel} role="alert">
+          <AlertCircle size={24} aria-hidden="true" />
+          <div>
+            <strong>Página indisponível</strong>
+            <p>{erro ?? "Estabelecimento não encontrado para este link."}</p>
+          </div>
         </div>
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-zinc-950 via-zinc-900 to-zinc-800 px-4 py-8">
-      <div className="mx-auto grid max-w-5xl gap-6 md:grid-cols-[1.05fr_1.4fr]">
-        <section className="rounded-2xl border border-amber-400/30 bg-zinc-900/70 p-6 text-zinc-100 shadow-xl backdrop-blur">
-          <p className="text-xs uppercase tracking-[0.2em] text-amber-300">Agendamento Online</p>
-          <h1 className="mt-2 text-3xl font-black leading-tight">{lookup.nome}</h1>
-          <p className="mt-3 text-sm text-zinc-300">
-            Preencha seus dados, escolha o servico e selecione um horario.
-          </p>
-          <div className="mt-6 rounded-xl border border-zinc-700 bg-zinc-950/80 p-4">
-            <p className="text-xs text-zinc-400">Servico selecionado</p>
-            <p className="mt-1 text-lg font-bold text-amber-300">
-              {servicoSelecionado ? `${servicoSelecionado.nome} - ${moedaBRL(servicoSelecionado.preco)}` : "-"}
-            </p>
-            <p className="text-xs text-zinc-400">
-              Duracao: {servicoSelecionado ? `${servicoSelecionado.duracao} min` : "-"}
-            </p>
-            {pagamentoAdiantadoObrigatorio ? (
-              <p className="mt-2 inline-flex rounded-full bg-amber-200/15 px-2 py-1 text-[11px] font-semibold text-amber-200">
-                {tipoPagamentoAdiantado === "signal" ? "Sinal online obrigatorio" : "Pagamento antecipado obrigatorio"}
-              </p>
-            ) : null}
-          </div>
-        </section>
-
-        <section className="rounded-2xl bg-white p-6 shadow-xl">
-          <form className="space-y-4" onSubmit={onSubmit}>
-            <div className="grid gap-4 md:grid-cols-3">
-              <label className="block">
-                <span className="mb-1 block text-sm font-medium text-slate-700">Nome do cliente</span>
-                <input
-                  className="input"
-                  required
-                  value={nomeCliente}
-                  onChange={(event) => setNomeCliente(event.target.value)}
-                  placeholder="Ex.: Joao Silva"
-                />
-              </label>
-              <label className="block">
-                <span className="mb-1 block text-sm font-medium text-slate-700">Telefone (WhatsApp)</span>
-                <input
-                  className="input"
-                  required
-                  value={telefoneCliente}
-                  onChange={(event) => setTelefoneCliente(event.target.value)}
-                  placeholder="Ex.: (82) 99999-0000"
-                />
-              </label>
-              <label className="block">
-                <span className="mb-1 block text-sm font-medium text-slate-700">Email</span>
-                <input
-                  className="input"
-                  required
-                  type="email"
-                  value={emailCliente}
-                  onChange={(event) => setEmailCliente(event.target.value)}
-                  placeholder="Ex.: cliente@email.com"
-                />
-              </label>
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-[1fr_2fr]">
-              <label className="block">
-                <span className="mb-1 block text-sm font-medium text-slate-700">Profissional</span>
-                <select
-                  className="select"
-                  value={barbeiroId ?? ""}
-                  onChange={(event) => {
-                    const valor = Number(event.target.value);
-                    setBarbeiroId(Number.isFinite(valor) ? valor : null);
-                    setHoraInicio(null);
-                  }}
-                >
-                  {lookup.barbeiros.map((barbeiro) => (
-                    <option key={barbeiro.id} value={barbeiro.id}>
-                      {barbeiro.nome}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label className="block">
-                <span className="mb-1 block text-sm font-medium text-slate-700">Serviço</span>
-                <select
-                  className="select"
-                  value={servicoId ?? ""}
-                  onChange={(event) => {
-                    const valor = Number(event.target.value);
-                    setServicoId(Number.isFinite(valor) ? valor : null);
-                    setHoraInicio(null);
-                  }}
-                >
-                  {lookup.servicos.map((servico) => (
-                    <option key={servico.id} value={servico.id}>
-                      {servico.nome} - {moedaBRL(servico.preco)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-
-            <label className="block">
-              <span className="mb-1 block text-sm font-medium text-slate-700">Data</span>
-              <input
-                className="input w-48"
-                type="date"
-                min={hojeISO()}
-                value={data}
-                onChange={(event) => {
-                  setData(event.target.value);
-                  setHoraInicio(null);
-                }}
-              />
-            </label>
-
+    <main className={styles.page}>
+      <div className={styles.shell}>
+        <header className={styles.brandHeader}>
+          <div className={styles.brandIdentity}>
+            <span className={styles.brandMark} aria-hidden="true">
+              <CalendarDays size={24} strokeWidth={2} />
+            </span>
             <div>
-              <div className="mb-2 flex items-center justify-between">
-                <span className="text-sm font-medium text-slate-700">Horarios</span>
-                <span className="text-xs text-slate-500">Indisponivel = X sobre o horario</span>
+              <p className={styles.eyebrow}>Agendamento online</p>
+              <h1>{lookup.nome}</h1>
+              <p className={styles.brandSubtitle}>Escolha o melhor horário para o seu atendimento.</p>
+            </div>
+          </div>
+          <div className={styles.secureBadge}>
+            <ShieldCheck size={17} aria-hidden="true" />
+            <span>Reserva segura</span>
+          </div>
+        </header>
+
+        <form className={styles.bookingLayout} onSubmit={onSubmit}>
+          <div className={styles.formPanel}>
+            <section className={styles.stepSection}>
+              <div className={styles.stepHeader}>
+                <span
+                  className={`${styles.stepIndicator} ${
+                    servicoSelecionado && barbeiroSelecionado ? styles.stepComplete : ""
+                  }`}
+                >
+                  {servicoSelecionado && barbeiroSelecionado ? (
+                    <Check size={17} aria-hidden="true" />
+                  ) : (
+                    "1"
+                  )}
+                </span>
+                <div>
+                  <h2>Escolha o atendimento</h2>
+                  <p>Selecione o profissional e o serviço desejado.</p>
+                </div>
               </div>
-              <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5">
-                {lookup.horarios_grade.map((slot) => {
-                  const selecionado = horaInicio === slot.hora;
-                  return (
-                    <button
-                      key={slot.hora}
-                      type="button"
-                      disabled={!slot.disponivel}
-                      onClick={() => setHoraInicio(slot.hora)}
-                      className={[
-                        "relative rounded-lg border px-2 py-2 text-sm font-semibold transition",
-                        slot.disponivel
-                          ? "border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
-                          : "cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400",
-                        selecionado ? "ring-2 ring-blue-500" : "",
-                      ].join(" ")}
+
+              <div className={styles.fieldGrid}>
+                <label className={styles.field}>
+                  <span className={styles.fieldLabel}>Profissional</span>
+                  <span className={styles.controlWrap}>
+                    <UserRound size={18} aria-hidden="true" />
+                    <select
+                      className={styles.control}
+                      value={barbeiroId ?? ""}
+                      onChange={(event) => {
+                        const valor = Number(event.target.value);
+                        setBarbeiroId(Number.isFinite(valor) ? valor : null);
+                        setHoraInicio(null);
+                      }}
                     >
-                      <span>{slot.hora}</span>
-                      {!slot.disponivel && (
-                        <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-lg text-red-500">
-                          X
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
+                      {lookup.barbeiros.map((barbeiro) => (
+                        <option key={barbeiro.id} value={barbeiro.id}>
+                          {barbeiro.nome}
+                        </option>
+                      ))}
+                    </select>
+                  </span>
+                </label>
+
+                <label className={styles.field}>
+                  <span className={styles.fieldLabel}>Serviço</span>
+                  <span className={styles.controlWrap}>
+                    <ClipboardList size={18} aria-hidden="true" />
+                    <select
+                      className={styles.control}
+                      value={servicoId ?? ""}
+                      onChange={(event) => {
+                        const valor = Number(event.target.value);
+                        setServicoId(Number.isFinite(valor) ? valor : null);
+                        setHoraInicio(null);
+                      }}
+                    >
+                      {lookup.servicos.map((servico) => (
+                        <option key={servico.id} value={servico.id}>
+                          {servico.nome} - {moedaBRL(servico.preco)}
+                        </option>
+                      ))}
+                    </select>
+                  </span>
+                </label>
+              </div>
+
+              {servicoSelecionado ? (
+                <div className={styles.serviceStrip}>
+                  <div>
+                    <span className={styles.serviceIcon}>
+                      <ClipboardList size={17} aria-hidden="true" />
+                    </span>
+                    <span>
+                      <strong>{servicoSelecionado.nome}</strong>
+                      <small>{servicoSelecionado.duracao} minutos</small>
+                    </span>
+                  </div>
+                  <strong>{moedaBRL(servicoSelecionado.preco)}</strong>
+                </div>
+              ) : null}
+            </section>
+
+            <section className={styles.stepSection}>
+              <div className={styles.stepHeader}>
+                <span className={`${styles.stepIndicator} ${horaInicio ? styles.stepComplete : ""}`}>
+                  {horaInicio ? <Check size={17} aria-hidden="true" /> : "2"}
+                </span>
+                <div>
+                  <h2>Escolha data e horário</h2>
+                  <p>Os horários abaixo refletem a disponibilidade atual.</p>
+                </div>
+              </div>
+
+              <label className={`${styles.field} ${styles.dateField}`}>
+                <span className={styles.fieldLabel}>Data do atendimento</span>
+                <span className={styles.controlWrap}>
+                  <CalendarDays size={18} aria-hidden="true" />
+                  <input
+                    className={styles.control}
+                    type="date"
+                    min={hojeISO()}
+                    value={data}
+                    onChange={(event) => {
+                      setData(event.target.value);
+                      setHoraInicio(null);
+                    }}
+                  />
+                </span>
+              </label>
+
+              <div className={styles.scheduleHeader}>
+                <span>Horários disponíveis</span>
+                <div className={styles.legend} aria-label="Legenda dos horários">
+                  <span><i className={styles.availableDot} />Disponível</span>
+                  <span><i className={styles.unavailableDot} />Indisponível</span>
+                </div>
+              </div>
+
+              <div className={styles.slots} aria-busy={loadingHorarios}>
+                {loadingHorarios ? (
+                  Array.from({ length: 10 }).map((_, index) => (
+                    <span className={styles.slotSkeleton} key={index} />
+                  ))
+                ) : lookup.horarios_grade.length ? (
+                  lookup.horarios_grade.map((slot) => {
+                    const selecionado = horaInicio === slot.hora;
+                    return (
+                      <button
+                        key={slot.hora}
+                        type="button"
+                        disabled={!slot.disponivel}
+                        aria-pressed={selecionado}
+                        aria-label={`${slot.hora} - ${slot.disponivel ? "disponível" : "indisponível"}`}
+                        title={slot.disponivel ? `Selecionar ${slot.hora}` : "Horário indisponível"}
+                        onClick={() => setHoraInicio(slot.hora)}
+                        className={`${styles.slot} ${
+                          !slot.disponivel ? styles.slotUnavailable : ""
+                        } ${selecionado ? styles.slotSelected : ""}`}
+                      >
+                        <span>{slot.hora}</span>
+                        {selecionado ? <Check size={15} aria-hidden="true" /> : null}
+                      </button>
+                    );
+                  })
+                ) : (
+                  <div className={styles.emptySlots}>
+                    <Clock3 size={20} aria-hidden="true" />
+                    <span>Não há horários disponíveis nesta data.</span>
+                  </div>
+                )}
+              </div>
+            </section>
+
+            <section className={styles.stepSection}>
+              <div className={styles.stepHeader}>
+                <span
+                  className={`${styles.stepIndicator} ${
+                    dadosClientePreenchidos ? styles.stepComplete : ""
+                  }`}
+                >
+                  {dadosClientePreenchidos ? <Check size={17} aria-hidden="true" /> : "3"}
+                </span>
+                <div>
+                  <h2>Seus dados</h2>
+                  <p>Usaremos esses dados para enviar a confirmação.</p>
+                </div>
+              </div>
+
+              <div className={styles.customerGrid}>
+                <label className={`${styles.field} ${styles.fullField}`}>
+                  <span className={styles.fieldLabel}>Nome completo</span>
+                  <span className={styles.controlWrap}>
+                    <UserRound size={18} aria-hidden="true" />
+                    <input
+                      className={styles.control}
+                      required
+                      autoComplete="name"
+                      value={nomeCliente}
+                      onChange={(event) => setNomeCliente(event.target.value)}
+                      placeholder="Ex.: Joao Silva"
+                    />
+                  </span>
+                </label>
+
+                <label className={styles.field}>
+                  <span className={styles.fieldLabel}>Telefone (WhatsApp)</span>
+                  <span className={styles.controlWrap}>
+                    <MessageCircle size={18} aria-hidden="true" />
+                    <input
+                      className={styles.control}
+                      required
+                      type="tel"
+                      inputMode="tel"
+                      autoComplete="tel"
+                      value={telefoneCliente}
+                      onChange={(event) => setTelefoneCliente(formatarTelefone(event.target.value))}
+                      placeholder="(82) 99999-0000"
+                    />
+                  </span>
+                </label>
+
+                <label className={styles.field}>
+                  <span className={styles.fieldLabel}>E-mail</span>
+                  <span className={styles.controlWrap}>
+                    <Mail size={18} aria-hidden="true" />
+                    <input
+                      className={styles.control}
+                      required
+                      type="email"
+                      autoComplete="email"
+                      value={emailCliente}
+                      onChange={(event) => setEmailCliente(event.target.value)}
+                      placeholder="cliente@email.com"
+                    />
+                  </span>
+                </label>
+              </div>
+            </section>
+          </div>
+
+          <aside className={styles.summaryPanel} aria-label="Resumo do agendamento">
+            <div className={styles.summaryHeading}>
+              <p>Seu agendamento</p>
+              <h2>Revise os detalhes</h2>
+            </div>
+
+            <div className={styles.summaryList}>
+              <div className={styles.summaryItem}>
+                <span><ClipboardList size={17} aria-hidden="true" /></span>
+                <div><small>Serviço</small><strong>{servicoSelecionado?.nome ?? "-"}</strong></div>
+              </div>
+              <div className={styles.summaryItem}>
+                <span><UserRound size={17} aria-hidden="true" /></span>
+                <div><small>Profissional</small><strong>{barbeiroSelecionado?.nome ?? "-"}</strong></div>
+              </div>
+              <div className={styles.summaryItem}>
+                <span><CalendarDays size={17} aria-hidden="true" /></span>
+                <div><small>Data</small><strong>{formatarData(data)}</strong></div>
+              </div>
+              <div className={styles.summaryItem}>
+                <span><Clock3 size={17} aria-hidden="true" /></span>
+                <div>
+                  <small>Horário</small>
+                  <strong className={!horaInicio ? styles.pendingValue : ""}>
+                    {horaInicio ?? "Selecione um horário"}
+                  </strong>
+                </div>
               </div>
             </div>
 
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-              <h3 className="text-sm font-semibold text-slate-800">Resumo do agendamento</h3>
-              <div className="mt-2 grid gap-1 text-sm text-slate-700">
-                <p><strong>Servico:</strong> {servicoSelecionado?.nome ?? "-"}</p>
-                <p><strong>Profissional:</strong> {barbeiroSelecionado?.nome ?? "-"}</p>
-                <p><strong>Data:</strong> {data || "-"}</p>
-                <p><strong>Horario:</strong> {horaInicio ?? "-"}</p>
-                <p><strong>Valor:</strong> {servicoSelecionado ? moedaBRL(servicoSelecionado.preco) : "-"}</p>
-              </div>
-              {pagamentoAdiantadoObrigatorio && (
-                <p className="mt-3 rounded-lg bg-amber-100 px-3 py-2 text-xs font-medium text-amber-900">
-                  {tipoPagamentoAdiantado === "signal"
-                    ? `Sinal online obrigatorio (${moedaBRL(valorPagamentoAdiantado)}).`
-                    : "Pagamento antecipado obrigatorio para confirmar o agendamento."}
-                </p>
-              )}
-              {pagamentoAdiantadoObrigatorio && (
-                <p className="mt-2 rounded-lg bg-blue-50 px-3 py-2 text-xs font-medium text-blue-700">
-                  Seu horario ficara reservado por alguns minutos enquanto o pagamento e concluido.
-                </p>
-              )}
+            <div className={styles.totalRow}>
+              <span>{tipoPagamentoAdiantado === "signal" ? "Pagar agora" : "Total"}</span>
+              <strong>
+                {servicoSelecionado
+                  ? moedaBRL(
+                      tipoPagamentoAdiantado === "signal"
+                        ? valorPagamentoAdiantado
+                        : servicoSelecionado.preco
+                    )
+                  : "-"}
+              </strong>
             </div>
 
-            {erro && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{erro}</p>}
-            {sucesso && <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{sucesso}</p>}
+            {pagamentoAdiantadoObrigatorio ? (
+              <div className={styles.paymentNotice}>
+                <ShieldCheck size={19} aria-hidden="true" />
+                <p>
+                  <strong>
+                    {tipoPagamentoAdiantado === "signal"
+                      ? "Sinal online obrigatório"
+                      : "Pagamento antecipado"}
+                  </strong>
+                  O horário fica reservado por 5 minutos durante o pagamento.
+                </p>
+              </div>
+            ) : null}
 
-            <button className="btn btn-success w-full" type="submit" disabled={submitting}>
-              {submitting ? "Processando..." : pagamentoAdiantadoObrigatorio ? "Pagar e confirmar agendamento" : "Confirmar Agendamento"}
+            <div className={styles.feedback} aria-live="polite">
+              {erro ? (
+                <div className={styles.errorAlert} role="alert">
+                  <AlertCircle size={18} aria-hidden="true" />
+                  <span>{erro}</span>
+                </div>
+              ) : null}
+              {sucesso ? (
+                <div className={styles.successAlert}>
+                  <CheckCircle2 size={18} aria-hidden="true" />
+                  <span>{sucesso}</span>
+                </div>
+              ) : null}
+            </div>
+
+            <button
+              className={styles.submitButton}
+              type="submit"
+              disabled={submitting || loadingHorarios || !horaInicio}
+              aria-busy={submitting}
+            >
+              {submitting ? (
+                <><LoaderCircle className={styles.buttonSpinner} size={19} aria-hidden="true" />Processando</>
+              ) : !horaInicio ? (
+                <><Clock3 size={19} aria-hidden="true" />Escolha um horário</>
+              ) : pagamentoAdiantadoObrigatorio ? (
+                <><CreditCard size={19} aria-hidden="true" />Pagar e confirmar</>
+              ) : (
+                <><CalendarCheck size={19} aria-hidden="true" />Confirmar agendamento</>
+              )}
             </button>
-          </form>
-        </section>
+          </aside>
+        </form>
       </div>
     </main>
   );

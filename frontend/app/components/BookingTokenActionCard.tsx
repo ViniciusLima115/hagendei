@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
+import { CalendarDays } from "lucide-react";
 
+import { PRODUCT_NAME } from "@/lib/brand";
 import {
   cancelBookingByToken,
   confirmBookingByToken,
@@ -161,13 +163,12 @@ export default function BookingTokenActionCard({
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            fontSize: 16,
           }}
         >
-          ✂
+          <CalendarDays size={17} color="#ffffff" aria-hidden="true" />
         </div>
         <span style={{ color: "#f5efe7", fontWeight: 700, fontSize: 15, letterSpacing: "0.02em" }}>
-          Virtual Barber
+          {PRODUCT_NAME}
         </span>
       </div>
 
@@ -395,7 +396,7 @@ export default function BookingTokenActionCard({
 
       {/* Footer */}
       <p style={{ fontSize: 12, color: "#a18070", marginBottom: 32 }}>
-        Powered by Virtual Barber
+        Agendamento por {PRODUCT_NAME}
       </p>
     </div>
   );

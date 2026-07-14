@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import JSON, Boolean, Column, Date, DateTime, Integer, String
+from sqlalchemy import JSON, Boolean, Column, Date, DateTime, Integer, String, Text
 from sqlalchemy.orm import relationship
 
 from app.database import Base
@@ -14,12 +14,13 @@ class Estabelecimento(Base):
     slug = Column(String(120), nullable=True, unique=True, index=True)
     endereco = Column(String(255), nullable=True, default="")
     mega_instance_key = Column(String(255), nullable=True, unique=True, index=True)
-    mega_token = Column(String(255), nullable=True)
+    mega_token = Column(Text, nullable=True)
     whatsapp_number = Column(String(30), nullable=True, unique=True, index=True)
 
     # Campos administrativos usados pelo painel /admin.
     login = Column(String(255), nullable=True, unique=True)
     senha = Column(String(255), nullable=True)
+    auth_version = Column(Integer, nullable=False, default=0, server_default="0")
     plano = Column(String(50), nullable=True, default="basico")
     status_manual = Column(String(50), nullable=True, default="ativo")
     vencimento_em = Column(Date, nullable=True)

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   confirmarPresenca,
   listNotificacoes,
@@ -50,17 +50,27 @@ export interface UseNotificacoesReturn {
 
 export function useNotificacoes(): UseNotificacoesReturn {
   const session = useAuthSession();
-  const tenantIdValido = Boolean(session?.tenantId && /^\d+$/.test(session.tenantId));
+  const tenantId = session?.tenantId && /^\d+$/.test(session.tenantId) ? session.tenantId : null;
   const [notificacoes, setNotificacoes] = useState<Notificacao[]>([]);
   const [toastsNovos, setToastsNovos] = useState<Notificacao[]>([]);
+  const [stateTenantId, setStateTenantId] = useState<string | null>(null);
   const seenIds = useRef<Set<number>>(new Set());
   const initialized = useRef(false);
+  const activeTenantId = useRef<string | null>(null);
 
   const fetchNotificacoes = useCallback(async () => {
-    if (!tenantIdValido) return;
+    if (!tenantId) return;
+    if (activeTenantId.current !== tenantId) {
+      activeTenantId.current = tenantId;
+      initialized.current = false;
+      seenIds.current = new Set();
+      setToastsNovos([]);
+    }
     try {
       const data = await listNotificacoes(false, 30);
+      if (getAuthSession()?.tenantId !== tenantId) return;
       setNotificacoes(data);
+      setStateTenantId(tenantId);
 
       // Inicializa seenIds do localStorage na primeira chamada
       if (!initialized.current) {
@@ -80,19 +90,31 @@ export function useNotificacoes(): UseNotificacoesReturn {
     } catch (err) {
       console.error("[notificacoes] falha ao buscar notificações:", err);
     }
-  }, [tenantIdValido]);
+  }, [tenantId]);
 
   useEffect(() => {
-    if (!tenantIdValido) {
-      setNotificacoes([]);
-      setToastsNovos([]);
+    if (!tenantId) {
+      activeTenantId.current = null;
+      initialized.current = false;
       seenIds.current = new Set();
       return;
     }
-    fetchNotificacoes();
+    const frame = window.requestAnimationFrame(fetchNotificacoes);
     const interval = setInterval(fetchNotificacoes, POLL_INTERVAL_MS);
-    return () => clearInterval(interval);
-  }, [fetchNotificacoes, tenantIdValido]);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      clearInterval(interval);
+    };
+  }, [fetchNotificacoes, tenantId]);
+
+  const notificacoesDoTenant = useMemo(
+    () => (stateTenantId === tenantId ? notificacoes : []),
+    [notificacoes, stateTenantId, tenantId],
+  );
+  const toastsDoTenant = useMemo(
+    () => (stateTenantId === tenantId ? toastsNovos : []),
+    [stateTenantId, tenantId, toastsNovos],
+  );
 
   const marcarLida = useCallback(async (id: number) => {
     const updated = await marcarNotificacaoLida(id);
@@ -108,7 +130,7 @@ export function useNotificacoes(): UseNotificacoesReturn {
 
   // Marca como lidas todas as notificações de novo_agendamento não lidas (chamado ao abrir o sino)
   const marcarNovoAgendamentoLido = useCallback(async () => {
-    const naoLidasNovos = notificacoes.filter(
+    const naoLidasNovos = notificacoesDoTenant.filter(
       (n) => n.tipo === "novo_agendamento" && !n.lida
     );
     await Promise.all(naoLidasNovos.map((n) => marcarNotificacaoLida(n.id)));
@@ -119,7 +141,7 @@ export function useNotificacoes(): UseNotificacoesReturn {
         )
       );
     }
-  }, [notificacoes]);
+  }, [notificacoesDoTenant]);
 
   const confirmarPresencaNotif = useCallback(
     async (agendamentoId: number, compareceu: boolean) => {
@@ -137,12 +159,12 @@ export function useNotificacoes(): UseNotificacoesReturn {
     setToastsNovos((prev) => prev.filter((n) => n.id !== id));
   }, []);
 
-  const naoLidas = notificacoes.filter((n) => !n.lida).length;
+  const naoLidas = notificacoesDoTenant.filter((n) => !n.lida).length;
 
   return {
-    notificacoes,
+    notificacoes: notificacoesDoTenant,
     naoLidas,
-    toastsNovos,
+    toastsNovos: toastsDoTenant,
     marcarLida,
     marcarTodasLidas,
     confirmarPresencaNotif,

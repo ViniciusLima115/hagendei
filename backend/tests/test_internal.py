@@ -1,7 +1,7 @@
 def test_processar_reminders_sem_token_configurado(client):
     """Quando INTERNAL_REMINDER_TOKEN não está setado, qualquer requisição passa."""
     resp = client.post("/internal/reminders/process")
-    assert resp.status_code == 200
+    assert resp.status_code == 503
 
 
 def test_processar_reminders_token_invalido(client, monkeypatch):

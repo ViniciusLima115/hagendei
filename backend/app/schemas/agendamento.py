@@ -1,38 +1,42 @@
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from datetime import datetime
 
 
-StatusAgendamento = Literal["pending_payment", "pendente", "confirmado", "cancelado", "failed", "reagendamento_solicitado", "compareceu", "no_show", "expired"]
-StatusPagamento = Literal["not_required", "pending", "approved", "rejected", "cancelled", "refunded", "expired"]
+StatusAgendamento = Literal["pending_payment", "payment_review_required", "pendente", "confirmado", "cancelado", "failed", "reagendamento_solicitado", "compareceu", "no_show", "expired"]
+StatusPagamento = Literal["not_required", "pending", "approved", "rejected", "cancelled", "refunded", "charged_back", "expired"]
 
 
-class AgendamentoCreate(BaseModel):
-    telefone: str
-    nome_cliente: str
-    cliente_email: str | None = None
-    barbeiro_id: int
-    servico_id: int
+class StrictRequestModel(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+
+class AgendamentoCreate(StrictRequestModel):
+    telefone: str = Field(min_length=8, max_length=30, pattern=r"^[0-9+().\s-]+$")
+    nome_cliente: str = Field(min_length=2, max_length=120)
+    cliente_email: str | None = Field(default=None, max_length=255, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+    barbeiro_id: int = Field(gt=0)
+    servico_id: int = Field(gt=0)
     data_hora_inicio: datetime
     status: StatusAgendamento = "pendente"
 
 
-class AgendamentoStatusUpdate(BaseModel):
+class AgendamentoStatusUpdate(StrictRequestModel):
     status: StatusAgendamento
 
 
-class AgendamentoPatch(BaseModel):
-    barbeiro_id: int | None = None
-    servico_id: int | None = None
+class AgendamentoPatch(StrictRequestModel):
+    barbeiro_id: int | None = Field(default=None, gt=0)
+    servico_id: int | None = Field(default=None, gt=0)
     data_hora_inicio: datetime | None = None
     cliente_email: str | None = None
     status: StatusAgendamento | None = None
 
 
-class AgendamentoUpdate(BaseModel):
-    barbeiro_id: int
-    servico_id: int
+class AgendamentoUpdate(StrictRequestModel):
+    barbeiro_id: int = Field(gt=0)
+    servico_id: int = Field(gt=0)
     data_hora_inicio: datetime
     cliente_email: str | None = None
     status: StatusAgendamento = "confirmado"
@@ -59,7 +63,7 @@ class AgendamentoResponse(BaseModel):
     payment_type: str | None = None
 
 
-class AgendamentoRemarcacaoRequest(BaseModel):
+class AgendamentoRemarcacaoRequest(StrictRequestModel):
     data_hora_inicio: datetime
 
 

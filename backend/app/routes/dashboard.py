@@ -47,7 +47,7 @@ def resumo_basico(
     except HTTPException:
         raise
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Erro interno: {exc}") from exc
+        raise HTTPException(status_code=500, detail="Erro interno ao gerar dashboard.") from exc
 
 
 def _resumo_basico(db: Session, tenant_id: int) -> ResumoBasicoResponse:
@@ -180,7 +180,7 @@ def financeiro(
     except HTTPException:
         raise
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Erro interno: {exc}") from exc
+        raise HTTPException(status_code=500, detail="Erro interno ao gerar dashboard.") from exc
 
 
 def _financeiro(db: Session, tenant_id: int) -> FinanceiroResponse:
@@ -336,7 +336,7 @@ def servicos_mais_vendidos(
     except HTTPException:
         raise
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Erro interno: {exc}") from exc
+        raise HTTPException(status_code=500, detail="Erro interno ao gerar dashboard.") from exc
 
 
 def _servicos_mais_vendidos(db: Session, tenant_id: int) -> ServicosMaisVendidosResponse:
@@ -388,7 +388,7 @@ def clientes(
     except HTTPException:
         raise
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Erro interno: {exc}") from exc
+        raise HTTPException(status_code=500, detail="Erro interno ao gerar dashboard.") from exc
 
 
 def _clientes(db: Session, tenant_id: int) -> ClientesResponse:
@@ -491,7 +491,7 @@ def analise(
     except HTTPException:
         raise
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Erro interno: {exc}") from exc
+        raise HTTPException(status_code=500, detail="Erro interno ao gerar dashboard.") from exc
 
 
 def _analise(db: Session, tenant_id: int) -> AnaliseResponse:

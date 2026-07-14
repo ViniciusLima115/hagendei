@@ -1,5 +1,6 @@
 import logging
 from datetime import date, datetime, time, timedelta
+from decimal import Decimal, ROUND_HALF_UP
 
 from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
@@ -19,9 +20,10 @@ from app.services.email_service import (
 
 
 logger = logging.getLogger(__name__)
+MONEY_QUANTUM = Decimal("0.01")
 
 STATUS_ATIVOS = ["pending_payment", "pendente", "confirmado", "reagendamento_solicitado"]
-STATUS_VALIDOS = {"pending_payment", "pendente", "confirmado", "cancelado", "failed", "reagendamento_solicitado", "compareceu", "no_show", "expired"}
+STATUS_VALIDOS = {"pending_payment", "payment_review_required", "pendente", "confirmado", "cancelado", "failed", "reagendamento_solicitado", "compareceu", "no_show", "expired"}
 
 
 def _normalizar_email(email: str | None) -> str | None:
@@ -90,13 +92,13 @@ def _serializar_dados_token(agendamento: Agendamento):
 def _obter_barbearia(db: Session, tenant_id: int) -> Barbearia:
     barbearia = db.query(Barbearia).filter(Barbearia.id == tenant_id).first()
     if not barbearia:
-        raise ValueError("Barbearia não encontrada")
+        raise ValueError("Estabelecimento não encontrado")
     return barbearia
 
 
 def _validar_funcionamento(barbearia: Barbearia, inicio: datetime, fim: datetime):
     if not is_within_working_hours(barbearia, inicio, fim):
-        raise ValueError("Horário fora do funcionamento da barbearia")
+        raise ValueError("Horário fora do funcionamento do estabelecimento")
 
 
 def _validar_funcionamento_barbeiro(
@@ -106,15 +108,27 @@ def _validar_funcionamento_barbeiro(
     fim: datetime,
 ):
     if not is_within_working_hours(barbearia, inicio, fim, barbeiro=barbeiro):
-        raise ValueError("Horário fora do funcionamento do barbeiro")
+        raise ValueError("Horário fora da disponibilidade do profissional")
 
 
-def _obter_agendamento_por_token(db: Session, token: str) -> Agendamento | None:
-    return (
-        db.query(Agendamento)
-        .filter(Agendamento.confirmation_token == token)
-        .first()
+def _obter_agendamento_por_token(
+    db: Session,
+    token: str,
+    *,
+    for_update: bool = False,
+) -> Agendamento | None:
+    query = db.query(Agendamento).filter(Agendamento.confirmation_token == token)
+    if for_update:
+        query = query.with_for_update()
+    agendamento = query.first()
+    if not agendamento:
+        return None
+    expires_at = agendamento.confirmation_token_expires_at or (
+        agendamento.data_hora_fim + timedelta(days=1)
     )
+    if expires_at < datetime.utcnow():
+        return None
+    return agendamento
 
 
 def _resetar_flags_lembrete(agendamento: Agendamento):
@@ -146,9 +160,9 @@ def criar_agendamento(db: Session, dados, tenant_id: int):
         Barbeiro.id == dados.barbeiro_id,
         Barbeiro.barbershop_id == tenant_id,
     )
-    barbeiro = barbeiro_query.first()
+    barbeiro = barbeiro_query.with_for_update().first()
     if not barbeiro:
-        raise ValueError("Barbeiro não encontrado")
+        raise ValueError("Profissional não encontrado")
 
     cliente_query = db.query(Cliente).filter(
         Cliente.telefone == dados.telefone,
@@ -162,8 +176,7 @@ def criar_agendamento(db: Session, dados, tenant_id: int):
             barbearia_id=tenant_id,
         )
         db.add(cliente)
-        db.commit()
-        db.refresh(cliente)
+        db.flush()
 
     fim = dados.data_hora_inicio + timedelta(minutes=servico.duracao_minutos)
     _validar_funcionamento(barbearia, dados.data_hora_inicio, fim)
@@ -193,13 +206,17 @@ def criar_agendamento(db: Session, dados, tenant_id: int):
         hora_inicio=dados.data_hora_inicio.time().replace(microsecond=0),
         data_hora_inicio=dados.data_hora_inicio,
         data_hora_fim=fim,
+        confirmation_token_expires_at=fim + timedelta(days=1),
         status="pending_payment" if bool(getattr(servico, "pagamento_adiantado_obrigatorio", False)) else dados.status,
         payment_required_snapshot=bool(getattr(servico, "pagamento_adiantado_obrigatorio", False)),
         payment_type_snapshot=(getattr(servico, "advance_payment_type", None) or None),
         payment_amount_snapshot=(
-            float(getattr(servico, "advance_payment_amount", 0) or 0)
+            Decimal(str(getattr(servico, "advance_payment_amount", 0) or 0)).quantize(
+                MONEY_QUANTUM,
+                rounding=ROUND_HALF_UP,
+            )
             if (getattr(servico, "advance_payment_type", "") or "").strip().lower() == "signal"
-            else float(servico.preco or 0)
+            else Decimal(str(servico.preco or 0)).quantize(MONEY_QUANTUM, rounding=ROUND_HALF_UP)
         ) if bool(getattr(servico, "pagamento_adiantado_obrigatorio", False)) else None,
         payment_status="pending" if bool(getattr(servico, "pagamento_adiantado_obrigatorio", False)) else "not_required",
     )
@@ -265,7 +282,7 @@ def remarcar_agendamento(
         Agendamento.id == agendamento_id,
         Agendamento.barbearia_id == tenant_id,
     )
-    agendamento = query.first()
+    agendamento = query.with_for_update().first()
     if not agendamento:
         raise ValueError("Agendamento não encontrado")
     barbearia = _obter_barbearia(db, tenant_id)
@@ -288,10 +305,11 @@ def remarcar_agendamento(
             Barbeiro.id == agendamento.barbeiro_id,
             Barbeiro.barbershop_id == tenant_id,
         )
+        .with_for_update()
         .first()
     )
     if not barbeiro:
-        raise ValueError("Barbeiro não encontrado")
+        raise ValueError("Profissional não encontrado")
 
     _validar_funcionamento(barbearia, nova_data_hora_inicio, nova_data_hora_fim)
     _validar_funcionamento_barbeiro(barbearia, barbeiro, nova_data_hora_inicio, nova_data_hora_fim)
@@ -313,6 +331,7 @@ def remarcar_agendamento(
     agendamento.data_hora_fim = nova_data_hora_fim
     agendamento.data = nova_data_hora_inicio.date()
     agendamento.hora_inicio = nova_data_hora_inicio.time().replace(microsecond=0)
+    agendamento.confirmation_token_expires_at = nova_data_hora_fim + timedelta(days=1)
     agendamento.status = "confirmado"
     _resetar_flags_lembrete(agendamento)
     db.commit()
@@ -331,7 +350,7 @@ def atualizar_agendamento(
         Agendamento.id == agendamento_id,
         Agendamento.barbearia_id == tenant_id,
     )
-    agendamento = query.first()
+    agendamento = query.with_for_update().first()
     if not agendamento:
         raise ValueError("Agendamento não encontrado")
     barbearia = _obter_barbearia(db, tenant_id)
@@ -348,9 +367,9 @@ def atualizar_agendamento(
         Barbeiro.id == dados.barbeiro_id,
         Barbeiro.barbershop_id == tenant_id,
     )
-    barbeiro = barbeiro_query.first()
+    barbeiro = barbeiro_query.with_for_update().first()
     if not barbeiro:
-        raise ValueError("Barbeiro não encontrado")
+        raise ValueError("Profissional não encontrado")
 
     novo_fim = dados.data_hora_inicio + timedelta(minutes=servico.duracao_minutos)
     _validar_funcionamento(barbearia, dados.data_hora_inicio, novo_fim)
@@ -377,6 +396,7 @@ def atualizar_agendamento(
     agendamento.data_hora_fim = novo_fim
     agendamento.data = dados.data_hora_inicio.date()
     agendamento.hora_inicio = dados.data_hora_inicio.time().replace(microsecond=0)
+    agendamento.confirmation_token_expires_at = novo_fim + timedelta(days=1)
     agendamento.status = dados.status
     agendamento.cliente_email = _normalizar_email(getattr(dados, "cliente_email", agendamento.cliente_email))
     agendamento.barbearia_id = tenant_id
@@ -508,7 +528,7 @@ def obter_dados_agendamento_por_token(db: Session, token: str):
 
 
 def atualizar_status_agendamento_por_token(db: Session, token: str, status: str):
-    agendamento = _obter_agendamento_por_token(db, token)
+    agendamento = _obter_agendamento_por_token(db, token, for_update=True)
     if not agendamento:
         raise ValueError("Token de agendamento inválido")
 
@@ -534,7 +554,7 @@ def atualizar_status_agendamento_por_token(db: Session, token: str, status: str)
 
 
 def remarcar_agendamento_por_token(db: Session, token: str, nova_data_hora_inicio: datetime):
-    agendamento = _obter_agendamento_por_token(db, token)
+    agendamento = _obter_agendamento_por_token(db, token, for_update=True)
     if not agendamento:
         raise ValueError("Token de agendamento inválido")
 
@@ -554,9 +574,9 @@ def remarcar_agendamento_por_token(db: Session, token: str, nova_data_hora_inici
     barbeiro = db.query(Barbeiro).filter(
         Barbeiro.id == agendamento.barbeiro_id,
         Barbeiro.barbershop_id == tenant_id,
-    ).first()
+    ).with_for_update().first()
     if not barbeiro:
-        raise ValueError("Barbeiro não encontrado")
+        raise ValueError("Profissional não encontrado")
 
     nova_fim = nova_data_hora_inicio + timedelta(minutes=servico.duracao_minutos)
     _validar_funcionamento(barbearia, nova_data_hora_inicio, nova_fim)
@@ -577,6 +597,7 @@ def remarcar_agendamento_por_token(db: Session, token: str, nova_data_hora_inici
     agendamento.data_hora_fim = nova_fim
     agendamento.data = nova_data_hora_inicio.date()
     agendamento.hora_inicio = nova_data_hora_inicio.time().replace(microsecond=0)
+    agendamento.confirmation_token_expires_at = nova_fim + timedelta(days=1)
     agendamento.status = "confirmado"
     _resetar_flags_lembrete(agendamento)
     db.commit()

@@ -22,6 +22,7 @@ from app.services.payments.payment_account_service import (
     start_connect_flow,
     update_payment_account_settings,
 )
+from app.services.payments.payment_integration_service import get_preferred_payment_integration
 
 
 logger = logging.getLogger(__name__)
@@ -57,9 +58,9 @@ def callback_mercadopago(
     frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000").rstrip("/")
 
     if error:
-        logger.warning("Callback Mercado Pago retornou erro: %s", error)
+        logger.warning("Callback Mercado Pago retornou erro do provedor.")
         return RedirectResponse(
-            url=f"{frontend_url}/configuracoes?aba=pagamentos&mp_status=error&reason={error}",
+            url=f"{frontend_url}/configuracoes?aba=pagamentos&mp_status=error&reason=provider_rejected",
             status_code=302,
         )
     if not code or not state:
@@ -93,6 +94,24 @@ def status_mercadopago(
     tenant_id: int = Depends(tenant_id_from_header),
     db: Session = Depends(get_db),
 ):
+    integration = get_preferred_payment_integration(
+        db,
+        establishment_id=tenant_id,
+        provider=PAYMENT_PROVIDER_MERCADO_PAGO,
+    )
+    if integration:
+        return PaymentAccountStatusResponse(
+            connected=integration.status == "active" and integration.validation_status == "valid",
+            provider=integration.provider,
+            environment=integration.environment,
+            status=integration.status,
+            establishment_id=integration.establishment_id,
+            last_sync_at=integration.last_validated_at,
+            checkout_hold_minutes=integration.checkout_hold_minutes or 10,
+            validation_status=integration.validation_status,
+            validation_error=integration.validation_error,
+        )
+
     account = get_payment_account(
         db,
         establishment_id=tenant_id,

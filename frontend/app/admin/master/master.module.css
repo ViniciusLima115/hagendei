@@ -267,6 +267,62 @@
   margin: 0;
 }
 
+.paymentSectionHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.securityNotice {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--warning-line);
+  border-radius: var(--radius-md);
+  background: var(--warning-soft);
+  color: var(--ink);
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.securityNotice svg {
+  flex-shrink: 0;
+  color: var(--warning);
+  margin-top: 1px;
+}
+
+.modalAlertError,
+.modalAlertSuccess {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.modalAlertError {
+  border: 1px solid var(--danger-line);
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.modalAlertSuccess {
+  border: 1px solid var(--success-line);
+  background: var(--success-soft);
+  color: var(--success);
+}
+
+.modalAlertError svg,
+.modalAlertSuccess svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
 .secretGrid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -285,6 +341,49 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.secretInputWrap {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 42px;
+  align-items: stretch;
+}
+
+.secretInputWrap input {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.secretToggleButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+  border-left: 0;
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  background: var(--surface-alt);
+  color: var(--ink-muted);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.secretToggleButton:hover {
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.clearActions,
+.modalActionRow {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.clearActions {
+  justify-content: flex-start;
+  padding-top: 2px;
 }
 
 /* ── Checkbox labels ────────────────────────────────── */

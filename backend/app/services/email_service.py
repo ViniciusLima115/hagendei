@@ -18,14 +18,14 @@ EMAIL_FROM = (
     os.getenv("EMAIL_FROM")
     or os.getenv("SMTP_FROM_EMAIL")
     or os.getenv("RESEND_FROM_EMAIL")
-    or "noreply@virtualbarber.shop"
+    or "noreply@localhost"
 ).strip()
-EMAIL_FROM_NAME = os.getenv("EMAIL_FROM_NAME", "Virtual Barber")
+EMAIL_FROM_NAME = os.getenv("EMAIL_FROM_NAME", "Hagendei")
 EMAIL_REPLY_TO = os.getenv("EMAIL_REPLY_TO", "").strip() or None
 EMAIL_ACTION_BASE_URL = (
     os.getenv("EMAIL_ACTION_BASE_URL")
     or os.getenv("BOOKING_PUBLIC_BASE_URL")
-    or "https://app.virtualbarber.shop"
+    or "http://127.0.0.1:3000"
 ).rstrip("/")
 
 SMTP_HOST = os.getenv("SMTP_HOST", "").strip()
@@ -169,9 +169,9 @@ def _montar_html_base(
                 <p style="margin:0 0 18px;font-size:15px;">Ola, {escape(contexto.cliente_nome)}.</p>
                 <div style="margin:0 0 22px;padding:18px;border-radius:18px;background:{destaque};">
                   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="font-size:15px;line-height:1.7;">
-                    <tr><td><strong>Barbearia:</strong> {escape(contexto.barbearia_nome)}</td></tr>
+                    <tr><td><strong>Estabelecimento:</strong> {escape(contexto.barbearia_nome)}</td></tr>
                     <tr><td><strong>Servico:</strong> {escape(contexto.servico_nome)}</td></tr>
-                    <tr><td><strong>Barbeiro:</strong> {escape(contexto.barbeiro_nome)}</td></tr>
+                    <tr><td><strong>Profissional:</strong> {escape(contexto.barbeiro_nome)}</td></tr>
                     <tr><td><strong>Data:</strong> {data_str}</td></tr>
                     <tr><td><strong>Horario:</strong> {hora_str}</td></tr>
                   </table>
@@ -225,7 +225,7 @@ def build_confirmation_email(contexto: AgendamentoEmailContext) -> dict[str, str
     )
     return {
         "to_email": contexto.cliente_email,
-        "subject": "Agendamento confirmado ✂️",
+        "subject": "Agendamento confirmado",
         "html_content": html_template
         or _montar_html_base(
             titulo="Seu agendamento foi confirmado.",
@@ -273,7 +273,7 @@ def build_reminder_email(contexto: AgendamentoEmailContext, *, hours_before: int
     )
     return {
         "to_email": contexto.cliente_email,
-        "subject": "Lembrete de agendamento ✂️",
+        "subject": "Lembrete de agendamento",
         "html_content": html_template
         or _montar_html_base(
             titulo="Seu horario esta chegando.",
@@ -288,7 +288,7 @@ def build_reminder_email(contexto: AgendamentoEmailContext, *, hours_before: int
 def build_status_email(contexto: AgendamentoEmailContext, *, tipo: str) -> dict[str, str]:
     configuracao = {
         "confirmado": (
-            "Presenca confirmada ✂️",
+            "Presenca confirmada",
             "Sua presenca foi confirmada com sucesso.",
             "Nos vemos no horario agendado.",
             "#e9f5ef",
@@ -300,7 +300,7 @@ def build_status_email(contexto: AgendamentoEmailContext, *, tipo: str) -> dict[
             "#fdeceb",
         ),
         "reagendamento_solicitado": (
-            "Reagendamento solicitado ✂️",
+            "Reagendamento solicitado",
             "Recebemos seu pedido de reagendamento.",
             "Use o link abaixo para escolher um novo horario.",
             "#fbf3e3",
@@ -350,9 +350,8 @@ def _send_via_resend(to_email: str, subject: str, html_content: str) -> bool:
     )
     if response.status_code >= 300:
         logger.warning(
-            "Resend recusou o email. status=%s body=%s",
+            "Resend recusou o email (status=%s).",
             response.status_code,
-            response.text[:1000],
         )
     return response.status_code < 300
 
@@ -399,13 +398,13 @@ def send_email(to_email: str, subject: str, html_content: str) -> bool:
             logger.warning("EMAIL_PROVIDER invalido: %s", provider)
             return False
     except Exception:
-        logger.exception("Falha ao enviar email para %s com provider %s", destinatario, provider)
+        logger.exception("Falha ao enviar email com provider %s", provider)
         return False
 
     if ok:
-        logger.info("Email enviado com sucesso para %s com assunto %s", destinatario, subject)
+        logger.info("Email enviado com sucesso via %s.", provider)
     else:
-        logger.warning("Email nao enviado para %s com provider %s", destinatario, provider)
+        logger.warning("Email nao enviado via %s.", provider)
     return ok
 
 
