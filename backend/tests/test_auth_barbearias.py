@@ -257,7 +257,7 @@ def test_logout_invalida_token(client):
     headers = {"Authorization": f"Bearer {token}"}
 
     # Before logout: access is ok
-    resp_antes = client.get("/barbearias/", headers=headers)
+    resp_antes = client.get("/auth/me", headers=headers)
     assert resp_antes.status_code == 200
 
     # Logout
@@ -266,7 +266,7 @@ def test_logout_invalida_token(client):
     assert resp_logout.json()["detail"] == "Logout realizado com sucesso."
 
     # After logout: token rejected
-    resp_depois = client.get("/barbearias/", headers=headers)
+    resp_depois = client.get("/auth/me", headers=headers)
     assert resp_depois.status_code == 401
 
 

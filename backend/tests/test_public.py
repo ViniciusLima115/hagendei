@@ -104,6 +104,8 @@ def test_public_lookup_respeita_funcionamento_individual_do_barbeiro(client, db_
     db_session.refresh(servico)
 
     data_futura = (datetime.now() + timedelta(days=2)).date()
+    if data_futura.weekday() == 6:
+        data_futura += timedelta(days=1)
     resp = client.get(
         "/public/horarios-disponiveis",
         params={

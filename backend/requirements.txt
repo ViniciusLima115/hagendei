@@ -22,7 +22,9 @@ psycopg2-binary==2.9.11
 pydantic==2.12.5
 pydantic_core==2.41.5
 PyJWT==2.13.0
+pyotp==2.9.0
 PyMySQL==1.1.2
+qrcode[pil]==8.2
 python-dotenv==1.2.2
 requests==2.33.0
 redis==8.0.1

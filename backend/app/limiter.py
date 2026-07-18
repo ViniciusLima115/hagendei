@@ -3,7 +3,12 @@ import os
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
-RATE_LIMIT_LOGIN = os.getenv("RATE_LIMIT_LOGIN", "5/minute")
+_APP_ENV = os.getenv("APP_ENV", "development").strip().lower()
+_IS_PRODUCTION = _APP_ENV in {"prod", "production"}
+_AUTH_LIMIT_DEFAULT = "5/minute" if _IS_PRODUCTION else "30/minute"
+
+RATE_LIMIT_LOGIN = os.getenv("RATE_LIMIT_LOGIN", _AUTH_LIMIT_DEFAULT)
+RATE_LIMIT_MFA = os.getenv("RATE_LIMIT_MFA", _AUTH_LIMIT_DEFAULT)
 RATE_LIMIT_PUBLIC = os.getenv("RATE_LIMIT_PUBLIC", "30/minute")
 RATE_LIMIT_PAYMENT_STATUS = os.getenv("RATE_LIMIT_PAYMENT_STATUS", "20/minute")
 RATE_LIMIT_WEBHOOK = os.getenv("RATE_LIMIT_WEBHOOK", "120/minute")

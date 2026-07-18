@@ -41,6 +41,22 @@
   line-height: 1.6;
 }
 
+.securityLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  margin-top: 16px;
+  color: var(--accent-dark);
+  font-size: 0.86rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.securityLink:hover {
+  text-decoration: underline;
+}
+
 /* ── Stats row ──────────────────────────────────────── */
 .statsRow {
   display: grid;

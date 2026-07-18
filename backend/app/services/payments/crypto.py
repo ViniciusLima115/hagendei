@@ -10,7 +10,9 @@ from cryptography.fernet import Fernet, InvalidToken
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 ENVELOPE_VERSION = "v2"
+CONTEXTUAL_ENVELOPE_VERSION = "v3"
 KEY_ID_PATTERN = re.compile(r"^[A-Za-z0-9._-]{1,40}$")
+PURPOSE_PATTERN = re.compile(r"^[a-z0-9-]{1,40}$")
 
 
 def _decode_key(raw: str) -> bytes:
@@ -70,8 +72,8 @@ def _load_keyring() -> dict[str, bytes]:
     return keys
 
 
-def _aad(key_id: str) -> bytes:
-    return f"hagendei:payment-credentials:{key_id}".encode("ascii")
+def _aad(key_id: str, purpose: str = "payment-credentials") -> bytes:
+    return f"hagendei:{purpose}:{key_id}".encode("ascii")
 
 
 def _legacy_fernets() -> list[Fernet]:
@@ -92,22 +94,43 @@ def ensure_encryption_key_for_production() -> None:
         raise RuntimeError("PAYMENT_CREDENTIALS_PEPPER deve ter ao menos 32 bytes em producao.")
 
 
-def encrypt_sensitive_value(value: str | None) -> str | None:
+def encrypt_sensitive_value(value: str | None, *, purpose: str = "payment-credentials") -> str | None:
     if not value:
         return None
+    if not PURPOSE_PATTERN.fullmatch(purpose):
+        raise ValueError("Finalidade de criptografia invalida.")
     key_id = _current_key_id()
     key = _load_keyring().get(key_id)
     if key is None:
         raise ValueError("Chave de criptografia atual nao encontrada no keyring.")
     nonce = os.urandom(12)
-    ciphertext_and_tag = AESGCM(key).encrypt(nonce, value.encode("utf-8"), _aad(key_id))
+    ciphertext_and_tag = AESGCM(key).encrypt(nonce, value.encode("utf-8"), _aad(key_id, purpose))
     encoded = base64.urlsafe_b64encode(nonce + ciphertext_and_tag).decode("ascii")
-    return f"{ENVELOPE_VERSION}:{key_id}:{encoded}"
+    if purpose == "payment-credentials":
+        return f"{ENVELOPE_VERSION}:{key_id}:{encoded}"
+    return f"{CONTEXTUAL_ENVELOPE_VERSION}:{key_id}:{purpose}:{encoded}"
 
 
-def decrypt_sensitive_value(value: str | None) -> str | None:
+def decrypt_sensitive_value(value: str | None, *, purpose: str = "payment-credentials") -> str | None:
     if not value:
         return None
+    if not PURPOSE_PATTERN.fullmatch(purpose):
+        raise ValueError("Finalidade de criptografia invalida.")
+    if value.startswith(f"{CONTEXTUAL_ENVELOPE_VERSION}:"):
+        try:
+            _, key_id, stored_purpose, encoded = value.split(":", 3)
+            if stored_purpose != purpose:
+                raise ValueError("Finalidade de criptografia divergente.")
+            key = _load_keyring().get(key_id)
+            if key is None:
+                raise ValueError("Chave de criptografia nao encontrada no keyring.")
+            raw = base64.urlsafe_b64decode(encoded.encode("ascii"))
+            if len(raw) < 29:
+                raise ValueError("Envelope criptografado invalido.")
+            plaintext = AESGCM(key).decrypt(raw[:12], raw[12:], _aad(key_id, purpose))
+            return plaintext.decode("utf-8")
+        except (InvalidTag, UnicodeDecodeError, ValueError) as exc:
+            raise ValueError("Falha ao descriptografar valor sensivel.") from exc
     if value.startswith(f"{ENVELOPE_VERSION}:"):
         try:
             _, key_id, encoded = value.split(":", 2)
@@ -117,7 +140,7 @@ def decrypt_sensitive_value(value: str | None) -> str | None:
             raw = base64.urlsafe_b64decode(encoded.encode("ascii"))
             if len(raw) < 29:
                 raise ValueError("Envelope criptografado invalido.")
-            plaintext = AESGCM(key).decrypt(raw[:12], raw[12:], _aad(key_id))
+            plaintext = AESGCM(key).decrypt(raw[:12], raw[12:], _aad(key_id, purpose))
             return plaintext.decode("utf-8")
         except (InvalidTag, UnicodeDecodeError, ValueError) as exc:
             raise ValueError("Falha ao descriptografar valor sensivel.") from exc

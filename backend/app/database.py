@@ -63,6 +63,7 @@ def init_db():
         barbeiro,
         barbearia,
         admin_audit_log,
+        admin_mfa,
         cliente,
         servico,
         agendamento,
@@ -89,6 +90,7 @@ def init_db():
     _ensure_agendamentos_payment_columns()
     _ensure_pagamentos_table()
     _ensure_admin_audit_logs_table()
+    _ensure_admin_mfa_tables()
     _ensure_postgres_schema_guards()
     if IS_MYSQL:
         _ensure_clientes_contexto_column()
@@ -254,6 +256,16 @@ def _ensure_admin_audit_logs_table():
         from app.models.admin_audit_log import AdminAuditLog
 
         AdminAuditLog.__table__.create(bind=engine, checkfirst=True)
+    except Exception:
+        pass
+
+
+def _ensure_admin_mfa_tables():
+    try:
+        from app.models.admin_mfa import AdminMfaChallenge, AdminMfaSetting
+
+        AdminMfaSetting.__table__.create(bind=engine, checkfirst=True)
+        AdminMfaChallenge.__table__.create(bind=engine, checkfirst=True)
     except Exception:
         pass
 

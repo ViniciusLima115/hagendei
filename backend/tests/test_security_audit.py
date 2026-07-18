@@ -237,7 +237,7 @@ def test_production_requires_shared_rate_limit_storage(monkeypatch):
         "ENCRYPTION_KEY": "e" * 32,
         "PAYMENT_CREDENTIALS_PEPPER": "p" * 32,
         "ADMIN_USUARIO": "admin",
-        "ADMIN_SENHA": "strong-admin-password",
+        "ADMIN_SENHA_HASH": "$2b$12$dI.TvYUhHvRnBQ4CcZi7OOFteIkzQrHjEaUuB.Tfu2BytzzIutqG6",
         "ALLOWED_HOSTS": "app.example.com",
         "CORS_ALLOWED_ORIGINS": "https://app.example.com",
         "TRUSTED_PROXY_IPS": "10.0.0.1",

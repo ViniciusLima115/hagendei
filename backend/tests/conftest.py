@@ -6,6 +6,8 @@ import sys
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from limits.storage import MemoryStorage
+from limits.strategies import FixedWindowRateLimiter
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -20,6 +22,7 @@ os.environ.setdefault("WHATSAPP_ALLOW_UNSIGNED_WEBHOOKS", "true")
 os.environ.setdefault("JWT_SECRET", "test-jwt-secret-with-at-least-32-bytes")
 os.environ.setdefault("ADMIN_USUARIO", "test-admin")
 os.environ.setdefault("ADMIN_SENHA", "test-admin-password")
+os.environ.setdefault("ADMIN_SENHA_HASH", "")
 
 from app.database import Base, get_db
 from app.models import Estabelecimento, Profissional, Servico
@@ -27,6 +30,13 @@ from app.models.token_blacklist import TokenBlacklist  # registers in SQLite met
 from app.routes import agenda, agendamentos, chatbot, barbeiros, barbearia_funcionamento, clientes, servicos, whatsapp, barbearias, auth, webhooks, public, internal, webhook, estabelecimentos, profissionais, estabelecimento_funcionamento, configuracoes, dashboard, notificacoes, integrations, payments
 from app.models.notificacao import Notificacao  # garante criação da tabela no SQLite
 from app.security import create_access_token
+from app.limiter import limiter
+
+
+@pytest.fixture(autouse=True)
+def isolate_rate_limiter():
+    limiter._storage = MemoryStorage()
+    limiter._limiter = FixedWindowRateLimiter(limiter._storage)
 
 
 @pytest.fixture
@@ -135,7 +145,7 @@ def dados_base(db_session):
 
 
 @pytest.fixture
-def make_tenant_headers():
+def make_tenant_headers(db_session):
     def _make(
         tenant_id: int | None = None,
         *,
@@ -143,6 +153,12 @@ def make_tenant_headers():
         is_admin: bool = False,
     ) -> dict[str, str]:
         if is_admin:
+            from app.models.admin_mfa import AdminMfaSetting
+
+            setting = db_session.get(AdminMfaSetting, "admin")
+            if not setting:
+                db_session.add(AdminMfaSetting(admin_username="admin", enabled=True, session_version=0))
+                db_session.commit()
             token = create_access_token(sub="admin", tenant_id=None, is_admin=True)
             return {"Authorization": f"Bearer {token}"}
 

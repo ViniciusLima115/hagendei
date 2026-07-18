@@ -2,9 +2,10 @@
 
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Eye, Headset, Laptop, MessageCircle, User, X } from "lucide-react";
+import Image from "next/image";
+import { Copy, Eye, Headset, Laptop, MessageCircle, ShieldCheck, User, X } from "lucide-react";
 import { login, fetchMe } from "@/services/auth";
-import { loginUsuario } from "@/services/api";
+import { AdminMfaSetup, confirmarMfaAdmin, iniciarMfaAdmin, loginUsuario, verificarMfaAdmin } from "@/services/api";
 import { PRODUCT_NAME } from "@/lib/brand";
 import styles from "./page.module.css";
 
@@ -16,6 +17,20 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [showSupportCard, setShowSupportCard] = useState(false);
+  const [mfaChallenge, setMfaChallenge] = useState<string | null>(null);
+  const [mfaCode, setMfaCode] = useState("");
+  const [mfaSetup, setMfaSetup] = useState<AdminMfaSetup | null>(null);
+  const [recoveryCodes, setRecoveryCodes] = useState<string[] | null>(null);
+
+  function concluirLoginAdmin(usuario: string) {
+    login({
+      email: usuario,
+      tenantId: "admin",
+      tenantName: "Administrador",
+      plan: "premium",
+    });
+    router.replace("/");
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -37,14 +52,22 @@ export default function LoginPage() {
         senha,
       });
 
+      if (resposta.mfa_required && resposta.mfa_challenge) {
+        setMfaChallenge(resposta.mfa_challenge);
+        setMfaCode("");
+        setPassword("");
+        return;
+      }
+
+      if (resposta.mfa_setup_required && resposta.is_admin) {
+        setMfaSetup(await iniciarMfaAdmin(senha));
+        setMfaCode("");
+        setPassword("");
+        return;
+      }
+
       if (resposta.is_admin) {
-        login({
-          email: usuario,
-          tenantId: "admin",
-          tenantName: "Administrador",
-          plan: "premium",
-        });
-        router.replace("/");
+        concluirLoginAdmin(usuario);
         return;
       }
 
@@ -67,6 +90,58 @@ export default function LoginPage() {
       router.replace("/");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Nao foi possivel iniciar sessao.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleMfaSetupSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError(null);
+    const code = mfaCode.trim();
+    if (!mfaSetup || !code) {
+      setError("Informe o codigo de 6 digitos exibido no Google Authenticator.");
+      return;
+    }
+    setLoading(true);
+    try {
+      const result = await confirmarMfaAdmin(code);
+      login({
+        email: email.trim(),
+        tenantId: "admin",
+        tenantName: "Administrador",
+        plan: "premium",
+      });
+      setRecoveryCodes(result.recovery_codes);
+      setMfaSetup(null);
+      setMfaCode("");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Nao foi possivel ativar o autenticador.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function copyRecoveryCodes() {
+    if (!recoveryCodes) return;
+    await navigator.clipboard.writeText(recoveryCodes.join("\n"));
+  }
+
+  async function handleMfaSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError(null);
+    const code = mfaCode.trim().toUpperCase();
+    if (!mfaChallenge || !code) {
+      setError("Informe o codigo do aplicativo autenticador.");
+      return;
+    }
+    setLoading(true);
+    try {
+      const resposta = await verificarMfaAdmin({ challenge: mfaChallenge, code });
+      if (!resposta.is_admin) throw new Error("Nao foi possivel concluir a verificacao.");
+      concluirLoginAdmin(email.trim());
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Nao foi possivel validar o codigo.");
     } finally {
       setLoading(false);
     }
@@ -109,8 +184,8 @@ export default function LoginPage() {
         <h2 className={styles.formTitle}>Bem-vindo<br />de volta.</h2>
         <p className={styles.formSub}>Acesse o painel do seu estabelecimento.</p>
 
-        <form onSubmit={handleSubmit} className={styles.form}>
-          <div className={styles.field}>
+        <form onSubmit={mfaSetup ? handleMfaSetupSubmit : mfaChallenge ? handleMfaSubmit : handleSubmit} className={styles.form}>
+          <div className={styles.field} style={{ display: mfaChallenge || mfaSetup || recoveryCodes ? "none" : undefined }}>
             <label htmlFor="email" className={styles.label}>Usuário</label>
             <div className={styles.inputWrap}>
               <input
@@ -126,7 +201,7 @@ export default function LoginPage() {
             </div>
           </div>
 
-          <div className={styles.field}>
+          <div className={styles.field} style={{ display: mfaChallenge || mfaSetup || recoveryCodes ? "none" : undefined }}>
             <label htmlFor="password" className={styles.label}>Senha</label>
             <div className={styles.inputWrap}>
               <input
@@ -149,24 +224,81 @@ export default function LoginPage() {
             </div>
           </div>
 
+          {mfaChallenge && (
+            <>
+              <div className={styles.mfaIntro}>
+                <ShieldCheck size={18} />
+                <span>Verificacao em duas etapas</span>
+              </div>
+              <div className={styles.field}>
+                <label htmlFor="mfa-code" className={styles.label}>Codigo de seguranca</label>
+                <input
+                  id="mfa-code"
+                  type="text"
+                  value={mfaCode}
+                  onChange={(e) => setMfaCode(e.target.value)}
+                  className={styles.input}
+                  placeholder="000000 ou ABCD-EFGH"
+                  autoComplete="one-time-code"
+                  autoFocus
+                />
+              </div>
+            </>
+          )}
+
+          {mfaSetup && (
+            <div className={styles.setupBox}>
+              <div className={styles.mfaIntro}>
+                <ShieldCheck size={18} />
+                <span>Configure o Google Authenticator</span>
+              </div>
+              <p className={styles.setupText}>Escaneie o QR Code e informe o codigo atual de 6 digitos.</p>
+              <Image className={styles.setupQr} src={mfaSetup.qr_code_data_url} alt="QR Code do Google Authenticator" width={184} height={184} unoptimized />
+              <div className={styles.setupKey}>
+                <span>Chave manual</span>
+                <code>{mfaSetup.manual_key}</code>
+              </div>
+              <div className={styles.field}>
+                <label htmlFor="mfa-setup-code" className={styles.label}>Codigo do aplicativo</label>
+                <input id="mfa-setup-code" type="text" inputMode="numeric" value={mfaCode} onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, "").slice(0, 6))} className={styles.input} placeholder="000000" autoComplete="one-time-code" autoFocus />
+              </div>
+            </div>
+          )}
+
+          {recoveryCodes && (
+            <div className={styles.setupBox}>
+              <div className={styles.mfaIntro}>
+                <ShieldCheck size={18} />
+                <span>Autenticador ativado</span>
+              </div>
+              <p className={styles.setupText}>Guarde estes codigos. Cada um pode ser usado uma unica vez.</p>
+              <div className={styles.recoveryGrid}>{recoveryCodes.map((item) => <code key={item}>{item}</code>)}</div>
+              <button type="button" className={styles.copyButton} onClick={() => void copyRecoveryCodes()}><Copy size={15} /> Copiar codigos</button>
+            </div>
+          )}
+
           {error && <div className={styles.error}>{error}</div>}
 
-          <button
+          {!recoveryCodes && <button
             type="submit"
             className={styles.submit}
             disabled={loading}
           >
-            {loading ? "Entrando..." : "Entrar"}
-          </button>
+            {loading ? (mfaSetup ? "Ativando..." : mfaChallenge ? "Verificando..." : "Entrando...") : (mfaSetup ? "Ativar e entrar" : mfaChallenge ? "Verificar e entrar" : "Entrar")}
+          </button>}
+          {recoveryCodes && <button type="button" className={styles.submit} onClick={() => window.location.assign("/admin")}>Continuar para o painel</button>}
         </form>
 
-        <button
+        {!mfaChallenge && !mfaSetup && !recoveryCodes && <button
           type="button"
           onClick={() => setShowSupportCard(true)}
           className={styles.supportLink}
         >
           Esqueceu a senha? Fale com o suporte
-        </button>
+        </button>}
+        {mfaChallenge && <button type="button" className={styles.supportLink} onClick={() => { setMfaChallenge(null); setMfaCode(""); setError(null); }}>
+          Voltar ao login
+        </button>}
       </div>
 
       {/* SUPPORT CARD OVERLAY */}

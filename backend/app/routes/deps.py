@@ -11,12 +11,14 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.barbearia import Barbearia
 from app.models.estabelecimento import Estabelecimento
+from app.models.admin_mfa import AdminMfaSetting
 from app.models.token_blacklist import TokenBlacklist
 from app.security import SESSION_COOKIE_NAME, TokenClaims, decode_access_token
 
 
 bearer_scheme = HTTPBearer(auto_error=False)
 ADMIN_ROLES = {"admin", "super_admin"}
+MFA_SETUP_ROLE = "mfa_setup"
 BUSINESS_TIMEZONE = ZoneInfo(os.getenv("BUSINESS_TIMEZONE", "America/Sao_Paulo"))
 ADMIN_REAUTH_MAX_AGE_SECONDS = max(
     60,
@@ -88,6 +90,18 @@ def get_current_claims(
             or int(estabelecimento.auth_version or 0) != claims.session_version
         ):
             raise HTTPException(status_code=401, detail="Sessao revogada.")
+    elif claims.is_admin:
+        setting = db.get(AdminMfaSetting, claims.sub.strip().lower())
+        if (
+            not setting
+            or not setting.enabled
+            or int(setting.session_version or 0) != claims.session_version
+        ):
+            raise HTTPException(status_code=401, detail="MFA obrigatorio para o acesso administrativo.")
+    elif (claims.role or "").lower() == MFA_SETUP_ROLE:
+        setting = db.get(AdminMfaSetting, claims.sub.strip().lower())
+        if setting and int(setting.session_version or 0) != claims.session_version:
+            raise HTTPException(status_code=401, detail="Sessao revogada.")
 
     return claims
 
@@ -105,6 +119,15 @@ def require_recent_admin(claims: TokenClaims = Depends(require_admin)) -> TokenC
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Reautenticacao obrigatoria para esta operacao sensivel.",
         )
+    return claims
+
+
+def require_admin_mfa_setup(claims: TokenClaims = Depends(get_current_claims)) -> TokenClaims:
+    if not claims.is_admin and (claims.role or "").lower() != MFA_SETUP_ROLE:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Acesso restrito ao superadmin.")
+    authenticated_at = claims.auth_time or claims.iat
+    if int(time.time()) - authenticated_at > ADMIN_REAUTH_MAX_AGE_SECONDS:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Reautenticacao obrigatoria.")
     return claims
 
 

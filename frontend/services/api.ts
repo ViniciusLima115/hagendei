@@ -138,6 +138,20 @@ export type LoginResponse = {
   plano: "basico" | "premium" | null;
   access_token?: string | null;
   token_type: "bearer";
+  mfa_required?: boolean;
+  mfa_challenge?: string | null;
+  mfa_setup_required?: boolean;
+};
+
+export type AdminMfaStatus = {
+  enabled: boolean;
+  recovery_codes_remaining: number;
+};
+
+export type AdminMfaSetup = {
+  manual_key: string;
+  otpauth_uri: string;
+  qr_code_data_url: string;
 };
 
 export type PublicBarbeiro = {
@@ -289,7 +303,10 @@ async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
 async function parseOrThrow(res: Response, fallbackMessage: string) {
   if (res.ok) return res.status === 204 ? null : res.json();
   const body = await res.json().catch(() => ({}));
-  throw new Error(body?.detail || fallbackMessage);
+  if (res.status === 429) {
+    throw new Error("Muitas tentativas em pouco tempo. Aguarde um minuto e tente novamente.");
+  }
+  throw new Error(body?.detail || body?.error || fallbackMessage);
 }
 
 export async function getAgendaDia(data: string): Promise<AgendaDiaResponse> {
@@ -538,6 +555,50 @@ export async function loginUsuario(payload: {
   });
 
   return parseOrThrow(res, "Falha ao validar login.");
+}
+
+export async function verificarMfaAdmin(payload: {
+  challenge: string;
+  code: string;
+}): Promise<LoginResponse> {
+  const res = await apiFetch("/auth/admin/mfa/verify", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  return parseOrThrow(res, "Falha ao validar o codigo de seguranca.");
+}
+
+export async function obterStatusMfaAdmin(): Promise<AdminMfaStatus> {
+  const res = await apiFetch("/auth/admin/mfa/status", { cache: "no-store" });
+  return parseOrThrow(res, "Falha ao carregar a seguranca da conta.");
+}
+
+export async function iniciarMfaAdmin(senha: string): Promise<AdminMfaSetup> {
+  const res = await apiFetch("/auth/admin/mfa/setup", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ senha }),
+  });
+  return parseOrThrow(res, "Falha ao iniciar a configuracao do autenticador.");
+}
+
+export async function confirmarMfaAdmin(code: string): Promise<{ recovery_codes: string[] }> {
+  const res = await apiFetch("/auth/admin/mfa/setup/confirm", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ code }),
+  });
+  return parseOrThrow(res, "Falha ao confirmar o autenticador.");
+}
+
+export async function desativarMfaAdmin(payload: { senha: string; code: string }): Promise<void> {
+  const res = await apiFetch("/auth/admin/mfa/disable", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  await parseOrThrow(res, "Falha ao desativar a verificacao em duas etapas.");
 }
 
 export async function lookupPublicBarbershop(params: {

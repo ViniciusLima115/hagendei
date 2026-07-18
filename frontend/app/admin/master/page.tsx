@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { AlertTriangle, BellRing, Building2, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Clock, CreditCard, Eye, EyeOff, KeyRound, Lock, Power, RefreshCw, Search, ShieldCheck, Trash2, UserRound, X } from "lucide-react";
 import Alert from "../../components/Alert";
 import Button from "../../components/Button";
@@ -682,6 +683,10 @@ export default function AdminPage() {
           <p className={styles.heroSubtitle}>
             Gerencie estabelecimentos, planos, login e senha de todos os clientes.
           </p>
+          <Link href="/admin/seguranca" className={styles.securityLink}>
+            <ShieldCheck size={16} />
+            Seguranca da conta
+          </Link>
         </div>
 
         {/* ── Stats ─────────────────────────────────────────── */}

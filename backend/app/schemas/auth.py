@@ -15,6 +15,50 @@ class LoginResponse(BaseModel):
     plano: str | None = None
     access_token: str | None = None
     token_type: str = "bearer"
+    mfa_required: bool = False
+    mfa_challenge: str | None = None
+    mfa_setup_required: bool = False
+
+
+class AdminMfaVerifyRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    challenge: str = Field(min_length=20, max_length=200)
+    code: str = Field(min_length=6, max_length=32)
+
+
+class AdminMfaSetupRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    senha: str = Field(min_length=1, max_length=1024)
+
+
+class AdminMfaSetupConfirmRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    code: str = Field(min_length=6, max_length=32)
+
+
+class AdminMfaDisableRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    senha: str = Field(min_length=1, max_length=1024)
+    code: str = Field(min_length=6, max_length=32)
+
+
+class AdminMfaStatusResponse(BaseModel):
+    enabled: bool
+    recovery_codes_remaining: int = 0
+
+
+class AdminMfaSetupResponse(BaseModel):
+    manual_key: str
+    otpauth_uri: str
+    qr_code_data_url: str
+
+
+class AdminMfaSetupConfirmResponse(BaseModel):
+    recovery_codes: list[str]
 
 
 class MeResponse(BaseModel):

@@ -36,6 +36,10 @@ ALLOWED_AUDIT_ACTIONS = {
     "tenant_account_updated",
     "tenant_account_disabled",
     "tenant_password_changed",
+    "admin_mfa_enabled",
+    "admin_mfa_disabled",
+    "admin_mfa_login_verified",
+    "admin_mfa_recovery_code_used",
 }
 
 

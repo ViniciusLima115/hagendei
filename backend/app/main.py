@@ -64,7 +64,7 @@ def _validate_runtime_config() -> None:
         "ENCRYPTION_KEY",
         "PAYMENT_CREDENTIALS_PEPPER",
         "ADMIN_USUARIO",
-        "ADMIN_SENHA",
+        "ADMIN_SENHA_HASH",
         "ALLOWED_HOSTS",
         "CORS_ALLOWED_ORIGINS",
         "TRUSTED_PROXY_IPS",
@@ -81,8 +81,9 @@ def _validate_runtime_config() -> None:
         raise RuntimeError(f"Configuracao de producao incompleta: {', '.join(missing)}")
     if not os.getenv("RATE_LIMIT_STORAGE_URI", "").strip().lower().startswith(("redis://", "rediss://")):
         raise RuntimeError("RATE_LIMIT_STORAGE_URI deve usar Redis em producao.")
-    if len(os.getenv("ADMIN_SENHA", "")) < 14:
-        raise RuntimeError("ADMIN_SENHA deve ter ao menos 14 caracteres em producao.")
+    admin_password_hash = os.getenv("ADMIN_SENHA_HASH", "").strip()
+    if len(admin_password_hash) != 60 or not admin_password_hash.startswith(("$2a$", "$2b$", "$2y$")):
+        raise RuntimeError("ADMIN_SENHA_HASH deve conter um hash bcrypt valido em producao.")
     if _as_bool(os.getenv("AUTH_EXPOSE_BEARER_TOKEN"), False):
         raise RuntimeError("AUTH_EXPOSE_BEARER_TOKEN deve permanecer desativado em producao.")
     if not _as_bool(os.getenv("SESSION_COOKIE_SECURE"), True):

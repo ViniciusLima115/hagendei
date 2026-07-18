@@ -164,6 +164,85 @@
   gap: 14px;
 }
 
+.mfaIntro {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #74520a;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.setupBox {
+  display: grid;
+  gap: 12px;
+}
+
+.setupText {
+  margin: 0;
+  color: #6b7280;
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.setupQr {
+  width: 184px;
+  height: 184px;
+  margin: 0 auto;
+  border: 8px solid #ffffff;
+  border-radius: var(--radius-md);
+}
+
+.setupKey {
+  display: grid;
+  gap: 4px;
+  padding: 10px;
+  border: 1px dashed #d1d5db;
+  border-radius: var(--radius-md);
+  text-align: center;
+}
+
+.setupKey span {
+  color: #6b7280;
+  font-size: 0.72rem;
+}
+
+.setupKey code,
+.recoveryGrid code {
+  color: #1a1a1a;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.78rem;
+}
+
+.recoveryGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.recoveryGrid code {
+  padding: 7px;
+  border: 1px solid #e0e0dc;
+  border-radius: 4px;
+  background: #ffffff;
+  text-align: center;
+}
+
+.copyButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 38px;
+  border: 1px solid #d1d5db;
+  border-radius: var(--radius-md);
+  background: #ffffff;
+  color: #1a1a1a;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
 .field {
   display: grid;
   gap: 6px;

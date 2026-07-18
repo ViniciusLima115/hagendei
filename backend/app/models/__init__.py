@@ -2,6 +2,7 @@ from app.models.estabelecimento import Estabelecimento
 from app.models.profissional import Profissional
 
 from app.models.admin_audit_log import AdminAuditLog
+from app.models.admin_mfa import AdminMfaChallenge, AdminMfaSetting
 from app.models.agendamento import Agendamento
 from app.models.cliente import Cliente
 from app.models.conversa import Conversa
@@ -17,7 +18,7 @@ from app.models.token_blacklist import TokenBlacklist
 from app.models.webhook_event import WebhookEvent
 
 __all__ = [
-    "Estabelecimento", "Profissional", "AdminAuditLog",
+    "Estabelecimento", "Profissional", "AdminAuditLog", "AdminMfaChallenge", "AdminMfaSetting",
     "Agendamento", "Cliente", "Conversa", "Notificacao", "Pagamento", "PaymentAccount", "PaymentIntegration",
     "PaymentOAuthState", "PaymentWebhookEvent", "ReminderJob", "Servico", "WebhookEvent",
     "TokenBlacklist",

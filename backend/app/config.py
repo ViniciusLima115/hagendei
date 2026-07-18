@@ -75,6 +75,11 @@ ENV_FILE_PATHS = _resolve_env_files()
 for env_path in ENV_FILE_PATHS:
     load_dotenv(env_path, override=False)
 
+# Sobreposicao local ignorada pelo Git para segredos administrativos.
+# Variaveis injetadas pelo ambiente (CI/producao) sempre prevalecem.
+if "ADMIN_SENHA_HASH" not in os.environ:
+    load_dotenv(BACKEND_DIR / ".env.admin", override=True)
+
 DATABASE_URL = _get_database_url()
 
 HORARIO_ABERTURA = int(os.getenv("HORARIO_ABERTURA", "8"))
