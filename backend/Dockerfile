@@ -11,7 +11,11 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY --chown=hagendei:hagendei . .
+
+RUN chmod +x /app/entrypoint.sh
+
 USER hagendei
 
 EXPOSE 8000
+ENTRYPOINT ["/app/entrypoint.sh"]
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--no-proxy-headers", "--no-server-header", "--no-access-log", "--limit-concurrency", "200"]
