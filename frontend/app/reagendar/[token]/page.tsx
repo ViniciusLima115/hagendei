@@ -84,7 +84,7 @@ export default function ReagendarPage() {
       setLoadingSlots(true);
       try {
         const resultado = await lookupPublicBarbershopById({
-          barbearia_id: booking!.barbearia_id,
+          estabelecimento_id: booking!.barbearia_id,
           data,
           barbeiro_id: barbeiroId!,
           servico_id: servicoId!,

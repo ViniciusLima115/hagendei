@@ -132,14 +132,14 @@ def require_admin_mfa_setup(claims: TokenClaims = Depends(get_current_claims)) -
 
 
 def tenant_id_from_header(
-    x_barbearia_id: Annotated[str | None, Header(alias="X-Barbearia-Id")] = None,
+    x_estabelecimento_id: Annotated[str | None, Header(alias="X-Estabelecimento-Id")] = None,
     claims: TokenClaims = Depends(get_current_claims),
     db: Session = Depends(get_db),
 ) -> int:
-    if not x_barbearia_id:
+    if not x_estabelecimento_id:
         raise HTTPException(status_code=400, detail="X-Tenant-Id obrigatorio.")
     try:
-        tenant_id = int(x_barbearia_id)
+        tenant_id = int(x_estabelecimento_id)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail="X-Tenant-Id invalido.") from exc
 

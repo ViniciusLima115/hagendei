@@ -23,7 +23,7 @@ def test_public_lookup_retorna_barbeiros_servicos_e_horarios(client, db_session)
 
     data_futura = (datetime.now() + timedelta(days=2)).date()
     resp = client.get(
-        "/public/barbearia/publica",
+        "/public/estabelecimento/publica",
         params={
             "barbeiro_id": barbeiro_ativo.id,
             "servico_id": servico.id,
@@ -33,7 +33,7 @@ def test_public_lookup_retorna_barbeiros_servicos_e_horarios(client, db_session)
     assert resp.status_code == 200
     body = resp.json()
     assert body["nome"] == "Barbearia Publica"
-    assert body["barbearia_id"] == barbearia.id
+    assert body["estabelecimento_id"] == barbearia.id
     assert body["slug"] == "publica"
     assert len(body["barbeiros"]) == 1
     assert body["barbeiros"][0]["nome"] == "Ativo"

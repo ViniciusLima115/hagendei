@@ -59,7 +59,7 @@ Swagger fica desabilitado por padrao. Para uso local, defina `DOCS_ENABLED=true`
 
 O login cria um cookie `HttpOnly`, `SameSite=Lax` e `Secure` em producao. O JWT inclui emissor, audiencia, `jti`, expiracao e versao de sessao. Desativar uma conta ou trocar a senha revoga as sessoes anteriores.
 
-O `X-Barbearia-Id` e apenas contexto de requisicao: o backend sempre compara esse valor com o tenant assinado no token. Rotas administrativas globais exigem papel `admin` ou `super_admin`.
+O `X-Estabelecimento-Id` e apenas contexto de requisicao: o backend sempre compara esse valor com o tenant assinado no token. Rotas administrativas globais exigem papel `admin` ou `super_admin`.
 
 ## Mercado Pago
 

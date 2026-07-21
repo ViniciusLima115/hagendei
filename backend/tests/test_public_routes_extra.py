@@ -39,31 +39,31 @@ def _data_futura(days=3) -> str:
     return (date.today() + timedelta(days=days)).isoformat()
 
 
-# ── GET /public/barbearia/{slug} — error paths ───────────────────────────────
+# ── GET /public/estabelecimento/{slug} — error paths ─────────────────────────
 
 def test_lookup_barbearia_slug_invalido_retorna_404(client):
-    resp = client.get("/public/barbearia/slug-inexistente-xyz")
+    resp = client.get("/public/estabelecimento/slug-inexistente-xyz")
     assert resp.status_code == 404
 
 
 def test_lookup_barbearia_slug_sem_params_retorna_200(client, db_session):
     b = _barbearia(db_session, "sem-params")
-    resp = client.get(f"/public/barbearia/{b.slug}")
+    resp = client.get(f"/public/estabelecimento/{b.slug}")
     assert resp.status_code == 200
     assert resp.json()["slug"] == "sem-params"
 
 
-# ── GET /public/barbearia-id/{barbearia_id} ──────────────────────────────────
+# ── GET /public/estabelecimento-id/{estabelecimento_id} ──────────────────────
 
 def test_lookup_barbearia_por_id_retorna_200(client, db_session):
     b = _barbearia(db_session, "por-id-1", "Por Id")
-    resp = client.get(f"/public/barbearia-id/{b.id}")
+    resp = client.get(f"/public/estabelecimento-id/{b.id}")
     assert resp.status_code == 200
-    assert resp.json()["barbearia_id"] == b.id
+    assert resp.json()["estabelecimento_id"] == b.id
 
 
 def test_lookup_barbearia_por_id_invalido_retorna_404(client):
-    resp = client.get("/public/barbearia-id/999999")
+    resp = client.get("/public/estabelecimento-id/999999")
     assert resp.status_code == 404
 
 
@@ -72,7 +72,7 @@ def test_lookup_barbearia_por_id_com_data_e_params(client, db_session):
     barb = _barbeiro(db_session, b.id)
     serv = _servico(db_session, b.id)
     resp = client.get(
-        f"/public/barbearia-id/{b.id}",
+        f"/public/estabelecimento-id/{b.id}",
         params={"barbeiro_id": barb.id, "servico_id": serv.id, "data": _data_futura()},
     )
     assert resp.status_code == 200

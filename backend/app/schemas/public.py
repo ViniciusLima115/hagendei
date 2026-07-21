@@ -29,8 +29,8 @@ class PublicHorarioItem(BaseModel):
     disponivel: bool
 
 
-class PublicBarbeariaLookupResponse(BaseModel):
-    barbearia_id: int
+class PublicEstabelecimentoLookupResponse(BaseModel):
+    estabelecimento_id: int
     nome: str
     slug: str
     barbeiros: list[PublicBarbeiroItem]

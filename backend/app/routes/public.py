@@ -14,7 +14,7 @@ from app.schemas.public import (
     PublicAgendamentoCreate,
     PublicAgendamentoResponse,
     PublicBarbeiroItem,
-    PublicBarbeariaLookupResponse,
+    PublicEstabelecimentoLookupResponse,
     PublicPagamentoInitResponse,
     PublicPagamentoStatusResponse,
     PublicServicoItem,
@@ -55,7 +55,7 @@ def _normalizar_telefone_storage(telefone: str) -> str:
     return digits
 
 
-@router.get("/barbearia/{slug}", response_model=PublicBarbeariaLookupResponse)
+@router.get("/estabelecimento/{slug}", response_model=PublicEstabelecimentoLookupResponse)
 @limiter.limit(RATE_LIMIT_PUBLIC)
 def lookup_barbearia_publica(
     request: Request,
@@ -81,20 +81,22 @@ def lookup_barbearia_publica(
         raise HTTPException(status_code=500, detail="Erro interno ao carregar estabelecimento.") from exc
 
 
-@router.get("/barbearia-id/{barbearia_id}", response_model=PublicBarbeariaLookupResponse)
+@router.get("/estabelecimento-id/{estabelecimento_id}", response_model=PublicEstabelecimentoLookupResponse)
 @limiter.limit(RATE_LIMIT_PUBLIC)
 def lookup_barbearia_publica_por_id(
     request: Request,
-    barbearia_id: int,
+    estabelecimento_id: int,
     data: date | None = Query(default=None),
     barbeiro_id: int | None = Query(default=None),
     servico_id: int | None = Query(default=None),
     db: Session = Depends(get_db),
 ):
     try:
+        # NOTE: obter_lookup_publico_por_id ainda usa barbearia_id como nome de parametro
+        # internamente — renomeacao desse service fica para uma task de limpeza seguinte.
         return obter_lookup_publico_por_id(
             db,
-            barbearia_id=barbearia_id,
+            barbearia_id=estabelecimento_id,
             data_referencia=data,
             barbeiro_id=barbeiro_id,
             servico_id=servico_id,

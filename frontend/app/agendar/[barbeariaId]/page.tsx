@@ -14,7 +14,7 @@ export default function RedirectToSlugPage() {
       router.replace("/");
       return;
     }
-    lookupPublicBarbershopById({ barbearia_id: id })
+    lookupPublicBarbershopById({ estabelecimento_id: id })
       .then((data) => router.replace(`/${data.slug}`))
       .catch(() => router.replace("/"));
   }, [params, router]);

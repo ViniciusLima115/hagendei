@@ -170,7 +170,7 @@ def make_tenant_headers(db_session):
         )
         headers = {"Authorization": f"Bearer {token}"}
         if include_tenant_header:
-            headers["X-Barbearia-Id"] = str(tenant_id)
+            headers["X-Estabelecimento-Id"] = str(tenant_id)
         return headers
 
     return _make

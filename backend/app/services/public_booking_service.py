@@ -238,7 +238,7 @@ def obter_lookup_publico_por_id(
         horarios_grade = disponibilidade["horarios_grade"]
 
     return {
-        "barbearia_id": barbearia.id,
+        "estabelecimento_id": barbearia.id,
         "nome": barbearia.nome,
         "slug": barbearia.slug,
         "barbeiros": barbeiros,

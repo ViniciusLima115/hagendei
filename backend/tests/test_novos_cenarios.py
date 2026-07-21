@@ -504,12 +504,12 @@ def test_status_invalido_normalizado_para_pendente(client, db_session, barbearia
 # ---------------------------------------------------------------------------
 
 def test_lookup_barbearia_inexistente_retorna_404(client):
-    resp = client.get("/public/barbearia/slug-que-nao-existe")
+    resp = client.get("/public/estabelecimento/slug-que-nao-existe")
     assert resp.status_code == 404
 
 
 def test_lookup_barbearia_por_id_inexistente_retorna_404(client):
-    resp = client.get("/public/barbearia-id/999999")
+    resp = client.get("/public/estabelecimento-id/999999")
     assert resp.status_code == 404
 
 

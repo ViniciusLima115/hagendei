@@ -168,7 +168,7 @@ app.add_middleware(
     allow_origin_regex=_cors_origin_regex(),
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type", "X-Barbearia-Id", "X-Internal-Token"],
+    allow_headers=["Authorization", "Content-Type", "X-Estabelecimento-Id", "X-Internal-Token"],
 )
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)

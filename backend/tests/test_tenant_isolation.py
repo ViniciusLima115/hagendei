@@ -38,7 +38,7 @@ def test_tenant_nao_ve_agenda_do_outro(client, dois_tenants, make_tenant_headers
     headers_t1 = make_tenant_headers(tenant_id=t1.id)
     headers_t2_errado = {
         "Authorization": headers_t1["Authorization"],  # token de t1
-        "X-Barbearia-Id": str(t2.id),  # mas tentando acessar t2
+        "X-Estabelecimento-Id": str(t2.id),  # mas tentando acessar t2
     }
     resp = client.get("/agendamentos/", headers=headers_t2_errado)
     assert resp.status_code == 403
@@ -50,7 +50,7 @@ def test_tenant_nao_ve_clientes_do_outro(client, dois_tenants, make_tenant_heade
 
     headers_t1_acessando_t2 = {
         "Authorization": make_tenant_headers(tenant_id=t1.id)["Authorization"],
-        "X-Barbearia-Id": str(t2.id),
+        "X-Estabelecimento-Id": str(t2.id),
     }
     resp = client.get("/clientes/", headers=headers_t1_acessando_t2)
     assert resp.status_code == 403
@@ -62,7 +62,7 @@ def test_tenant_nao_ve_servicos_do_outro(client, dois_tenants, make_tenant_heade
 
     headers_t1_acessando_t2 = {
         "Authorization": make_tenant_headers(tenant_id=t1.id)["Authorization"],
-        "X-Barbearia-Id": str(t2.id),
+        "X-Estabelecimento-Id": str(t2.id),
     }
     resp = client.get("/servicos/", headers=headers_t1_acessando_t2)
     assert resp.status_code == 403
@@ -74,7 +74,7 @@ def test_tenant_nao_cria_agendamento_em_outro_tenant(client, dois_tenants, make_
 
     headers_t1_acessando_t2 = {
         "Authorization": make_tenant_headers(tenant_id=t1.id)["Authorization"],
-        "X-Barbearia-Id": str(t2.id),
+        "X-Estabelecimento-Id": str(t2.id),
     }
     payload = {
         "cliente_nome": "Intruso",

@@ -177,7 +177,7 @@ export type PublicHorarioGrade = {
 };
 
 export type PublicLookupResponse = {
-  barbearia_id: number;
+  estabelecimento_id: number;
   nome: string;
   slug: string;
   barbeiros: PublicBarbeiro[];
@@ -276,7 +276,7 @@ async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
   const headers = new Headers(init?.headers);
 
   if (tenantId) {
-    headers.set("X-Barbearia-Id", tenantId);
+    headers.set("X-Estabelecimento-Id", tenantId);
   }
 
   let res: Response;
@@ -614,14 +614,14 @@ export async function lookupPublicBarbershop(params: {
   const query = search.toString();
   const suffix = query ? `?${query}` : "";
 
-  const res = await fetch(`${API_URL}/public/barbearia/${params.slug}${suffix}`, {
+  const res = await fetch(`${API_URL}/public/estabelecimento/${params.slug}${suffix}`, {
     cache: "no-store",
   });
   return parseOrThrow(res, "Falha ao carregar disponibilidade publica.");
 }
 
 export async function lookupPublicBarbershopById(params: {
-  barbearia_id: number;
+  estabelecimento_id: number;
   data?: string;
   barbeiro_id?: number;
   servico_id?: number;
@@ -633,7 +633,7 @@ export async function lookupPublicBarbershopById(params: {
   const query = search.toString();
   const suffix = query ? `?${query}` : "";
 
-  const res = await fetch(`${API_URL}/public/barbearia-id/${params.barbearia_id}${suffix}`, {
+  const res = await fetch(`${API_URL}/public/estabelecimento-id/${params.estabelecimento_id}${suffix}`, {
     cache: "no-store",
   });
   return parseOrThrow(res, "Falha ao carregar disponibilidade publica.");
