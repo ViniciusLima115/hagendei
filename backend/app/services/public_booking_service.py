@@ -66,16 +66,16 @@ def montar_link_agendamento_por_id(estabelecimento_id: int) -> str:
     return f"{base}/agendar/{estabelecimento_id}"
 
 
-def montar_mensagem_link_agendamento(nome_barbearia: str, slug: str) -> str:
+def montar_mensagem_link_agendamento(nome_estabelecimento: str, slug: str) -> str:
     return (
-        f"Oi. Para agendar na {nome_barbearia}, use este link:\n"
+        f"Oi. Para agendar na {nome_estabelecimento}, use este link:\n"
         f"{montar_link_agendamento(slug)}"
     )
 
 
-def montar_mensagem_link_agendamento_por_id(nome_barbearia: str, estabelecimento_id: int) -> str:
+def montar_mensagem_link_agendamento_por_id(nome_estabelecimento: str, estabelecimento_id: int) -> str:
     return (
-        f"Oi. Para agendar na {nome_barbearia}, use este link:\n"
+        f"Oi. Para agendar na {nome_estabelecimento}, use este link:\n"
         f"{montar_link_agendamento_por_id(estabelecimento_id)}"
     )
 
@@ -99,7 +99,7 @@ def _duracao_servico(
     return servico.duracao_minutos
 
 
-def _obter_barbearia(
+def _obter_estabelecimento(
     db: Session,
     *,
     slug: str | None = None,
@@ -118,25 +118,25 @@ def listar_barbeiros_publico(db: Session, *, estabelecimento_id: int) -> list[Ba
 
 
 def listar_servicos_publico(db: Session, *, estabelecimento_id: int) -> list[dict]:
-    barbearia = _obter_barbearia(db, estabelecimento_id=estabelecimento_id)
-    if not barbearia:
+    estabelecimento = _obter_estabelecimento(db, estabelecimento_id=estabelecimento_id)
+    if not estabelecimento:
         return []
     servicos = BookingRepository(db).list_public_servicos(estabelecimento_id)
-    return [_serializar_servico_publico(servico, barbearia) for servico in servicos]
+    return [_serializar_servico_publico(servico, estabelecimento) for servico in servicos]
 
 
-def _servico_exige_pagamento_adiantado(servico: Servico, barbearia: Estabelecimento) -> bool:
+def _servico_exige_pagamento_adiantado(servico: Servico, estabelecimento: Estabelecimento) -> bool:
     return bool(getattr(servico, "pagamento_adiantado_obrigatorio", False))
 
 
-def _serializar_servico_publico(servico: Servico, barbearia: Estabelecimento) -> dict:
+def _serializar_servico_publico(servico: Servico, estabelecimento: Estabelecimento) -> dict:
     return {
         "id": servico.id,
         "nome": servico.nome,
         "duracao": servico.duracao_minutos,
         "preco": float(servico.preco),
         "pagamento_adiantado_obrigatorio": bool(getattr(servico, "pagamento_adiantado_obrigatorio", False)),
-        "pagamento_adiantado_obrigatorio_efetivo": _servico_exige_pagamento_adiantado(servico, barbearia),
+        "pagamento_adiantado_obrigatorio_efetivo": _servico_exige_pagamento_adiantado(servico, estabelecimento),
         "advance_payment_type": getattr(servico, "advance_payment_type", None),
         "advance_payment_amount": (
             float(servico.advance_payment_amount)
@@ -176,7 +176,7 @@ def listar_horarios_disponiveis_publico(
             "disponivel": slot.strftime("%H:%M") in horarios_set and slot >= agora_br,
         }
         for slot in build_day_slots(
-            _obter_barbearia(db, estabelecimento_id=estabelecimento_id),
+            _obter_estabelecimento(db, estabelecimento_id=estabelecimento_id),
             data_referencia,
             duracao,
             barbeiro=barbeiro,
@@ -193,12 +193,12 @@ def obter_lookup_publico(
     servico_id: int | None = None,
     data_referencia: date | None = None,
 ) -> dict:
-    barbearia = _obter_barbearia(db, slug=slug)
-    if not barbearia:
+    estabelecimento = _obter_estabelecimento(db, slug=slug)
+    if not estabelecimento:
         raise ValueError("Estabelecimento nao encontrado.")
     return obter_lookup_publico_por_id(
         db,
-        estabelecimento_id=barbearia.id,
+        estabelecimento_id=estabelecimento.id,
         barbeiro_id=barbeiro_id,
         servico_id=servico_id,
         data_referencia=data_referencia,
@@ -213,13 +213,13 @@ def obter_lookup_publico_por_id(
     servico_id: int | None = None,
     data_referencia: date | None = None,
 ) -> dict:
-    barbearia = _obter_barbearia(db, estabelecimento_id=estabelecimento_id)
-    if not barbearia:
+    estabelecimento = _obter_estabelecimento(db, estabelecimento_id=estabelecimento_id)
+    if not estabelecimento:
         raise ValueError("Estabelecimento nao encontrado.")
 
-    barbeiros = listar_barbeiros_publico(db, estabelecimento_id=barbearia.id)
-    servicos_model = BookingRepository(db).list_public_servicos(barbearia.id)
-    servicos = [_serializar_servico_publico(servico, barbearia) for servico in servicos_model]
+    barbeiros = listar_barbeiros_publico(db, estabelecimento_id=estabelecimento.id)
+    servicos_model = BookingRepository(db).list_public_servicos(estabelecimento.id)
+    servicos = [_serializar_servico_publico(servico, estabelecimento) for servico in servicos_model]
 
     if not data_referencia:
         data_referencia = datetime.now().date()
@@ -229,7 +229,7 @@ def obter_lookup_publico_por_id(
     if barbeiro_id and servico_id:
         disponibilidade = listar_horarios_disponiveis_publico(
             db,
-            estabelecimento_id=barbearia.id,
+            estabelecimento_id=estabelecimento.id,
             barbeiro_id=barbeiro_id,
             servico_id=servico_id,
             data_referencia=data_referencia,
@@ -238,16 +238,16 @@ def obter_lookup_publico_por_id(
         horarios_grade = disponibilidade["horarios_grade"]
 
     return {
-        "estabelecimento_id": barbearia.id,
-        "nome": barbearia.nome,
-        "slug": barbearia.slug,
+        "estabelecimento_id": estabelecimento.id,
+        "nome": estabelecimento.nome,
+        "slug": estabelecimento.slug,
         "barbeiros": barbeiros,
         "servicos": servicos,
         "horarios_disponiveis": horarios_disponiveis,
         "horarios_grade": horarios_grade,
-        "accent_color": getattr(barbearia, "accent_color", None) or "#d4930a",
-        "bg_color": getattr(barbearia, "bg_color", None) or "#ffffff",
-        "logo_url": getattr(barbearia, "logo_url", None),
+        "accent_color": getattr(estabelecimento, "accent_color", None) or "#d4930a",
+        "bg_color": getattr(estabelecimento, "bg_color", None) or "#ffffff",
+        "logo_url": getattr(estabelecimento, "logo_url", None),
     }
 
 
@@ -283,16 +283,16 @@ def criar_agendamento_publico(
     enviar_confirmacao_apos_criacao: bool = True,
     agendar_lembretes: bool = True,
 ) -> dict:
-    barbearia = _obter_barbearia(db, slug=slug, estabelecimento_id=estabelecimento_id)
-    if not barbearia:
+    estabelecimento = _obter_estabelecimento(db, slug=slug, estabelecimento_id=estabelecimento_id)
+    if not estabelecimento:
         raise ValueError("Estabelecimento nao encontrado.")
 
     repo = BookingRepository(db)
-    barbeiro = repo.get_barbeiro(barbearia.id, barbeiro_id, only_active=True, for_update=True)
+    barbeiro = repo.get_barbeiro(estabelecimento.id, barbeiro_id, only_active=True, for_update=True)
     if not barbeiro:
         raise ValueError("Profissional nao encontrado.")
 
-    servico = repo.get_servico(barbearia.id, servico_id)
+    servico = repo.get_servico(estabelecimento.id, servico_id)
     if not servico:
         raise ValueError("Servico nao encontrado.")
 
@@ -302,13 +302,13 @@ def criar_agendamento_publico(
 
     duracao = _duracao_servico(barbeiro=barbeiro, servico=servico)
     fim = inicio + timedelta(minutes=duracao)
-    if not is_within_working_hours(barbearia, inicio, fim):
+    if not is_within_working_hours(estabelecimento, inicio, fim):
         raise ValueError("Horario fora do funcionamento do estabelecimento.")
-    if not is_within_working_hours(barbearia, inicio, fim, barbeiro=barbeiro):
+    if not is_within_working_hours(estabelecimento, inicio, fim, barbeiro=barbeiro):
         raise ValueError("Horario fora da disponibilidade do profissional.")
 
     conflito = repo.get_conflicting_agendamento(
-        tenant_id=barbearia.id,
+        tenant_id=estabelecimento.id,
         barbeiro_id=barbeiro.id,
         inicio=inicio,
         fim=fim,
@@ -319,13 +319,13 @@ def criar_agendamento_publico(
     telefone = _normalizar_telefone_storage(cliente_telefone)
     email_normalizado = (cliente_email or "").strip().lower() or None
     cliente = repo.get_or_create_cliente(
-        tenant_id=barbearia.id,
+        tenant_id=estabelecimento.id,
         telefone=telefone,
         nome=cliente_nome.strip(),
         email=email_normalizado,
     )
     agendamento = repo.create_agendamento(
-        tenant_id=barbearia.id,
+        tenant_id=estabelecimento.id,
         cliente_id=cliente.id,
         cliente_nome=cliente.nome,
         cliente_telefone=cliente.telefone,
@@ -353,11 +353,11 @@ def criar_agendamento_publico(
     if agendar_lembretes:
         lembretes = agendar_lembretes_agendamento(
             db,
-            tenant_id=barbearia.id,
+            tenant_id=estabelecimento.id,
             agendamento_id=agendamento.id,
             cliente_nome=cliente.nome,
             cliente_telefone=cliente.telefone,
-            nome_barbearia=barbearia.nome,
+            nome_estabelecimento=estabelecimento.nome,
             servico_nome=servico.nome,
             inicio=inicio,
         )
@@ -366,18 +366,18 @@ def criar_agendamento_publico(
 
     if enviar_confirmacao_apos_criacao:
         mensagem_confirmacao = montar_mensagem_confirmacao(
-            nome_barbearia=barbearia.nome,
+            nome_estabelecimento=estabelecimento.nome,
             cliente_nome=cliente.nome,
             servico_nome=servico.nome,
             inicio=inicio,
         )
-        enviar_mensagem_whatsapp(barbearia, _normalizar_telefone_whatsapp(cliente.telefone), mensagem_confirmacao)
+        enviar_mensagem_whatsapp(estabelecimento, _normalizar_telefone_whatsapp(cliente.telefone), mensagem_confirmacao)
 
     return {
         "id": agendamento.id,
-        "tenant_id": barbearia.id,
-        "estabelecimento_id": barbearia.id,
-        "slug": barbearia.slug,
+        "tenant_id": estabelecimento.id,
+        "estabelecimento_id": estabelecimento.id,
+        "slug": estabelecimento.slug,
         "cliente_nome": agendamento.cliente_nome,
         "cliente_telefone": agendamento.cliente_telefone,
         "cliente_email": agendamento.cliente_email,
@@ -398,12 +398,12 @@ def servico_exige_pagamento_adiantado_publico(
     estabelecimento_id: int | None = None,
     servico_id: int,
 ) -> tuple[bool, Decimal, int]:
-    barbearia = _obter_barbearia(db, slug=slug, estabelecimento_id=estabelecimento_id)
-    if not barbearia:
+    estabelecimento = _obter_estabelecimento(db, slug=slug, estabelecimento_id=estabelecimento_id)
+    if not estabelecimento:
         raise ValueError("Estabelecimento nao encontrado.")
 
-    servico = BookingRepository(db).get_servico(barbearia.id, servico_id)
+    servico = BookingRepository(db).get_servico(estabelecimento.id, servico_id)
     if not servico:
         raise ValueError("Servico nao encontrado.")
 
-    return _servico_exige_pagamento_adiantado(servico, barbearia), Decimal(str(servico.preco)), int(barbearia.id)
+    return _servico_exige_pagamento_adiantado(servico, estabelecimento), Decimal(str(servico.preco)), int(estabelecimento.id)

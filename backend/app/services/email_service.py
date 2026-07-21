@@ -47,7 +47,7 @@ class AgendamentoEmailContext:
     confirmation_token: str
     cliente_nome: str
     cliente_email: str
-    barbearia_nome: str
+    estabelecimento_nome: str
     estabelecimento_id: int
     slug: str | None
     servico_nome: str
@@ -121,7 +121,9 @@ def _renderizar_template_html(
         "{{intro}}": intro,
         "{{help_text}}": escape(help_text),
         "{{cliente_nome}}": escape(contexto.cliente_nome),
-        "{{barbearia_nome}}": escape(contexto.barbearia_nome),
+        # NOTE: chave do placeholder deve casar com o literal {{barbearia_nome}} em
+        # frontend/public/template.html — nao renomear sem atualizar o template tambem.
+        "{{barbearia_nome}}": escape(contexto.estabelecimento_nome),
         "{{servico_nome}}": escape(contexto.servico_nome),
         "{{barbeiro_nome}}": escape(contexto.barbeiro_nome),
         "{{data}}": escape(data_str),
@@ -169,7 +171,7 @@ def _montar_html_base(
                 <p style="margin:0 0 18px;font-size:15px;">Ola, {escape(contexto.cliente_nome)}.</p>
                 <div style="margin:0 0 22px;padding:18px;border-radius:18px;background:{destaque};">
                   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="font-size:15px;line-height:1.7;">
-                    <tr><td><strong>Estabelecimento:</strong> {escape(contexto.barbearia_nome)}</td></tr>
+                    <tr><td><strong>Estabelecimento:</strong> {escape(contexto.estabelecimento_nome)}</td></tr>
                     <tr><td><strong>Servico:</strong> {escape(contexto.servico_nome)}</td></tr>
                     <tr><td><strong>Profissional:</strong> {escape(contexto.barbeiro_nome)}</td></tr>
                     <tr><td><strong>Data:</strong> {data_str}</td></tr>

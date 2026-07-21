@@ -35,25 +35,25 @@ from app.services.public_booking_service import buscar_cliente_publico, _normali
 # ---------------------------------------------------------------------------
 
 @pytest.fixture
-def barbearia_com_barbeiro_e_servico(db_session):
-    """Cria estrutura básica: barbearia, barbeiro ativo e serviço."""
-    barbearia = Estabelecimento(
+def estabelecimento_com_barbeiro_e_servico(db_session):
+    """Cria estrutura básica: estabelecimento, barbeiro ativo e serviço."""
+    estabelecimento = Estabelecimento(
         nome="Estabelecimento Cenarios",
         slug="cenarios",
         endereco="Rua Cenarios, 1",
     )
-    db_session.add(barbearia)
+    db_session.add(estabelecimento)
     db_session.commit()
-    db_session.refresh(barbearia)
+    db_session.refresh(estabelecimento)
 
-    barbeiro = Barbeiro(nome="Barbeiro Cenarios", estabelecimento_id=barbearia.id, ativo=True)
-    servico = Servico(nome="Corte Cenarios", duracao_minutos=40, preco=50.0, estabelecimento_id=barbearia.id)
+    barbeiro = Barbeiro(nome="Barbeiro Cenarios", estabelecimento_id=estabelecimento.id, ativo=True)
+    servico = Servico(nome="Corte Cenarios", duracao_minutos=40, preco=50.0, estabelecimento_id=estabelecimento.id)
     db_session.add_all([barbeiro, servico])
     db_session.commit()
     db_session.refresh(barbeiro)
     db_session.refresh(servico)
 
-    return {"barbearia": barbearia, "barbeiro": barbeiro, "servico": servico}
+    return {"estabelecimento": estabelecimento, "barbeiro": barbeiro, "servico": servico}
 
 
 def _criar_agendamento_publico(client, estabelecimento_id, barbeiro_id, servico_id, *, offset_days=2):
@@ -101,11 +101,11 @@ def test_token_invalido_retorna_404_ao_reagendar(client):
 # Testes: operações em agendamento cancelado retornam 400
 # ---------------------------------------------------------------------------
 
-def test_confirmar_agendamento_cancelado_retorna_400(client, db_session, barbearia_com_barbeiro_e_servico):
-    fix = barbearia_com_barbeiro_e_servico
+def test_confirmar_agendamento_cancelado_retorna_400(client, db_session, estabelecimento_com_barbeiro_e_servico):
+    fix = estabelecimento_com_barbeiro_e_servico
     resp = _criar_agendamento_publico(
         client,
-        fix["barbearia"].id,
+        fix["estabelecimento"].id,
         fix["barbeiro"].id,
         fix["servico"].id,
     )
@@ -121,11 +121,11 @@ def test_confirmar_agendamento_cancelado_retorna_400(client, db_session, barbear
     assert "cancelado" in confirmar.json()["detail"].lower()
 
 
-def test_reagendar_agendamento_cancelado_retorna_400(client, db_session, barbearia_com_barbeiro_e_servico):
-    fix = barbearia_com_barbeiro_e_servico
+def test_reagendar_agendamento_cancelado_retorna_400(client, db_session, estabelecimento_com_barbeiro_e_servico):
+    fix = estabelecimento_com_barbeiro_e_servico
     resp = _criar_agendamento_publico(
         client,
-        fix["barbearia"].id,
+        fix["estabelecimento"].id,
         fix["barbeiro"].id,
         fix["servico"].id,
     )
@@ -147,11 +147,11 @@ def test_reagendar_agendamento_cancelado_retorna_400(client, db_session, barbear
 # Testes: idempotência — confirmar já confirmado retorna 200 com mesmo status
 # ---------------------------------------------------------------------------
 
-def test_confirmar_ja_confirmado_e_idempotente(client, db_session, barbearia_com_barbeiro_e_servico):
-    fix = barbearia_com_barbeiro_e_servico
+def test_confirmar_ja_confirmado_e_idempotente(client, db_session, estabelecimento_com_barbeiro_e_servico):
+    fix = estabelecimento_com_barbeiro_e_servico
     resp = _criar_agendamento_publico(
         client,
-        fix["barbearia"].id,
+        fix["estabelecimento"].id,
         fix["barbeiro"].id,
         fix["servico"].id,
     )
@@ -171,11 +171,11 @@ def test_confirmar_ja_confirmado_e_idempotente(client, db_session, barbearia_com
 # Testes: PUT /agendamentos/{token}/remarcar (rota de remarcar de fato)
 # ---------------------------------------------------------------------------
 
-def test_remarcar_por_token_altera_data_hora(client, db_session, barbearia_com_barbeiro_e_servico):
-    fix = barbearia_com_barbeiro_e_servico
+def test_remarcar_por_token_altera_data_hora(client, db_session, estabelecimento_com_barbeiro_e_servico):
+    fix = estabelecimento_com_barbeiro_e_servico
     resp = _criar_agendamento_publico(
         client,
-        fix["barbearia"].id,
+        fix["estabelecimento"].id,
         fix["barbeiro"].id,
         fix["servico"].id,
         offset_days=3,
@@ -197,13 +197,13 @@ def test_remarcar_por_token_altera_data_hora(client, db_session, barbearia_com_b
     assert body["data_hora_inicio"] != data_hora_original
 
 
-def test_remarcar_com_conflito_retorna_400(client, db_session, barbearia_com_barbeiro_e_servico):
-    fix = barbearia_com_barbeiro_e_servico
+def test_remarcar_com_conflito_retorna_400(client, db_session, estabelecimento_com_barbeiro_e_servico):
+    fix = estabelecimento_com_barbeiro_e_servico
 
     # Cria primeiro agendamento às 10:00
     data_base = datetime.now() + timedelta(days=4)
     payload1 = {
-        "estabelecimento_id": fix["barbearia"].id,
+        "estabelecimento_id": fix["estabelecimento"].id,
         "cliente_nome": "Cliente Um",
         "cliente_telefone": "5582911111111",
         "barbeiro_id": fix["barbeiro"].id,
@@ -216,7 +216,7 @@ def test_remarcar_com_conflito_retorna_400(client, db_session, barbearia_com_bar
 
     # Cria segundo agendamento em horário diferente
     payload2 = {
-        "estabelecimento_id": fix["barbearia"].id,
+        "estabelecimento_id": fix["estabelecimento"].id,
         "cliente_nome": "Cliente Dois",
         "cliente_telefone": "5582922222222",
         "barbeiro_id": fix["barbeiro"].id,
@@ -243,21 +243,21 @@ def test_remarcar_com_conflito_retorna_400(client, db_session, barbearia_com_bar
 # ---------------------------------------------------------------------------
 
 def test_listar_agendamentos_filtra_por_barbeiro_id(client, db_session, make_tenant_headers):
-    barbearia = Estabelecimento(nome="Estabelecimento Filtro", endereco="Rua Filtro")
-    db_session.add(barbearia)
+    estabelecimento = Estabelecimento(nome="Estabelecimento Filtro", endereco="Rua Filtro")
+    db_session.add(estabelecimento)
     db_session.commit()
-    db_session.refresh(barbearia)
+    db_session.refresh(estabelecimento)
 
-    barbeiro_a = Barbeiro(nome="Barbeiro A", estabelecimento_id=barbearia.id, ativo=True)
-    barbeiro_b = Barbeiro(nome="Barbeiro B", estabelecimento_id=barbearia.id, ativo=True)
-    servico = Servico(nome="Corte", duracao_minutos=40, preco=40.0, estabelecimento_id=barbearia.id)
+    barbeiro_a = Barbeiro(nome="Barbeiro A", estabelecimento_id=estabelecimento.id, ativo=True)
+    barbeiro_b = Barbeiro(nome="Barbeiro B", estabelecimento_id=estabelecimento.id, ativo=True)
+    servico = Servico(nome="Corte", duracao_minutos=40, preco=40.0, estabelecimento_id=estabelecimento.id)
     db_session.add_all([barbeiro_a, barbeiro_b, servico])
     db_session.commit()
     db_session.refresh(barbeiro_a)
     db_session.refresh(barbeiro_b)
     db_session.refresh(servico)
 
-    headers = make_tenant_headers(barbearia.id)
+    headers = make_tenant_headers(estabelecimento.id)
     amanha = datetime.now() + timedelta(days=1)
 
     payload_a = {
@@ -294,12 +294,12 @@ def test_listar_agendamentos_filtra_por_barbeiro_id(client, db_session, make_ten
 # Testes: normalização de telefone no agendamento público
 # ---------------------------------------------------------------------------
 
-def test_telefone_com_ddi_55_e_armazenado_sem_prefixo(client, db_session, barbearia_com_barbeiro_e_servico):
+def test_telefone_com_ddi_55_e_armazenado_sem_prefixo(client, db_session, estabelecimento_com_barbeiro_e_servico):
     """Telefone '5582991234567' deve ser armazenado como '82991234567' (sem DDI)."""
-    fix = barbearia_com_barbeiro_e_servico
+    fix = estabelecimento_com_barbeiro_e_servico
     data_hora = datetime.now() + timedelta(days=2)
     payload = {
-        "estabelecimento_id": fix["barbearia"].id,
+        "estabelecimento_id": fix["estabelecimento"].id,
         "cliente_nome": "Cliente DDI",
         "cliente_telefone": "5582991234567",
         "barbeiro_id": fix["barbeiro"].id,
@@ -318,12 +318,12 @@ def test_telefone_com_ddi_55_e_armazenado_sem_prefixo(client, db_session, barbea
     assert agendamento.cliente_telefone == "82991234567"
 
 
-def test_busca_publica_nao_enumera_cliente_por_telefone(client, db_session, barbearia_com_barbeiro_e_servico):
+def test_busca_publica_nao_enumera_cliente_por_telefone(client, db_session, estabelecimento_com_barbeiro_e_servico):
     """O cadastro existente nao deve ser revelado por uma consulta publica."""
-    fix = barbearia_com_barbeiro_e_servico
+    fix = estabelecimento_com_barbeiro_e_servico
     data_hora = datetime.now() + timedelta(days=2)
     payload = {
-        "estabelecimento_id": fix["barbearia"].id,
+        "estabelecimento_id": fix["estabelecimento"].id,
         "cliente_nome": "Cliente Busca DDI",
         "cliente_telefone": "5582991234567",
         "barbeiro_id": fix["barbeiro"].id,
@@ -335,14 +335,14 @@ def test_busca_publica_nao_enumera_cliente_por_telefone(client, db_session, barb
 
     # Busca com DDI completo
     resp = client.get(
-        f"/public/{fix['barbearia'].id}/cliente",
+        f"/public/{fix['estabelecimento'].id}/cliente",
         params={"telefone": "5582991234567"},
     )
     assert resp.status_code == 404
 
     # Busca sem DDI
     resp_sem_ddi = client.get(
-        f"/public/{fix['barbearia'].id}/cliente",
+        f"/public/{fix['estabelecimento'].id}/cliente",
         params={"telefone": "82991234567"},
     )
     assert resp_sem_ddi.status_code == 404
@@ -352,11 +352,11 @@ def test_busca_publica_nao_enumera_cliente_por_telefone(client, db_session, barb
 # Testes: agendamento no passado é rejeitado
 # ---------------------------------------------------------------------------
 
-def test_agendamento_publico_no_passado_retorna_400(client, db_session, barbearia_com_barbeiro_e_servico):
-    fix = barbearia_com_barbeiro_e_servico
+def test_agendamento_publico_no_passado_retorna_400(client, db_session, estabelecimento_com_barbeiro_e_servico):
+    fix = estabelecimento_com_barbeiro_e_servico
     ontem = datetime.now() - timedelta(days=1)
     payload = {
-        "estabelecimento_id": fix["barbearia"].id,
+        "estabelecimento_id": fix["estabelecimento"].id,
         "cliente_nome": "Cliente Passado",
         "cliente_telefone": "5582991111111",
         "barbeiro_id": fix["barbeiro"].id,
@@ -373,12 +373,12 @@ def test_agendamento_publico_no_passado_retorna_400(client, db_session, barbeari
 # Campo email no model Cliente
 # ---------------------------------------------------------------------------
 
-def test_buscar_cliente_publico_retorna_email(db_session, barbearia_com_barbeiro_e_servico):
+def test_buscar_cliente_publico_retorna_email(db_session, estabelecimento_com_barbeiro_e_servico):
     """
     Cliente possui campo email. buscar_cliente_publico retorna o email armazenado.
     """
-    fix = barbearia_com_barbeiro_e_servico
-    estabelecimento_id = fix["barbearia"].id
+    fix = estabelecimento_com_barbeiro_e_servico
+    estabelecimento_id = fix["estabelecimento"].id
 
     cliente = Cliente(
         nome="Cliente Com Email",
@@ -395,12 +395,12 @@ def test_buscar_cliente_publico_retorna_email(db_session, barbearia_com_barbeiro
     assert resultado["email"] == "cliente@example.com"
 
 
-def test_buscar_cliente_publico_email_none_quando_nao_informado(db_session, barbearia_com_barbeiro_e_servico):
+def test_buscar_cliente_publico_email_none_quando_nao_informado(db_session, estabelecimento_com_barbeiro_e_servico):
     """
     Cliente sem email retorna email=None.
     """
-    fix = barbearia_com_barbeiro_e_servico
-    estabelecimento_id = fix["barbearia"].id
+    fix = estabelecimento_com_barbeiro_e_servico
+    estabelecimento_id = fix["estabelecimento"].id
 
     cliente = Cliente(
         nome="Cliente Sem Email",
@@ -465,12 +465,12 @@ def test_dados_por_token_retorna_agendamento_admin(client, db_session, dados_bas
 # Testes: normalização de status inválido retorna 'pendente'
 # ---------------------------------------------------------------------------
 
-def test_status_invalido_normalizado_para_pendente(client, db_session, barbearia_com_barbeiro_e_servico):
+def test_status_invalido_normalizado_para_pendente(client, db_session, estabelecimento_com_barbeiro_e_servico):
     """Agendamento com status desconhecido deve ser serializado como 'pendente'."""
-    fix = barbearia_com_barbeiro_e_servico
+    fix = estabelecimento_com_barbeiro_e_servico
     data_hora = datetime.now() + timedelta(days=2)
 
-    cliente = Cliente(nome="Cliente Status", telefone="82999999999", estabelecimento_id=fix["barbearia"].id)
+    cliente = Cliente(nome="Cliente Status", telefone="82999999999", estabelecimento_id=fix["estabelecimento"].id)
     db_session.add(cliente)
     db_session.commit()
     db_session.refresh(cliente)
@@ -480,7 +480,7 @@ def test_status_invalido_normalizado_para_pendente(client, db_session, barbearia
         cliente_id=cliente.id,
         barbeiro_id=fix["barbeiro"].id,
         servico_id=fix["servico"].id,
-        estabelecimento_id=fix["barbearia"].id,
+        estabelecimento_id=fix["estabelecimento"].id,
         cliente_nome=cliente.nome,
         cliente_telefone=cliente.telefone,
         data=data_hora.date(),
@@ -500,15 +500,15 @@ def test_status_invalido_normalizado_para_pendente(client, db_session, barbearia
 
 
 # ---------------------------------------------------------------------------
-# Testes: lookup de barbearia inexistente retorna 404
+# Testes: lookup de estabelecimento inexistente retorna 404
 # ---------------------------------------------------------------------------
 
-def test_lookup_barbearia_inexistente_retorna_404(client):
+def test_lookup_estabelecimento_inexistente_retorna_404(client):
     resp = client.get("/public/estabelecimento/slug-que-nao-existe")
     assert resp.status_code == 404
 
 
-def test_lookup_barbearia_por_id_inexistente_retorna_404(client):
+def test_lookup_estabelecimento_por_id_inexistente_retorna_404(client):
     resp = client.get("/public/estabelecimento-id/999999")
     assert resp.status_code == 404
 
@@ -518,17 +518,17 @@ def test_lookup_barbearia_por_id_inexistente_retorna_404(client):
 # ---------------------------------------------------------------------------
 
 def test_barbeiro_inativo_nao_aparece_na_listagem_publica(client, db_session):
-    barbearia = Estabelecimento(nome="Estabelecimento Ativo Inativo", slug="ativo-inativo", endereco="Rua X")
-    db_session.add(barbearia)
+    estabelecimento = Estabelecimento(nome="Estabelecimento Ativo Inativo", slug="ativo-inativo", endereco="Rua X")
+    db_session.add(estabelecimento)
     db_session.commit()
-    db_session.refresh(barbearia)
+    db_session.refresh(estabelecimento)
 
-    ativo = Barbeiro(nome="Ativo", estabelecimento_id=barbearia.id, ativo=True)
-    inativo = Barbeiro(nome="Inativo", estabelecimento_id=barbearia.id, ativo=False)
+    ativo = Barbeiro(nome="Ativo", estabelecimento_id=estabelecimento.id, ativo=True)
+    inativo = Barbeiro(nome="Inativo", estabelecimento_id=estabelecimento.id, ativo=False)
     db_session.add_all([ativo, inativo])
     db_session.commit()
 
-    resp = client.get("/public/barbeiros", params={"estabelecimento_id": barbearia.id})
+    resp = client.get("/public/barbeiros", params={"estabelecimento_id": estabelecimento.id})
     assert resp.status_code == 200
     nomes = [b["nome"] for b in resp.json()]
     assert "Ativo" in nomes
@@ -539,10 +539,10 @@ def test_barbeiro_inativo_nao_aparece_na_listagem_publica(client, db_session):
 # Testes: cliente não encontrado retorna 404
 # ---------------------------------------------------------------------------
 
-def test_buscar_cliente_inexistente_retorna_404(client, db_session, barbearia_com_barbeiro_e_servico):
-    fix = barbearia_com_barbeiro_e_servico
+def test_buscar_cliente_inexistente_retorna_404(client, db_session, estabelecimento_com_barbeiro_e_servico):
+    fix = estabelecimento_com_barbeiro_e_servico
     resp = client.get(
-        f"/public/{fix['barbearia'].id}/cliente",
+        f"/public/{fix['estabelecimento'].id}/cliente",
         params={"telefone": "0000000000"},
     )
     assert resp.status_code == 404
@@ -552,13 +552,13 @@ def test_buscar_cliente_inexistente_retorna_404(client, db_session, barbearia_co
 # Testes: tokens únicos por agendamento
 # ---------------------------------------------------------------------------
 
-def test_cada_agendamento_tem_token_unico(client, db_session, barbearia_com_barbeiro_e_servico):
-    fix = barbearia_com_barbeiro_e_servico
+def test_cada_agendamento_tem_token_unico(client, db_session, estabelecimento_com_barbeiro_e_servico):
+    fix = estabelecimento_com_barbeiro_e_servico
     data_base = datetime.now() + timedelta(days=3)
 
     payloads = [
         {
-            "estabelecimento_id": fix["barbearia"].id,
+            "estabelecimento_id": fix["estabelecimento"].id,
             "cliente_nome": f"Cliente {i}",
             "cliente_telefone": f"558299999{i:04d}",
             "barbeiro_id": fix["barbeiro"].id,

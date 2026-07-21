@@ -14,7 +14,7 @@ def _funcionamento_padrao():
 
 
 def test_obter_funcionamento(client, dados_base, tenant_headers, db_session):
-    dados_base["barbearia"].horarios_funcionamento = _funcionamento_padrao()
+    dados_base["estabelecimento"].horarios_funcionamento = _funcionamento_padrao()
     db_session.commit()
 
     resp = client.get("/estabelecimentos/me/funcionamento", headers=tenant_headers)
@@ -32,8 +32,8 @@ def test_atualizar_funcionamento(client, dados_base, tenant_headers, db_session)
     assert resp.status_code == 200
     assert resp.json()["sab"]["ativo"] is False
 
-    db_session.refresh(dados_base["barbearia"])
-    assert dados_base["barbearia"].horarios_funcionamento["sab"]["ativo"] is False
+    db_session.refresh(dados_base["estabelecimento"])
+    assert dados_base["estabelecimento"].horarios_funcionamento["sab"]["ativo"] is False
 
 
 def test_obter_funcionamento_nao_encontrado(client, make_tenant_headers):
@@ -80,8 +80,8 @@ def test_tenant_pode_salvar_funcionamento(client, dados_base, tenant_headers, db
     assert resp.json()["dom"]["ativo"] is False
     assert resp.json()["seg"]["inicio"] == "08:00"
 
-    db_session.refresh(dados_base["barbearia"])
-    assert dados_base["barbearia"].horarios_funcionamento["sab"]["fim"] == "18:00"
+    db_session.refresh(dados_base["estabelecimento"])
+    assert dados_base["estabelecimento"].horarios_funcionamento["sab"]["fim"] == "18:00"
 
 
 def test_horarios_publicos_respeitam_dia_fechado(client, db_session):

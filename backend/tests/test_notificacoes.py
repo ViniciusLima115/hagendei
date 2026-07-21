@@ -15,14 +15,14 @@ from app.services.notificacao_inapp_service import (
 # ── helpers ──────────────────────────────────────────────────────────────────
 
 def _criar_agendamento(db_session, dados_base, *, hora_inicio=None, status="pendente"):
-    barbearia = dados_base["barbearia"]
+    estabelecimento = dados_base["estabelecimento"]
     barbeiro = dados_base["barbeiro"]
     servico = dados_base["servico"]
     inicio = hora_inicio or dados_base["amanha"]
     fim = inicio + timedelta(minutes=servico.duracao_minutos)
 
     from app.models.cliente import Cliente
-    cliente = Cliente(telefone="11999999999", nome="Teste", estabelecimento_id=barbearia.id)
+    cliente = Cliente(telefone="11999999999", nome="Teste", estabelecimento_id=estabelecimento.id)
     db_session.add(cliente)
     db_session.flush()
 
@@ -30,7 +30,7 @@ def _criar_agendamento(db_session, dados_base, *, hora_inicio=None, status="pend
         cliente_id=cliente.id,
         profissional_id=barbeiro.id,
         servico_id=servico.id,
-        estabelecimento_id=barbearia.id,
+        estabelecimento_id=estabelecimento.id,
         cliente_nome="Teste",
         cliente_telefone="11999999999",
         data=inicio.date(),
@@ -48,10 +48,10 @@ def _criar_agendamento(db_session, dados_base, *, hora_inicio=None, status="pend
 # ── testes do repositório ─────────────────────────────────────────────────────
 
 def test_criar_notificacao_basica(db_session, dados_base):
-    barbearia = dados_base["barbearia"]
+    estabelecimento = dados_base["estabelecimento"]
     notif = repo.criar(
         db_session,
-        estabelecimento_id=barbearia.id,
+        estabelecimento_id=estabelecimento.id,
         tipo="novo_agendamento",
         titulo="Novo agendamento",
         corpo="Teste · Corte · 01/01 10:00",
@@ -59,18 +59,18 @@ def test_criar_notificacao_basica(db_session, dados_base):
     db_session.commit()
     assert notif.id is not None
     assert notif.lida is False
-    assert notif.estabelecimento_id == barbearia.id
+    assert notif.estabelecimento_id == estabelecimento.id
 
 
 def test_listar_apenas_nao_lidas(db_session, dados_base):
-    barbearia = dados_base["barbearia"]
-    repo.criar(db_session, estabelecimento_id=barbearia.id, tipo="novo_agendamento", titulo="A")
-    notif_lida = repo.criar(db_session, estabelecimento_id=barbearia.id, tipo="novo_agendamento", titulo="B")
+    estabelecimento = dados_base["estabelecimento"]
+    repo.criar(db_session, estabelecimento_id=estabelecimento.id, tipo="novo_agendamento", titulo="A")
+    notif_lida = repo.criar(db_session, estabelecimento_id=estabelecimento.id, tipo="novo_agendamento", titulo="B")
     notif_lida.lida = True
     db_session.commit()
 
-    todas = repo.listar(db_session, estabelecimento_id=barbearia.id)
-    nao_lidas = repo.listar(db_session, estabelecimento_id=barbearia.id, apenas_nao_lidas=True)
+    todas = repo.listar(db_session, estabelecimento_id=estabelecimento.id)
+    nao_lidas = repo.listar(db_session, estabelecimento_id=estabelecimento.id, apenas_nao_lidas=True)
     assert len(todas) == 2
     assert len(nao_lidas) == 1
     assert nao_lidas[0].titulo == "A"
@@ -82,11 +82,11 @@ def test_isolamento_tenant(db_session, dados_base):
     db_session.add(outro)
     db_session.commit()
 
-    repo.criar(db_session, estabelecimento_id=dados_base["barbearia"].id, tipo="novo_agendamento", titulo="Minha")
+    repo.criar(db_session, estabelecimento_id=dados_base["estabelecimento"].id, tipo="novo_agendamento", titulo="Minha")
     repo.criar(db_session, estabelecimento_id=outro.id, tipo="novo_agendamento", titulo="Outra")
     db_session.commit()
 
-    minhas = repo.listar(db_session, estabelecimento_id=dados_base["barbearia"].id)
+    minhas = repo.listar(db_session, estabelecimento_id=dados_base["estabelecimento"].id)
     assert len(minhas) == 1
     assert minhas[0].titulo == "Minha"
 
@@ -94,21 +94,21 @@ def test_isolamento_tenant(db_session, dados_base):
 def test_existe_pendente_confirmacao_idempotente(db_session, dados_base):
     ag = _criar_agendamento(db_session, dados_base)
     assert repo.existe_pendente_confirmacao(db_session, agendamento_id=ag.id) is False
-    repo.criar(db_session, estabelecimento_id=dados_base["barbearia"].id, agendamento_id=ag.id, tipo="pendente_confirmacao", titulo="Confirmar")
+    repo.criar(db_session, estabelecimento_id=dados_base["estabelecimento"].id, agendamento_id=ag.id, tipo="pendente_confirmacao", titulo="Confirmar")
     db_session.commit()
     assert repo.existe_pendente_confirmacao(db_session, agendamento_id=ag.id) is True
 
 
 def test_marcar_todas_lidas(db_session, dados_base):
-    barbearia = dados_base["barbearia"]
-    repo.criar(db_session, estabelecimento_id=barbearia.id, tipo="novo_agendamento", titulo="A")
-    repo.criar(db_session, estabelecimento_id=barbearia.id, tipo="novo_agendamento", titulo="B")
+    estabelecimento = dados_base["estabelecimento"]
+    repo.criar(db_session, estabelecimento_id=estabelecimento.id, tipo="novo_agendamento", titulo="A")
+    repo.criar(db_session, estabelecimento_id=estabelecimento.id, tipo="novo_agendamento", titulo="B")
     db_session.commit()
 
-    count = repo.marcar_todas_lidas(db_session, estabelecimento_id=barbearia.id)
+    count = repo.marcar_todas_lidas(db_session, estabelecimento_id=estabelecimento.id)
     db_session.commit()
     assert count == 2
-    nao_lidas = repo.listar(db_session, estabelecimento_id=barbearia.id, apenas_nao_lidas=True)
+    nao_lidas = repo.listar(db_session, estabelecimento_id=estabelecimento.id, apenas_nao_lidas=True)
     assert len(nao_lidas) == 0
 
 
@@ -118,7 +118,7 @@ def test_criar_notificacao_novo_agendamento(db_session, dados_base):
     ag = _criar_agendamento(db_session, dados_base)
     criar_notificacao_novo_agendamento(db_session, ag)
 
-    notifs = repo.listar(db_session, estabelecimento_id=dados_base["barbearia"].id)
+    notifs = repo.listar(db_session, estabelecimento_id=dados_base["estabelecimento"].id)
     assert len(notifs) == 1
     assert notifs[0].tipo == "novo_agendamento"
     assert notifs[0].agendamento_id == ag.id
@@ -128,7 +128,7 @@ def test_criar_notificacao_confirmado(db_session, dados_base):
     ag = _criar_agendamento(db_session, dados_base, status="confirmado")
     criar_notificacao_confirmado(db_session, ag)
 
-    notifs = repo.listar(db_session, estabelecimento_id=dados_base["barbearia"].id)
+    notifs = repo.listar(db_session, estabelecimento_id=dados_base["estabelecimento"].id)
     assert len(notifs) == 1
     assert notifs[0].tipo == "agendamento_confirmado"
 
@@ -140,7 +140,7 @@ def test_processar_pendentes_apenas_horario_passado(db_session, dados_base):
     count = processar_pendentes_confirmacao(db_session)
     assert count == 1
 
-    notifs = repo.listar(db_session, estabelecimento_id=dados_base["barbearia"].id)
+    notifs = repo.listar(db_session, estabelecimento_id=dados_base["estabelecimento"].id)
     tipos = [n.tipo for n in notifs]
     assert "pendente_confirmacao" in tipos
     assert all(n.agendamento_id == passado.id for n in notifs if n.tipo == "pendente_confirmacao")
@@ -170,7 +170,7 @@ def test_get_notificacoes_vazio(client, tenant_headers):
 
 
 def test_get_notificacoes_retorna_do_tenant(client, db_session, dados_base, tenant_headers):
-    repo.criar(db_session, estabelecimento_id=dados_base["barbearia"].id, tipo="novo_agendamento", titulo="Minha notif")
+    repo.criar(db_session, estabelecimento_id=dados_base["estabelecimento"].id, tipo="novo_agendamento", titulo="Minha notif")
     db_session.commit()
 
     res = client.get("/notificacoes/", headers=tenant_headers)
@@ -182,7 +182,7 @@ def test_get_notificacoes_retorna_do_tenant(client, db_session, dados_base, tena
 
 
 def test_marcar_lida_endpoint(client, db_session, dados_base, tenant_headers):
-    notif = repo.criar(db_session, estabelecimento_id=dados_base["barbearia"].id, tipo="novo_agendamento", titulo="X")
+    notif = repo.criar(db_session, estabelecimento_id=dados_base["estabelecimento"].id, tipo="novo_agendamento", titulo="X")
     db_session.commit()
 
     res = client.patch(f"/notificacoes/{notif.id}/lida", headers=tenant_headers)
@@ -191,8 +191,8 @@ def test_marcar_lida_endpoint(client, db_session, dados_base, tenant_headers):
 
 
 def test_marcar_todas_lidas_endpoint(client, db_session, dados_base, tenant_headers):
-    repo.criar(db_session, estabelecimento_id=dados_base["barbearia"].id, tipo="novo_agendamento", titulo="A")
-    repo.criar(db_session, estabelecimento_id=dados_base["barbearia"].id, tipo="novo_agendamento", titulo="B")
+    repo.criar(db_session, estabelecimento_id=dados_base["estabelecimento"].id, tipo="novo_agendamento", titulo="A")
+    repo.criar(db_session, estabelecimento_id=dados_base["estabelecimento"].id, tipo="novo_agendamento", titulo="B")
     db_session.commit()
 
     res = client.post("/notificacoes/marcar-todas-lidas", headers=tenant_headers)
@@ -232,7 +232,7 @@ def test_confirmar_presenca_marca_notificacao_lida(client, db_session, dados_bas
     ag = _criar_agendamento(db_session, dados_base)
     repo.criar(
         db_session,
-        estabelecimento_id=dados_base["barbearia"].id,
+        estabelecimento_id=dados_base["estabelecimento"].id,
         agendamento_id=ag.id,
         tipo="pendente_confirmacao",
         titulo="Confirmar presença",
@@ -245,5 +245,5 @@ def test_confirmar_presenca_marca_notificacao_lida(client, db_session, dados_bas
         headers=tenant_headers,
     )
 
-    nao_lidas = repo.listar(db_session, estabelecimento_id=dados_base["barbearia"].id, apenas_nao_lidas=True)
+    nao_lidas = repo.listar(db_session, estabelecimento_id=dados_base["estabelecimento"].id, apenas_nao_lidas=True)
     assert len(nao_lidas) == 0

@@ -18,14 +18,14 @@ def test_scheduler_envia_lembrete_24h(monkeypatch, db_session):
     monkeypatch.setattr("app.services.scheduler.send_email_payload", fake_send)
     monkeypatch.setattr("app.services.scheduler.SessionLocal", lambda: db_session)
 
-    barbearia = Estabelecimento(nome="Estabelecimento Scheduler", slug="scheduler", endereco="Rua Scheduler")
-    db_session.add(barbearia)
+    estabelecimento = Estabelecimento(nome="Estabelecimento Scheduler", slug="scheduler", endereco="Rua Scheduler")
+    db_session.add(estabelecimento)
     db_session.commit()
-    db_session.refresh(barbearia)
+    db_session.refresh(estabelecimento)
 
-    barbeiro = Barbeiro(nome="Mauro", estabelecimento_id=barbearia.id, ativo=True)
-    servico = Servico(nome="Barba", duracao_minutos=30, preco=35.0, estabelecimento_id=barbearia.id)
-    cliente = Cliente(nome="Cliente Scheduler", telefone="5582992222222", estabelecimento_id=barbearia.id)
+    barbeiro = Barbeiro(nome="Mauro", estabelecimento_id=estabelecimento.id, ativo=True)
+    servico = Servico(nome="Barba", duracao_minutos=30, preco=35.0, estabelecimento_id=estabelecimento.id)
+    cliente = Cliente(nome="Cliente Scheduler", telefone="5582992222222", estabelecimento_id=estabelecimento.id)
     db_session.add_all([barbeiro, servico, cliente])
     db_session.commit()
     db_session.refresh(barbeiro)
@@ -37,7 +37,7 @@ def test_scheduler_envia_lembrete_24h(monkeypatch, db_session):
         cliente_id=cliente.id,
         barbeiro_id=barbeiro.id,
         servico_id=servico.id,
-        estabelecimento_id=barbearia.id,
+        estabelecimento_id=estabelecimento.id,
         cliente_nome=cliente.nome,
         cliente_telefone=cliente.telefone,
         cliente_email="scheduler@example.com",

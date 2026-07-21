@@ -11,8 +11,8 @@ def test_normalize_database_url_converte_postgres_para_psycopg2_e_ssl():
 
 
 def test_normalize_database_url_preserva_local_sem_ssl():
-    url = "postgresql://postgres:postgres@localhost:5432/barbearia"
+    url = "postgresql://postgres:postgres@localhost:5432/estabelecimento"
 
     normalized = _normalize_database_url(url)
 
-    assert normalized == "postgresql+psycopg2://postgres:postgres@localhost:5432/barbearia"
+    assert normalized == "postgresql+psycopg2://postgres:postgres@localhost:5432/estabelecimento"

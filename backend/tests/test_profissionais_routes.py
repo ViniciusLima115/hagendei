@@ -7,7 +7,7 @@ from app.models.profissional import Profissional
 # ── helpers ───────────────────────────────────────────────────────────────────
 
 def _criar_estabelecimento(db_session, plano="gratis"):
-    est = Estabelecimento(nome="Barbearia Plano", endereco="Rua Plano", plano=plano)
+    est = Estabelecimento(nome="Estabelecimento Plano", endereco="Rua Plano", plano=plano)
     db_session.add(est)
     db_session.commit()
     db_session.refresh(est)

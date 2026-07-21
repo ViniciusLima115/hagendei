@@ -79,7 +79,7 @@ def test_atualizar_status_agendamento_inexistente(client, tenant_headers):
     assert resp.status_code == 404
 
 
-def test_agendamentos_sao_isolados_por_barbearia(
+def test_agendamentos_sao_isolados_por_estabelecimento(
     client,
     db_session,
     dados_base,
@@ -90,24 +90,24 @@ def test_agendamentos_sao_isolados_por_barbearia(
     from app.models.barbeiro import Barbeiro
     from app.models.servico import Servico
 
-    barbearia_b = Estabelecimento(nome="Estabelecimento B", endereco="Rua B")
-    db_session.add(barbearia_b)
+    estabelecimento_b = Estabelecimento(nome="Estabelecimento B", endereco="Rua B")
+    db_session.add(estabelecimento_b)
     db_session.commit()
-    db_session.refresh(barbearia_b)
+    db_session.refresh(estabelecimento_b)
 
-    barbeiro_b = Barbeiro(nome="Barbeiro B", estabelecimento_id=barbearia_b.id)
+    barbeiro_b = Barbeiro(nome="Barbeiro B", estabelecimento_id=estabelecimento_b.id)
     servico_b = Servico(
         nome="Servico B",
         duracao_minutos=30,
         preco=30.0,
-        estabelecimento_id=barbearia_b.id,
+        estabelecimento_id=estabelecimento_b.id,
     )
     db_session.add_all([barbeiro_b, servico_b])
     db_session.commit()
     db_session.refresh(barbeiro_b)
     db_session.refresh(servico_b)
 
-    headers_b = make_tenant_headers(barbearia_b.id)
+    headers_b = make_tenant_headers(estabelecimento_b.id)
     inicio_a = dados_base["amanha"].replace(hour=11, minute=0, second=0, microsecond=0)
     inicio_b = dados_base["amanha"].replace(hour=12, minute=0, second=0, microsecond=0)
 
@@ -211,13 +211,13 @@ def test_fluxo_por_token_confirma_cancela_e_reagenda(client, db_session):
     from app.models.estabelecimento import Estabelecimento
     from app.models.servico import Servico
 
-    barbearia = Estabelecimento(nome="Estabelecimento Token", slug="barbearia-token", endereco="Rua Token")
-    db_session.add(barbearia)
+    estabelecimento = Estabelecimento(nome="Estabelecimento Token", slug="estabelecimento-token", endereco="Rua Token")
+    db_session.add(estabelecimento)
     db_session.commit()
-    db_session.refresh(barbearia)
+    db_session.refresh(estabelecimento)
 
-    barbeiro = Barbeiro(nome="Leo", estabelecimento_id=barbearia.id, ativo=True)
-    servico = Servico(nome="Corte premium", duracao_minutos=45, preco=70.0, estabelecimento_id=barbearia.id)
+    barbeiro = Barbeiro(nome="Leo", estabelecimento_id=estabelecimento.id, ativo=True)
+    servico = Servico(nome="Corte premium", duracao_minutos=45, preco=70.0, estabelecimento_id=estabelecimento.id)
     db_session.add_all([barbeiro, servico])
     db_session.commit()
     db_session.refresh(barbeiro)
@@ -225,7 +225,7 @@ def test_fluxo_por_token_confirma_cancela_e_reagenda(client, db_session):
 
     inicio = (datetime.now() + timedelta(days=2)).replace(hour=11, minute=0, second=0, microsecond=0)
     payload = {
-        "estabelecimento_id": barbearia.id,
+        "estabelecimento_id": estabelecimento.id,
         "cliente_nome": "Cliente Token",
         "cliente_telefone": "5582991111111",
         "cliente_email": "token@example.com",
@@ -281,7 +281,7 @@ def test_remover_agendamento_remove_reminders_relacionados(
 
     db_session.add(
         ReminderJob(
-            tenant_id=dados_base["barbearia"].id,
+            tenant_id=dados_base["estabelecimento"].id,
             agendamento_id=agendamento_id,
             tipo="reminder_2h",
             canal="whatsapp",

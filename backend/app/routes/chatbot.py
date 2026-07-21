@@ -18,8 +18,8 @@ def mensagem(
     db: Session = Depends(get_db),
 ):
     # Chatbot nao disponivel no plano Gratis
-    barbearia = db.query(Estabelecimento.plano).filter(Estabelecimento.id == tenant_id).first()
-    plano = (barbearia.plano or "gratis").lower() if barbearia else "gratis"
+    estabelecimento = db.query(Estabelecimento.plano).filter(Estabelecimento.id == tenant_id).first()
+    plano = (estabelecimento.plano or "gratis").lower() if estabelecimento else "gratis"
     if plano == "gratis":
         raise HTTPException(
             status_code=http_status.HTTP_403_FORBIDDEN,

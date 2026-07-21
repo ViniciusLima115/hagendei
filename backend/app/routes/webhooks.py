@@ -189,14 +189,14 @@ async def receive_megaapi_webhook(
     if not _registrar_evento(db, PROVIDER_MEGAAPI, event_id, tenant_id):
         return {"status": "ignored", "reason": "evento_duplicado"}
 
-    barbearia = db.query(Estabelecimento).filter(Estabelecimento.id == tenant_id).first()
-    if not barbearia:
+    estabelecimento = db.query(Estabelecimento).filter(Estabelecimento.id == tenant_id).first()
+    if not estabelecimento:
         return {"status": "ignored", "reason": "tenant_nao_encontrado"}
 
     if deve_responder_com_link(texto):
         resposta = {
             "tipo": "link_agendamento",
-            "resposta": montar_mensagem_link_agendamento_por_id(barbearia.nome, barbearia.id),
+            "resposta": montar_mensagem_link_agendamento_por_id(estabelecimento.nome, estabelecimento.id),
         }
     else:
         resposta = responder_mensagem(db, telefone, texto, tenant_id=tenant_id)

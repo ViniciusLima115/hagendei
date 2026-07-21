@@ -111,7 +111,7 @@ def test_agenda_dia_retorna_horarios_independentes_por_barbeiro(
     tenant_headers,
     db_session,
 ):
-    dados_base["barbearia"].horarios_funcionamento = {
+    dados_base["estabelecimento"].horarios_funcionamento = {
         "seg": {"ativo": True, "inicio": "08:00", "fim": "18:00"},
         "ter": {"ativo": True, "inicio": "08:00", "fim": "18:00"},
         "qua": {"ativo": True, "inicio": "08:00", "fim": "18:00"},

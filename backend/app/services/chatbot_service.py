@@ -90,7 +90,7 @@ def _obter_barbeiro_padrao(db: Session, tenant_id: int) -> Barbeiro | None:
 
 def _mensagem_menu(nome_cliente: str) -> str:
     return (
-        f"Olá, {nome_cliente}. Sou a assistente da barbearia.\n"
+        f"Olá, {nome_cliente}. Sou a assistente do estabelecimento.\n"
         "Como posso te ajudar hoje?\n"
         "1️⃣ Agendar horário\n"
         "2️⃣ Ver serviços e preços\n"

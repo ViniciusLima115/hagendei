@@ -107,7 +107,7 @@ def test_get_working_hours_with_no_schedule_returns_default():
 
 # ── get_barbeiro_working_hours ────────────────────────────────────────────────
 
-def test_get_barbeiro_working_hours_barbeiro_sem_horarios_usa_barbearia():
+def test_get_barbeiro_working_hours_barbeiro_sem_horarios_usa_estabelecimento():
     est = _make_est(_full_schedule("08:00", "18:00"))
     barbeiro = _make_barbeiro(None)
     result = get_barbeiro_working_hours(est, barbeiro)

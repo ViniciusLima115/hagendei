@@ -11,7 +11,7 @@ from app.models.servico import Servico
 
 # ── helpers ───────────────────────────────────────────────────────────────────
 
-def _barbearia(db_session, slug="pub-extra", nome="Pub Extra"):
+def _estabelecimento(db_session, slug="pub-extra", nome="Pub Extra"):
     b = Estabelecimento(nome=nome, slug=slug, endereco="Rua Extra")
     db_session.add(b)
     db_session.commit()
@@ -41,13 +41,13 @@ def _data_futura(days=3) -> str:
 
 # ── GET /public/estabelecimento/{slug} — error paths ─────────────────────────
 
-def test_lookup_barbearia_slug_invalido_retorna_404(client):
+def test_lookup_estabelecimento_slug_invalido_retorna_404(client):
     resp = client.get("/public/estabelecimento/slug-inexistente-xyz")
     assert resp.status_code == 404
 
 
-def test_lookup_barbearia_slug_sem_params_retorna_200(client, db_session):
-    b = _barbearia(db_session, "sem-params")
+def test_lookup_estabelecimento_slug_sem_params_retorna_200(client, db_session):
+    b = _estabelecimento(db_session, "sem-params")
     resp = client.get(f"/public/estabelecimento/{b.slug}")
     assert resp.status_code == 200
     assert resp.json()["slug"] == "sem-params"
@@ -55,20 +55,20 @@ def test_lookup_barbearia_slug_sem_params_retorna_200(client, db_session):
 
 # ── GET /public/estabelecimento-id/{estabelecimento_id} ──────────────────────
 
-def test_lookup_barbearia_por_id_retorna_200(client, db_session):
-    b = _barbearia(db_session, "por-id-1", "Por Id")
+def test_lookup_estabelecimento_por_id_retorna_200(client, db_session):
+    b = _estabelecimento(db_session, "por-id-1", "Por Id")
     resp = client.get(f"/public/estabelecimento-id/{b.id}")
     assert resp.status_code == 200
     assert resp.json()["estabelecimento_id"] == b.id
 
 
-def test_lookup_barbearia_por_id_invalido_retorna_404(client):
+def test_lookup_estabelecimento_por_id_invalido_retorna_404(client):
     resp = client.get("/public/estabelecimento-id/999999")
     assert resp.status_code == 404
 
 
-def test_lookup_barbearia_por_id_com_data_e_params(client, db_session):
-    b = _barbearia(db_session, "por-id-2", "Com Params")
+def test_lookup_estabelecimento_por_id_com_data_e_params(client, db_session):
+    b = _estabelecimento(db_session, "por-id-2", "Com Params")
     barb = _barbeiro(db_session, b.id)
     serv = _servico(db_session, b.id)
     resp = client.get(
@@ -81,7 +81,7 @@ def test_lookup_barbearia_por_id_com_data_e_params(client, db_session):
 # ── GET /public/{estabelecimento_id}/cliente ───────────────────────────────────────
 
 def test_lookup_cliente_nao_permite_enumerar_cadastro_existente(client, db_session):
-    b = _barbearia(db_session, "cliente-lookup")
+    b = _estabelecimento(db_session, "cliente-lookup")
     c = Cliente(telefone="11999990001", nome="Joana", estabelecimento_id=b.id)
     db_session.add(c)
     db_session.commit()
@@ -91,14 +91,14 @@ def test_lookup_cliente_nao_permite_enumerar_cadastro_existente(client, db_sessi
 
 
 def test_lookup_cliente_retorna_404_quando_nao_existe(client, db_session):
-    b = _barbearia(db_session, "cliente-vazio")
+    b = _estabelecimento(db_session, "cliente-vazio")
     resp = client.get(f"/public/{b.id}/cliente", params={"telefone": "99999999999"})
     assert resp.status_code == 404
 
 
 # ── POST /public/agendamentos — error paths ───────────────────────────────────
 
-def test_agendamento_barbearia_invalida_retorna_400_ou_422(monkeypatch, client, db_session):
+def test_agendamento_estabelecimento_invalida_retorna_400_ou_422(monkeypatch, client, db_session):
     import app.services.public_booking_service as svc
     monkeypatch.setattr(svc, "enviar_mensagem_whatsapp", lambda *a, **kw: True)
 
@@ -126,7 +126,7 @@ def test_agendamento_horario_bloqueado_por_conflito_retorna_400(monkeypatch, cli
     import app.services.public_booking_service as svc
     monkeypatch.setattr(svc, "enviar_mensagem_whatsapp", lambda *a, **kw: True)
 
-    b = _barbearia(db_session, "conflito-test")
+    b = _estabelecimento(db_session, "conflito-test")
     barb = _barbeiro(db_session, b.id)
     serv = _servico(db_session, b.id, duracao=30)
     data = _data_futura(days=5)
@@ -152,7 +152,7 @@ def test_agendamento_horario_bloqueado_por_conflito_retorna_400(monkeypatch, cli
 # ── GET /public/horarios-disponiveis — additional paths ───────────────────────
 
 def test_horarios_com_barbeiro_retorna_200(client, db_session):
-    b = _barbearia(db_session, "horarios-com-barb")
+    b = _estabelecimento(db_session, "horarios-com-barb")
     barb = _barbeiro(db_session, b.id)
     serv = _servico(db_session, b.id)
     resp = client.get(
@@ -162,7 +162,7 @@ def test_horarios_com_barbeiro_retorna_200(client, db_session):
     assert resp.status_code == 200
 
 
-def test_horarios_barbearia_invalida_retorna_400_ou_422(client):
+def test_horarios_estabelecimento_invalida_retorna_400_ou_422(client):
     resp = client.get(
         "/public/horarios-disponiveis",
         params={"estabelecimento_id": 999999, "servico_id": 1, "data": "2030-01-01"},

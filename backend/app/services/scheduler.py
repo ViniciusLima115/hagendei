@@ -37,7 +37,7 @@ def _montar_contexto_email(agendamento: Agendamento) -> AgendamentoEmailContext 
         confirmation_token=agendamento.confirmation_token,
         cliente_nome=agendamento.cliente_nome or "",
         cliente_email=agendamento.cliente_email,
-        barbearia_nome=agendamento.estabelecimento.nome,
+        estabelecimento_nome=agendamento.estabelecimento.nome,
         estabelecimento_id=agendamento.estabelecimento_id,
         slug=agendamento.estabelecimento.slug,
         servico_nome=agendamento.servico.nome,

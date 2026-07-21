@@ -147,8 +147,8 @@ def tenant_id_from_header(
     if claims.tenant_id != tenant_id:
         raise HTTPException(status_code=403, detail="Tenant do token difere do tenant da requisicao.")
 
-    barbearia = db.query(Estabelecimento.id).filter(Estabelecimento.id == tenant_id).first()
-    if not barbearia:
+    estabelecimento = db.query(Estabelecimento.id).filter(Estabelecimento.id == tenant_id).first()
+    if not estabelecimento:
         raise HTTPException(status_code=404, detail="Estabelecimento nao encontrado.")
 
     return tenant_id
@@ -164,16 +164,12 @@ def get_current_estabelecimento(
     return est
 
 
-# Manter alias antigo para código legado
-get_current_barbearia = get_current_estabelecimento
-
-
 def verificar_plano_premium(
     tenant_id: int = Depends(tenant_id_from_header),
     db: Session = Depends(get_db),
 ) -> int:
-    barbearia = db.query(Estabelecimento.plano).filter(Estabelecimento.id == tenant_id).first()
-    if not barbearia or barbearia.plano != "premium":
+    estabelecimento = db.query(Estabelecimento.plano).filter(Estabelecimento.id == tenant_id).first()
+    if not estabelecimento or estabelecimento.plano != "premium":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Recurso disponivel apenas para o plano Premium.",
@@ -186,8 +182,8 @@ def verificar_plano_minimo_basico(
     db: Session = Depends(get_db),
 ) -> int:
     """Permite acesso para planos 'basico' e 'premium'. Bloqueia 'gratis'."""
-    barbearia = db.query(Estabelecimento.plano).filter(Estabelecimento.id == tenant_id).first()
-    plano = (barbearia.plano or "gratis").lower() if barbearia else "gratis"
+    estabelecimento = db.query(Estabelecimento.plano).filter(Estabelecimento.id == tenant_id).first()
+    plano = (estabelecimento.plano or "gratis").lower() if estabelecimento else "gratis"
     if plano not in ("basico", "premium"):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

@@ -14,7 +14,7 @@ def _contexto() -> AgendamentoEmailContext:
         confirmation_token="token-teste",
         cliente_nome="Cliente Teste",
         cliente_email="cliente@example.com",
-        barbearia_nome="Studio Central",
+        estabelecimento_nome="Studio Central",
         estabelecimento_id=1,
         slug="studio-central",
         servico_nome="Consulta inicial",
@@ -35,7 +35,7 @@ def test_email_de_confirmacao_usa_identidade_e_rotulos_genericos():
     assert "✂" not in email["html_content"]
 
 
-def test_assuntos_de_lembrete_e_status_nao_usam_icone_de_barbearia():
+def test_assuntos_de_lembrete_e_status_nao_usam_icone_de_estabelecimento():
     contexto = _contexto()
     emails = [
         build_reminder_email(contexto, hours_before=24),

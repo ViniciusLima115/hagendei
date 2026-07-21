@@ -8,23 +8,23 @@ def test_webhook_primeira_mensagem_envia_saudacao_e_cria_conversa(monkeypatch, c
 
     enviados = {}
 
-    def fake_enviar(barbearia, telefone, mensagem):
-        enviados["barbearia"] = barbearia.id
+    def fake_enviar(estabelecimento, telefone, mensagem):
+        enviados["estabelecimento"] = estabelecimento.id
         enviados["telefone"] = telefone
         enviados["mensagem"] = mensagem
         return True
 
     monkeypatch.setattr(greeting_service, "enviar_mensagem_whatsapp", fake_enviar)
 
-    barbearia = Estabelecimento(
+    estabelecimento = Estabelecimento(
         nome="Estabelecimento Teste",
-        slug="barbearia-teste",
+        slug="estabelecimento-teste",
         mega_instance_key="inst-webhook",
         whatsapp_number="5582999912345",
     )
-    db_session.add(barbearia)
+    db_session.add(estabelecimento)
     db_session.commit()
-    db_session.refresh(barbearia)
+    db_session.refresh(estabelecimento)
 
     payload = {
         "instance_key": "inst-webhook",
@@ -36,11 +36,11 @@ def test_webhook_primeira_mensagem_envia_saudacao_e_cria_conversa(monkeypatch, c
     body = resp.json()
     assert body["status"] == "ok"
     assert body["saudacao_enviada"] is True
-    assert f"/agendar/{barbearia.id}" in body["mensagem"]
+    assert f"/agendar/{estabelecimento.id}" in body["mensagem"]
 
     conversa = (
         db_session.query(Conversa)
-        .filter(Conversa.tenant_id == barbearia.id, Conversa.telefone == "5582990001111")
+        .filter(Conversa.tenant_id == estabelecimento.id, Conversa.telefone == "5582990001111")
         .first()
     )
     assert conversa is not None
@@ -53,7 +53,7 @@ def test_webhook_primeira_mensagem_envia_saudacao_e_cria_conversa(monkeypatch, c
         .first()
     )
     assert evento is not None
-    assert evento.tenant_id == barbearia.id
+    assert evento.tenant_id == estabelecimento.id
     assert enviados["telefone"] == "5582990001111"
 
 
@@ -68,14 +68,14 @@ def test_webhook_nao_repete_saudacao_com_conversa_ativa(monkeypatch, client, db_
 
     monkeypatch.setattr(greeting_service, "enviar_mensagem_whatsapp", fake_enviar)
 
-    barbearia = Estabelecimento(
+    estabelecimento = Estabelecimento(
         nome="Estabelecimento Fluxo",
-        slug="barbearia-fluxo",
+        slug="estabelecimento-fluxo",
         mega_instance_key="inst-webhook-2",
     )
-    db_session.add(barbearia)
+    db_session.add(estabelecimento)
     db_session.commit()
-    db_session.refresh(barbearia)
+    db_session.refresh(estabelecimento)
 
     primeiro = client.post(
         "/webhook",

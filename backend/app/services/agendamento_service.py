@@ -90,25 +90,25 @@ def _serializar_dados_token(agendamento: Agendamento):
     }
 
 
-def _obter_barbearia(db: Session, tenant_id: int) -> Estabelecimento:
-    barbearia = db.query(Estabelecimento).filter(Estabelecimento.id == tenant_id).first()
-    if not barbearia:
+def _obter_estabelecimento(db: Session, tenant_id: int) -> Estabelecimento:
+    estabelecimento = db.query(Estabelecimento).filter(Estabelecimento.id == tenant_id).first()
+    if not estabelecimento:
         raise ValueError("Estabelecimento não encontrado")
-    return barbearia
+    return estabelecimento
 
 
-def _validar_funcionamento(barbearia: Estabelecimento, inicio: datetime, fim: datetime):
-    if not is_within_working_hours(barbearia, inicio, fim):
+def _validar_funcionamento(estabelecimento: Estabelecimento, inicio: datetime, fim: datetime):
+    if not is_within_working_hours(estabelecimento, inicio, fim):
         raise ValueError("Horário fora do funcionamento do estabelecimento")
 
 
 def _validar_funcionamento_barbeiro(
-    barbearia: Estabelecimento,
+    estabelecimento: Estabelecimento,
     barbeiro: Barbeiro,
     inicio: datetime,
     fim: datetime,
 ):
-    if not is_within_working_hours(barbearia, inicio, fim, barbeiro=barbeiro):
+    if not is_within_working_hours(estabelecimento, inicio, fim, barbeiro=barbeiro):
         raise ValueError("Horário fora da disponibilidade do profissional")
 
 
@@ -148,7 +148,7 @@ def _validar_confirmacao_com_pagamento(agendamento: Agendamento, status_destino:
 
 
 def criar_agendamento(db: Session, dados, tenant_id: int):
-    barbearia = _obter_barbearia(db, tenant_id)
+    estabelecimento = _obter_estabelecimento(db, tenant_id)
     servico_query = db.query(Servico).filter(
         Servico.id == dados.servico_id,
         Servico.estabelecimento_id == tenant_id,
@@ -180,8 +180,8 @@ def criar_agendamento(db: Session, dados, tenant_id: int):
         db.flush()
 
     fim = dados.data_hora_inicio + timedelta(minutes=servico.duracao_minutos)
-    _validar_funcionamento(barbearia, dados.data_hora_inicio, fim)
-    _validar_funcionamento_barbeiro(barbearia, barbeiro, dados.data_hora_inicio, fim)
+    _validar_funcionamento(estabelecimento, dados.data_hora_inicio, fim)
+    _validar_funcionamento_barbeiro(estabelecimento, barbeiro, dados.data_hora_inicio, fim)
 
     conflito_query = db.query(Agendamento).filter(
         Agendamento.barbeiro_id == dados.barbeiro_id,
@@ -286,7 +286,7 @@ def remarcar_agendamento(
     agendamento = query.with_for_update().first()
     if not agendamento:
         raise ValueError("Agendamento não encontrado")
-    barbearia = _obter_barbearia(db, tenant_id)
+    estabelecimento = _obter_estabelecimento(db, tenant_id)
 
     servico = (
         db.query(Servico)
@@ -312,8 +312,8 @@ def remarcar_agendamento(
     if not barbeiro:
         raise ValueError("Profissional não encontrado")
 
-    _validar_funcionamento(barbearia, nova_data_hora_inicio, nova_data_hora_fim)
-    _validar_funcionamento_barbeiro(barbearia, barbeiro, nova_data_hora_inicio, nova_data_hora_fim)
+    _validar_funcionamento(estabelecimento, nova_data_hora_inicio, nova_data_hora_fim)
+    _validar_funcionamento_barbeiro(estabelecimento, barbeiro, nova_data_hora_inicio, nova_data_hora_fim)
 
     conflito_query = db.query(Agendamento).filter(
         Agendamento.id != agendamento.id,
@@ -354,7 +354,7 @@ def atualizar_agendamento(
     agendamento = query.with_for_update().first()
     if not agendamento:
         raise ValueError("Agendamento não encontrado")
-    barbearia = _obter_barbearia(db, tenant_id)
+    estabelecimento = _obter_estabelecimento(db, tenant_id)
 
     servico_query = db.query(Servico).filter(
         Servico.id == dados.servico_id,
@@ -373,8 +373,8 @@ def atualizar_agendamento(
         raise ValueError("Profissional não encontrado")
 
     novo_fim = dados.data_hora_inicio + timedelta(minutes=servico.duracao_minutos)
-    _validar_funcionamento(barbearia, dados.data_hora_inicio, novo_fim)
-    _validar_funcionamento_barbeiro(barbearia, barbeiro, dados.data_hora_inicio, novo_fim)
+    _validar_funcionamento(estabelecimento, dados.data_hora_inicio, novo_fim)
+    _validar_funcionamento_barbeiro(estabelecimento, barbeiro, dados.data_hora_inicio, novo_fim)
 
     conflito_query = db.query(Agendamento).filter(
         Agendamento.id != agendamento.id,
@@ -482,10 +482,10 @@ def obter_contexto_email_agendamento(
     if not agendamento or not agendamento.cliente_email:
         return None
 
-    barbearia = agendamento.estabelecimento or db.query(Estabelecimento).filter(Estabelecimento.id == agendamento.estabelecimento_id).first()
+    estabelecimento = agendamento.estabelecimento or db.query(Estabelecimento).filter(Estabelecimento.id == agendamento.estabelecimento_id).first()
     barbeiro = agendamento.barbeiro or db.query(Barbeiro).filter(Barbeiro.id == agendamento.barbeiro_id).first()
     servico = agendamento.servico or db.query(Servico).filter(Servico.id == agendamento.servico_id).first()
-    if not barbearia or not barbeiro or not servico:
+    if not estabelecimento or not barbeiro or not servico:
         return None
 
     return AgendamentoEmailContext(
@@ -493,9 +493,9 @@ def obter_contexto_email_agendamento(
         confirmation_token=agendamento.confirmation_token,
         cliente_nome=agendamento.cliente_nome or "",
         cliente_email=agendamento.cliente_email,
-        barbearia_nome=barbearia.nome,
-        estabelecimento_id=barbearia.id,
-        slug=barbearia.slug,
+        estabelecimento_nome=estabelecimento.nome,
+        estabelecimento_id=estabelecimento.id,
+        slug=estabelecimento.slug,
         servico_nome=servico.nome,
         barbeiro_nome=barbeiro.nome,
         data_hora_inicio=agendamento.data_hora_inicio,
@@ -563,7 +563,7 @@ def remarcar_agendamento_por_token(db: Session, token: str, nova_data_hora_inici
         raise ValueError("Agendamento cancelado não pode ser reagendado por este link")
 
     tenant_id = agendamento.estabelecimento_id
-    barbearia = _obter_barbearia(db, tenant_id)
+    estabelecimento = _obter_estabelecimento(db, tenant_id)
 
     servico = db.query(Servico).filter(
         Servico.id == agendamento.servico_id,
@@ -580,8 +580,8 @@ def remarcar_agendamento_por_token(db: Session, token: str, nova_data_hora_inici
         raise ValueError("Profissional não encontrado")
 
     nova_fim = nova_data_hora_inicio + timedelta(minutes=servico.duracao_minutos)
-    _validar_funcionamento(barbearia, nova_data_hora_inicio, nova_fim)
-    _validar_funcionamento_barbeiro(barbearia, barbeiro, nova_data_hora_inicio, nova_fim)
+    _validar_funcionamento(estabelecimento, nova_data_hora_inicio, nova_fim)
+    _validar_funcionamento_barbeiro(estabelecimento, barbeiro, nova_data_hora_inicio, nova_fim)
 
     conflito = db.query(Agendamento).filter(
         Agendamento.id != agendamento.id,

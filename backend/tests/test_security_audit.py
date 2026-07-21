@@ -42,7 +42,7 @@ def reset_rate_limiter_storage():
 
 def _public_booking_payload(dados_base, **overrides):
     payload = {
-        "estabelecimento_id": dados_base["barbearia"].id,
+        "estabelecimento_id": dados_base["estabelecimento"].id,
         "cliente_nome": "Cliente Seguro",
         "cliente_telefone": "11999998888",
         "cliente_email": "cliente@example.com",

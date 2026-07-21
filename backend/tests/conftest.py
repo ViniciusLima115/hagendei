@@ -116,17 +116,17 @@ def client(app):
 
 @pytest.fixture
 def dados_base(db_session):
-    barbearia = Estabelecimento(nome="Barbearia Teste", endereco="Rua Teste, 123")
-    db_session.add(barbearia)
+    estabelecimento = Estabelecimento(nome="Estabelecimento Teste", endereco="Rua Teste, 123")
+    db_session.add(estabelecimento)
     db_session.commit()
-    db_session.refresh(barbearia)
+    db_session.refresh(estabelecimento)
 
-    barbeiro = Profissional(nome="Joao", estabelecimento_id=barbearia.id)
+    barbeiro = Profissional(nome="Joao", estabelecimento_id=estabelecimento.id)
     servico = Servico(
         nome="corte social",
         duracao_minutos=40,
         preco=40.0,
-        estabelecimento_id=barbearia.id,
+        estabelecimento_id=estabelecimento.id,
     )
     db_session.add_all([barbeiro, servico])
     db_session.commit()
@@ -134,7 +134,7 @@ def dados_base(db_session):
     db_session.refresh(servico)
 
     return {
-        "barbearia": barbearia,
+        "estabelecimento": estabelecimento,
         "barbeiro": barbeiro,
         "servico": servico,
         "agora": datetime.now(),
@@ -178,4 +178,4 @@ def make_tenant_headers(db_session):
 
 @pytest.fixture
 def tenant_headers(dados_base, make_tenant_headers):
-    return make_tenant_headers(dados_base["barbearia"].id)
+    return make_tenant_headers(dados_base["estabelecimento"].id)

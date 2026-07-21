@@ -971,8 +971,8 @@ def test_checkout_uses_each_establishment_own_credentials(client, db_session, ma
         require_advance_payment=True,
     )
 
-    token_a = "APP_USR-token-barbearia-A-123456"
-    token_b = "APP_USR-token-barbearia-B-abcdef"
+    token_a = "APP_USR-token-estabelecimento-A-123456"
+    token_b = "APP_USR-token-estabelecimento-B-abcdef"
     configured_a = client.post(
         f"/admin/establishments/{tenant_a.id}/payment-integrations/mercado-pago",
         headers=make_tenant_headers(is_admin=True),

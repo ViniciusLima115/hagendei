@@ -114,7 +114,7 @@ def test_barbeiros_premium_limite_edicao_e_exclusao(client, db_session, make_ten
     assert remover.status_code == 204
 
 
-def test_barbeiro_nao_pode_ser_acessado_por_outra_barbearia(client, db_session, make_tenant_headers):
+def test_barbeiro_nao_pode_ser_acessado_por_outro_estabelecimento(client, db_session, make_tenant_headers):
     from app.models.estabelecimento import Estabelecimento
 
     premium_a = Estabelecimento(nome="Premium A", plano="premium")

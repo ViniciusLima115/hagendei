@@ -43,7 +43,7 @@ def agenda_dia(
     tenant_id: int = Depends(tenant_id_from_header),
     db: Session = Depends(get_db),
 ):
-    barbearia = db.query(Estabelecimento).filter(Estabelecimento.id == tenant_id).first()
+    estabelecimento = db.query(Estabelecimento).filter(Estabelecimento.id == tenant_id).first()
     barbeiros = (
         db.query(Barbeiro)
         .filter(Barbeiro.estabelecimento_id == tenant_id)
@@ -54,13 +54,13 @@ def agenda_dia(
     horarios_por_barbeiro = {
         barbeiro.id: [
             slot.strftime("%H:%M")
-            for slot in build_day_slots(barbearia, data.date(), duration_minutes=1, barbeiro=barbeiro)
+            for slot in build_day_slots(estabelecimento, data.date(), duration_minutes=1, barbeiro=barbeiro)
         ]
         for barbeiro in barbeiros
     }
 
     janelas = [
-        get_working_window(barbearia, data.date(), barbeiro=barbeiro)
+        get_working_window(estabelecimento, data.date(), barbeiro=barbeiro)
         for barbeiro in barbeiros
     ]
     intervalos_ativos = [janela for janela in janelas if janela]

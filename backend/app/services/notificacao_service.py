@@ -52,7 +52,7 @@ def _normalizar_telefone(telefone: str) -> str:
 
 
 def enviar_mensagem_whatsapp(
-    barbearia: Estabelecimento,
+    estabelecimento: Estabelecimento,
     telefone: str,
     mensagem: str,
 ) -> bool:
@@ -61,12 +61,12 @@ def enviar_mensagem_whatsapp(
         return False
 
     payload = {
-        "instance_key": barbearia.mega_instance_key,
+        "instance_key": estabelecimento.mega_instance_key,
         "to": _normalizar_telefone(telefone),
         "message": mensagem,
     }
     headers = {"Content-Type": "application/json"}
-    token = _messaging_token(barbearia.mega_token)
+    token = _messaging_token(estabelecimento.mega_token)
     if token:
         headers["Authorization"] = f"Bearer {token}"
 
@@ -84,13 +84,13 @@ def enviar_mensagem_whatsapp(
 
 
 def montar_mensagem_confirmacao(
-    nome_barbearia: str,
+    nome_estabelecimento: str,
     cliente_nome: str,
     servico_nome: str,
     inicio: datetime,
 ) -> str:
     return (
-        f"Oi, {cliente_nome}. Seu agendamento na {nome_barbearia} foi confirmado.\n"
+        f"Oi, {cliente_nome}. Seu agendamento na {nome_estabelecimento} foi confirmado.\n"
         f"Servico: {servico_nome}\n"
         f"Data: {inicio.strftime('%d/%m/%Y')}\n"
         f"Horario: {inicio.strftime('%H:%M')}"
@@ -98,14 +98,14 @@ def montar_mensagem_confirmacao(
 
 
 def _montar_mensagem_lembrete(
-    nome_barbearia: str,
+    nome_estabelecimento: str,
     cliente_nome: str,
     servico_nome: str,
     inicio: datetime,
     horas_antes: int,
 ) -> str:
     return (
-        f"Lembrete da {nome_barbearia}: faltam {horas_antes}h para seu horario.\n"
+        f"Lembrete da {nome_estabelecimento}: faltam {horas_antes}h para seu horario.\n"
         f"Cliente: {cliente_nome}\n"
         f"Servico: {servico_nome}\n"
         f"Data: {inicio.strftime('%d/%m/%Y')} às {inicio.strftime('%H:%M')}"
@@ -119,7 +119,7 @@ def agendar_lembretes_agendamento(
     agendamento_id: int,
     cliente_nome: str,
     cliente_telefone: str,
-    nome_barbearia: str,
+    nome_estabelecimento: str,
     servico_nome: str,
     inicio: datetime,
 ) -> int:
@@ -136,7 +136,7 @@ def agendar_lembretes_agendamento(
             canal="whatsapp",
             destinatario=_normalizar_telefone(cliente_telefone),
             mensagem=_montar_mensagem_lembrete(
-                nome_barbearia=nome_barbearia,
+                nome_estabelecimento=nome_estabelecimento,
                 cliente_nome=cliente_nome,
                 servico_nome=servico_nome,
                 inicio=inicio,
@@ -168,8 +168,8 @@ def processar_lembretes_pendentes(db: Session, limite: int = 100) -> dict[str, i
     falhas = 0
 
     for job in pendentes:
-        barbearia = db.query(Estabelecimento).filter(Estabelecimento.id == job.tenant_id).first()
-        if not barbearia:
+        estabelecimento = db.query(Estabelecimento).filter(Estabelecimento.id == job.tenant_id).first()
+        if not estabelecimento:
             job.status = "falha"
             job.ultimo_erro = "tenant_nao_encontrado"
             job.tentativas += 1
@@ -177,13 +177,13 @@ def processar_lembretes_pendentes(db: Session, limite: int = 100) -> dict[str, i
             continue
 
         # Plano Gratis nao tem notificacoes WhatsApp
-        plano = (barbearia.plano or "gratis").lower()
+        plano = (estabelecimento.plano or "gratis").lower()
         if plano == "gratis":
             job.status = "nao_aplicavel"
             job.ultimo_erro = "plano_gratis_sem_whatsapp"
             continue
 
-        ok = enviar_mensagem_whatsapp(barbearia, job.destinatario, job.mensagem)
+        ok = enviar_mensagem_whatsapp(estabelecimento, job.destinatario, job.mensagem)
         job.tentativas += 1
         if ok:
             job.status = "enviado"

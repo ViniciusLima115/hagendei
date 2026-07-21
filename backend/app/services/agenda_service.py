@@ -48,18 +48,18 @@ def gerar_horarios_disponiveis(
     if not barbeiro:
         return []
 
-    barbearia = db.query(Estabelecimento).filter(Estabelecimento.id == tenant_id).first()
-    if not barbearia:
+    estabelecimento = db.query(Estabelecimento).filter(Estabelecimento.id == tenant_id).first()
+    if not estabelecimento:
         return []
 
     duracao = servico.duracao_minutos
-    window = get_working_window(barbearia, data.date(), barbeiro=barbeiro)
+    window = get_working_window(estabelecimento, data.date(), barbeiro=barbeiro)
     if not window:
         return []
 
     inicio_dia = datetime.combine(data.date(), window[0])
     fim_dia = datetime.combine(data.date(), window[1])
-    horarios = build_day_slots(barbearia, data.date(), duracao, barbeiro=barbeiro)
+    horarios = build_day_slots(estabelecimento, data.date(), duracao, barbeiro=barbeiro)
 
     agora = utcnow_naive()
     agendamentos_query = db.query(Agendamento).filter(

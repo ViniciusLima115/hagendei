@@ -18,14 +18,14 @@ def test_webhook_megaapi_processa_por_instance_key(monkeypatch, client, db_sessi
     import app.routes.webhooks as webhooks_module
     from app.models.estabelecimento import Estabelecimento
 
-    barbearia = Estabelecimento(
+    estabelecimento = Estabelecimento(
         nome="Estabelecimento Webhook",
         endereco="Rua A",
         mega_instance_key="inst-tenant-1",
     )
-    db_session.add(barbearia)
+    db_session.add(estabelecimento)
     db_session.commit()
-    db_session.refresh(barbearia)
+    db_session.refresh(estabelecimento)
 
     monkeypatch.setattr(webhooks_module, "MEGAAPI_WEBHOOK_ALLOW_UNSIGNED", False)
     monkeypatch.setattr(webhooks_module, "MEGAAPI_WEBHOOK_TOKEN", "token-seguro")
@@ -49,7 +49,7 @@ def test_webhook_megaapi_processa_por_instance_key(monkeypatch, client, db_sessi
     assert resp.status_code == 200
     body = resp.json()
     assert body["status"] == "ok"
-    assert body["tenant_id"] == barbearia.id
+    assert body["tenant_id"] == estabelecimento.id
     assert body["event_id"] == "evt-ok-1"
 
 
@@ -57,12 +57,12 @@ def test_webhook_megaapi_ignora_evento_duplicado(monkeypatch, client, db_session
     import app.routes.webhooks as webhooks_module
     from app.models.estabelecimento import Estabelecimento
 
-    barbearia = Estabelecimento(
+    estabelecimento = Estabelecimento(
         nome="Estabelecimento Duplicado",
         endereco="Rua B",
         mega_instance_key="inst-tenant-dup",
     )
-    db_session.add(barbearia)
+    db_session.add(estabelecimento)
     db_session.commit()
 
     monkeypatch.setattr(webhooks_module, "MEGAAPI_WEBHOOK_ALLOW_UNSIGNED", False)
@@ -117,15 +117,15 @@ def test_webhook_megaapi_retorna_link_publico_em_saudacao(monkeypatch, client, d
     import app.routes.webhooks as webhooks_module
     from app.models.estabelecimento import Estabelecimento
 
-    barbearia = Estabelecimento(
+    estabelecimento = Estabelecimento(
         nome="Estabelecimento Link",
-        slug="barbearia-link",
+        slug="estabelecimento-link",
         endereco="Rua C",
         mega_instance_key="inst-link",
     )
-    db_session.add(barbearia)
+    db_session.add(estabelecimento)
     db_session.commit()
-    db_session.refresh(barbearia)
+    db_session.refresh(estabelecimento)
 
     monkeypatch.setattr(webhooks_module, "MEGAAPI_WEBHOOK_ALLOW_UNSIGNED", False)
     monkeypatch.setattr(webhooks_module, "MEGAAPI_WEBHOOK_TOKEN", "token-seguro")
@@ -152,5 +152,5 @@ def test_webhook_megaapi_retorna_link_publico_em_saudacao(monkeypatch, client, d
     assert body["status"] == "ok"
     assert body["resposta"]["tipo"] == "link_agendamento"
     import app.services.public_booking_service as pbs
-    link_esperado = pbs.montar_link_agendamento_por_id(barbearia.id)
+    link_esperado = pbs.montar_link_agendamento_por_id(estabelecimento.id)
     assert link_esperado in body["resposta"]["resposta"]

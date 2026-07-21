@@ -24,9 +24,9 @@ def _normalizar_telefone(telefone: str) -> str:
     return digits
 
 
-def montar_mensagem_saudacao(nome_barbearia: str, estabelecimento_id: int) -> str:
+def montar_mensagem_saudacao(nome_estabelecimento: str, estabelecimento_id: int) -> str:
     return (
-        f"Ola 👋 Seja bem-vindo a {nome_barbearia}!\n"
+        f"Ola 👋 Seja bem-vindo a {nome_estabelecimento}!\n"
         "Clique aqui para agendar:\n"
         f"{_BOOKING_BASE.rstrip('/')}/agendar/{estabelecimento_id}"
     )
@@ -51,22 +51,22 @@ def processar_webhook_saudacao(
 
     instance_key = extrair_instance_key(payload, value if isinstance(value, dict) else {})
     tenant_repo = TenantRepository(db)
-    barbearia = tenant_repo.resolve_by_instance_or_whatsapp(
+    estabelecimento = tenant_repo.resolve_by_instance_or_whatsapp(
         instance_key=instance_key,
         whatsapp_number=whatsapp_number,
     )
-    if not barbearia:
+    if not estabelecimento:
         return {"status": "ignored", "reason": "tenant_nao_resolvido"}
 
     evento_repo = WebhookEventRepository(db)
     event_id = evento_repo.extract_event_id(payload)
-    if not evento_repo.register_event_once(provider=provider, event_id=event_id, tenant_id=barbearia.id):
+    if not evento_repo.register_event_once(provider=provider, event_id=event_id, tenant_id=estabelecimento.id):
         return {"status": "ignored", "reason": "evento_duplicado"}
 
     telefone_normalizado = _normalizar_telefone(telefone)
     conversa_repo = ConversaRepository(db)
     conversa_ativa = conversa_repo.get_active(
-        tenant_id=barbearia.id,
+        tenant_id=estabelecimento.id,
         telefone=telefone_normalizado,
     )
 
@@ -76,7 +76,7 @@ def processar_webhook_saudacao(
     }
     if conversa_ativa:
         conversa_repo.upsert(
-            tenant_id=barbearia.id,
+            tenant_id=estabelecimento.id,
             telefone=telefone_normalizado,
             estado="ativa",
             contexto=contexto,
@@ -84,15 +84,15 @@ def processar_webhook_saudacao(
         )
         return {
             "status": "ok",
-            "tenant_id": barbearia.id,
+            "tenant_id": estabelecimento.id,
             "event_id": event_id,
             "saudacao_enviada": False,
         }
 
-    mensagem = montar_mensagem_saudacao(barbearia.nome, barbearia.id)
-    envio_ok = enviar_mensagem_whatsapp(barbearia, telefone_normalizado, mensagem)
+    mensagem = montar_mensagem_saudacao(estabelecimento.nome, estabelecimento.id)
+    envio_ok = enviar_mensagem_whatsapp(estabelecimento, telefone_normalizado, mensagem)
     conversa_repo.upsert(
-        tenant_id=barbearia.id,
+        tenant_id=estabelecimento.id,
         telefone=telefone_normalizado,
         estado="saudacao_enviada",
         contexto={**contexto, "mensagem_enviada": mensagem},
@@ -101,7 +101,7 @@ def processar_webhook_saudacao(
 
     return {
         "status": "ok",
-        "tenant_id": barbearia.id,
+        "tenant_id": estabelecimento.id,
         "event_id": event_id,
         "saudacao_enviada": True,
         "envio_ok": envio_ok,

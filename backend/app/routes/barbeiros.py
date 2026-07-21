@@ -13,11 +13,11 @@ MAX_BARBEIROS_BASICO = 1
 MAX_BARBEIROS_PREMIUM = 3
 
 
-def _get_barbearia(db: Session, tenant_id: int) -> Estabelecimento:
-    barbearia = db.query(Estabelecimento).filter(Estabelecimento.id == tenant_id).first()
-    if not barbearia:
+def _get_estabelecimento(db: Session, tenant_id: int) -> Estabelecimento:
+    estabelecimento = db.query(Estabelecimento).filter(Estabelecimento.id == tenant_id).first()
+    if not estabelecimento:
         raise HTTPException(status_code=404, detail="Estabelecimento nao encontrado.")
-    return barbearia
+    return estabelecimento
 
 
 @router.post("/", response_model=BarbeiroResponse)
@@ -26,10 +26,10 @@ def criar(
     tenant_id: int = Depends(tenant_id_from_header),
     db: Session = Depends(get_db),
 ):
-    barbearia = _get_barbearia(db, tenant_id)
+    estabelecimento = _get_estabelecimento(db, tenant_id)
 
     total = db.query(Barbeiro).filter(Barbeiro.estabelecimento_id == tenant_id).count()
-    plano = (barbearia.plano or "basico").lower()
+    plano = (estabelecimento.plano or "basico").lower()
     limite = MAX_BARBEIROS_PREMIUM if plano == "premium" else MAX_BARBEIROS_BASICO
 
     if total >= limite and plano != "premium":
@@ -49,7 +49,7 @@ def criar(
         "horarios_funcionamento": (
             dados.horarios_funcionamento.model_dump()
             if dados.horarios_funcionamento is not None
-            else get_working_hours(barbearia)
+            else get_working_hours(estabelecimento)
         ),
     }
 
@@ -64,7 +64,7 @@ def criar(
 
 @router.get("/", response_model=list[BarbeiroResponse])
 def listar(tenant_id: int = Depends(tenant_id_from_header), db: Session = Depends(get_db)):
-    _get_barbearia(db, tenant_id)
+    _get_estabelecimento(db, tenant_id)
     query = db.query(Barbeiro).filter(Barbeiro.estabelecimento_id == tenant_id)
     return query.order_by(Barbeiro.id.asc()).all()
 
@@ -76,7 +76,7 @@ def atualizar(
     tenant_id: int = Depends(tenant_id_from_header),
     db: Session = Depends(get_db),
 ):
-    _get_barbearia(db, tenant_id)
+    _get_estabelecimento(db, tenant_id)
     query = db.query(Barbeiro).filter(Barbeiro.id == barbeiro_id, Barbeiro.estabelecimento_id == tenant_id)
 
     barbeiro = query.first()
@@ -103,7 +103,7 @@ def remover(
     tenant_id: int = Depends(tenant_id_from_header),
     db: Session = Depends(get_db),
 ):
-    _get_barbearia(db, tenant_id)
+    _get_estabelecimento(db, tenant_id)
     query = db.query(Barbeiro).filter(Barbeiro.id == barbeiro_id, Barbeiro.estabelecimento_id == tenant_id)
 
     barbeiro = query.first()

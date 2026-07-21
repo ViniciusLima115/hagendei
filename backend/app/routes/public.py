@@ -57,7 +57,7 @@ def _normalizar_telefone_storage(telefone: str) -> str:
 
 @router.get("/estabelecimento/{slug}", response_model=PublicEstabelecimentoLookupResponse)
 @limiter.limit(RATE_LIMIT_PUBLIC)
-def lookup_barbearia_publica(
+def lookup_estabelecimento_publica(
     request: Request,
     slug: str,
     data: date | None = Query(default=None),
@@ -83,7 +83,7 @@ def lookup_barbearia_publica(
 
 @router.get("/estabelecimento-id/{estabelecimento_id}", response_model=PublicEstabelecimentoLookupResponse)
 @limiter.limit(RATE_LIMIT_PUBLIC)
-def lookup_barbearia_publica_por_id(
+def lookup_estabelecimento_publica_por_id(
     request: Request,
     estabelecimento_id: int,
     data: date | None = Query(default=None),

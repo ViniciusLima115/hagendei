@@ -8,14 +8,14 @@ from app.models.servico import Servico
 
 
 def test_public_lookup_retorna_barbeiros_servicos_e_horarios(client, db_session):
-    barbearia = Estabelecimento(nome="Estabelecimento Publica", slug="publica", endereco="Rua Publica")
-    db_session.add(barbearia)
+    estabelecimento = Estabelecimento(nome="Estabelecimento Publica", slug="publica", endereco="Rua Publica")
+    db_session.add(estabelecimento)
     db_session.commit()
-    db_session.refresh(barbearia)
+    db_session.refresh(estabelecimento)
 
-    barbeiro_ativo = Barbeiro(nome="Ativo", estabelecimento_id=barbearia.id, ativo=True)
-    barbeiro_inativo = Barbeiro(nome="Inativo", estabelecimento_id=barbearia.id, ativo=False)
-    servico = Servico(nome="Corte", duracao_minutos=40, preco=50.0, estabelecimento_id=barbearia.id)
+    barbeiro_ativo = Barbeiro(nome="Ativo", estabelecimento_id=estabelecimento.id, ativo=True)
+    barbeiro_inativo = Barbeiro(nome="Inativo", estabelecimento_id=estabelecimento.id, ativo=False)
+    servico = Servico(nome="Corte", duracao_minutos=40, preco=50.0, estabelecimento_id=estabelecimento.id)
     db_session.add_all([barbeiro_ativo, barbeiro_inativo, servico])
     db_session.commit()
     db_session.refresh(barbeiro_ativo)
@@ -33,25 +33,25 @@ def test_public_lookup_retorna_barbeiros_servicos_e_horarios(client, db_session)
     assert resp.status_code == 200
     body = resp.json()
     assert body["nome"] == "Estabelecimento Publica"
-    assert body["estabelecimento_id"] == barbearia.id
+    assert body["estabelecimento_id"] == estabelecimento.id
     assert body["slug"] == "publica"
     assert len(body["barbeiros"]) == 1
     assert body["barbeiros"][0]["nome"] == "Ativo"
     assert body["servicos"][0]["duracao"] == 40
     assert body["horarios_disponiveis"]
 
-    resp_servicos = client.get("/public/servicos", params={"estabelecimento_id": barbearia.id})
+    resp_servicos = client.get("/public/servicos", params={"estabelecimento_id": estabelecimento.id})
     assert resp_servicos.status_code == 200
     assert any(item["id"] == servico.id for item in resp_servicos.json())
 
-    resp_barbeiros = client.get("/public/barbeiros", params={"estabelecimento_id": barbearia.id})
+    resp_barbeiros = client.get("/public/barbeiros", params={"estabelecimento_id": estabelecimento.id})
     assert resp_barbeiros.status_code == 200
     assert len(resp_barbeiros.json()) == 1
 
     resp_horarios = client.get(
         "/public/horarios-disponiveis",
         params={
-            "estabelecimento_id": barbearia.id,
+            "estabelecimento_id": estabelecimento.id,
             "barbeiro_id": barbeiro_ativo.id,
             "servico_id": servico.id,
             "data": data_futura.isoformat(),
@@ -62,7 +62,7 @@ def test_public_lookup_retorna_barbeiros_servicos_e_horarios(client, db_session)
 
 
 def test_public_lookup_respeita_funcionamento_individual_do_barbeiro(client, db_session):
-    horarios_barbearia = {
+    horarios_estabelecimento = {
         "seg": {"ativo": True, "inicio": "08:00", "fim": "18:00"},
         "ter": {"ativo": True, "inicio": "08:00", "fim": "18:00"},
         "qua": {"ativo": True, "inicio": "08:00", "fim": "18:00"},
@@ -81,23 +81,23 @@ def test_public_lookup_respeita_funcionamento_individual_do_barbeiro(client, db_
         "dom": {"ativo": False, "inicio": "08:00", "fim": "18:00"},
     }
 
-    barbearia = Estabelecimento(
+    estabelecimento = Estabelecimento(
         nome="Estabelecimento Tarde",
         slug="publica-tarde",
         endereco="Rua Publica",
-        horarios_funcionamento=horarios_barbearia,
+        horarios_funcionamento=horarios_estabelecimento,
     )
-    db_session.add(barbearia)
+    db_session.add(estabelecimento)
     db_session.commit()
-    db_session.refresh(barbearia)
+    db_session.refresh(estabelecimento)
 
     barbeiro = Barbeiro(
         nome="Tarde",
-        estabelecimento_id=barbearia.id,
+        estabelecimento_id=estabelecimento.id,
         ativo=True,
         horarios_funcionamento=horarios_barbeiro,
     )
-    servico = Servico(nome="Corte", duracao_minutos=40, preco=50.0, estabelecimento_id=barbearia.id)
+    servico = Servico(nome="Corte", duracao_minutos=40, preco=50.0, estabelecimento_id=estabelecimento.id)
     db_session.add_all([barbeiro, servico])
     db_session.commit()
     db_session.refresh(barbeiro)
@@ -109,7 +109,7 @@ def test_public_lookup_respeita_funcionamento_individual_do_barbeiro(client, db_
     resp = client.get(
         "/public/horarios-disponiveis",
         params={
-            "estabelecimento_id": barbearia.id,
+            "estabelecimento_id": estabelecimento.id,
             "barbeiro_id": barbeiro.id,
             "servico_id": servico.id,
             "data": data_futura.isoformat(),
@@ -126,26 +126,26 @@ def test_public_agendamento_cria_confirma_e_agenda_lembretes(monkeypatch, client
 
     enviados = {}
 
-    def fake_enviar(barbearia, telefone, mensagem):
-        enviados["barbearia"] = barbearia.nome
+    def fake_enviar(estabelecimento, telefone, mensagem):
+        enviados["estabelecimento"] = estabelecimento.nome
         enviados["telefone"] = telefone
         enviados["mensagem"] = mensagem
         return True
 
     monkeypatch.setattr(public_service, "enviar_mensagem_whatsapp", fake_enviar)
 
-    barbearia = Estabelecimento(
+    estabelecimento = Estabelecimento(
         nome="Estabelecimento Agenda",
         slug="agenda-publica",
         endereco="Rua Agenda",
         mega_instance_key="inst-agenda",
     )
-    db_session.add(barbearia)
+    db_session.add(estabelecimento)
     db_session.commit()
-    db_session.refresh(barbearia)
+    db_session.refresh(estabelecimento)
 
-    barbeiro = Barbeiro(nome="Carlos", estabelecimento_id=barbearia.id, ativo=True)
-    servico = Servico(nome="Barba", duracao_minutos=30, preco=35.0, estabelecimento_id=barbearia.id)
+    barbeiro = Barbeiro(nome="Carlos", estabelecimento_id=estabelecimento.id, ativo=True)
+    servico = Servico(nome="Barba", duracao_minutos=30, preco=35.0, estabelecimento_id=estabelecimento.id)
     db_session.add_all([barbeiro, servico])
     db_session.commit()
     db_session.refresh(barbeiro)
@@ -153,7 +153,7 @@ def test_public_agendamento_cria_confirma_e_agenda_lembretes(monkeypatch, client
 
     data_hora = datetime.now() + timedelta(days=3)
     payload = {
-        "estabelecimento_id": barbearia.id,
+        "estabelecimento_id": estabelecimento.id,
         "cliente_nome": "Vinicius",
         "cliente_telefone": "558298373869",
         "cliente_email": "vinicius@example.com",
@@ -167,8 +167,8 @@ def test_public_agendamento_cria_confirma_e_agenda_lembretes(monkeypatch, client
 
     body = resp.json()
     assert body["status"] == "pendente"
-    assert body["tenant_id"] == barbearia.id
-    assert body["estabelecimento_id"] == barbearia.id
+    assert body["tenant_id"] == estabelecimento.id
+    assert body["estabelecimento_id"] == estabelecimento.id
     assert body["cliente_email"] == "vinicius@example.com"
     assert body["confirmation_token"]
     assert body["lembretes_agendados"] == 2
@@ -188,7 +188,7 @@ def test_public_agendamento_cria_confirma_e_agenda_lembretes(monkeypatch, client
     )
     assert len(lembretes) == 2
     assert {item.tipo for item in lembretes} == {"reminder_24h", "reminder_2h"}
-    assert enviados["barbearia"] == "Estabelecimento Agenda"
+    assert enviados["estabelecimento"] == "Estabelecimento Agenda"
 
 
 def test_agendamento_nao_sobrescreve_nome_de_cliente_existente(monkeypatch, client, db_session):
@@ -197,17 +197,17 @@ def test_agendamento_nao_sobrescreve_nome_de_cliente_existente(monkeypatch, clie
 
     monkeypatch.setattr(public_service, "enviar_mensagem_whatsapp", lambda *a, **kw: True)
 
-    barbearia = Estabelecimento(
+    estabelecimento = Estabelecimento(
         nome="Estabelecimento Regressao",
         slug="regressao-nome",
         endereco="Rua Regressao",
     )
-    db_session.add(barbearia)
+    db_session.add(estabelecimento)
     db_session.commit()
-    db_session.refresh(barbearia)
+    db_session.refresh(estabelecimento)
 
-    barbeiro = Barbeiro(nome="Joao", estabelecimento_id=barbearia.id, ativo=True)
-    servico = Servico(nome="Corte", duracao_minutos=30, preco=40.0, estabelecimento_id=barbearia.id)
+    barbeiro = Barbeiro(nome="Joao", estabelecimento_id=estabelecimento.id, ativo=True)
+    servico = Servico(nome="Corte", duracao_minutos=30, preco=40.0, estabelecimento_id=estabelecimento.id)
     db_session.add_all([barbeiro, servico])
     db_session.commit()
     db_session.refresh(barbeiro)
@@ -220,7 +220,7 @@ def test_agendamento_nao_sobrescreve_nome_de_cliente_existente(monkeypatch, clie
     resp_marcio = client.post(
         "/public/agendamentos",
         json={
-            "estabelecimento_id": barbearia.id,
+            "estabelecimento_id": estabelecimento.id,
             "cliente_nome": "Marcio",
             "cliente_telefone": telefone_compartilhado,
             "barbeiro_id": barbeiro.id,
@@ -235,7 +235,7 @@ def test_agendamento_nao_sobrescreve_nome_de_cliente_existente(monkeypatch, clie
     resp_vinicius = client.post(
         "/public/agendamentos",
         json={
-            "estabelecimento_id": barbearia.id,
+            "estabelecimento_id": estabelecimento.id,
             "cliente_nome": "Vinicius",
             "cliente_telefone": telefone_compartilhado,
             "barbeiro_id": barbeiro.id,

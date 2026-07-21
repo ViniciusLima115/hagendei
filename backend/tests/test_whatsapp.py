@@ -198,14 +198,14 @@ def test_resolve_tenant_por_instance_key(db_session):
     from app.models.estabelecimento import Estabelecimento
     from app.routes.whatsapp import _resolver_tenant_id
 
-    barbearia = Estabelecimento(
+    estabelecimento = Estabelecimento(
         nome="Estabelecimento Instance",
         endereco="Rua A",
         mega_instance_key="instancia-teste-1",
     )
-    db_session.add(barbearia)
+    db_session.add(estabelecimento)
     db_session.commit()
-    db_session.refresh(barbearia)
+    db_session.refresh(estabelecimento)
 
     tenant_id = _resolver_tenant_id(db_session, instance_key="instancia-teste-1")
-    assert tenant_id == barbearia.id
+    assert tenant_id == estabelecimento.id

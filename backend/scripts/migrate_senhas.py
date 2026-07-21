@@ -48,10 +48,10 @@ def main():
     erros = 0
     db: Session = SessionLocal()
     try:
-        barbearias = db.query(Estabelecimento).all()
-        total = len(barbearias)
+        estabelecimentos = db.query(Estabelecimento).all()
+        total = len(estabelecimentos)
 
-        for b in barbearias:
+        for b in estabelecimentos:
             if not b.senha:
                 print(f"  [SKIP] id={b.id} login={b.login} — senha vazia")
                 ignoradas += 1

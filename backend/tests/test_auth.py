@@ -124,10 +124,10 @@ def test_logout_sem_token_retorna_401(client):
 
 
 def test_tenant_header_mismatch_retorna_403(client, dados_base, make_tenant_headers):
-    token_tenant_correto = make_tenant_headers(dados_base["barbearia"].id)
+    token_tenant_correto = make_tenant_headers(dados_base["estabelecimento"].id)
     headers_mismatch = {
         **token_tenant_correto,
-        "X-Estabelecimento-Id": str(dados_base["barbearia"].id + 999),
+        "X-Estabelecimento-Id": str(dados_base["estabelecimento"].id + 999),
     }
     resp = client.get("/clientes/", headers=headers_mismatch)
     assert resp.status_code == 403
