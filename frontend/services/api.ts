@@ -80,8 +80,8 @@ export type Barbeiro = {
   nome: string;
   ativo?: boolean;
   tempo_por_servico?: Record<string, number> | null;
-  horarios_funcionamento?: BarbershopWorkingHours | null;
-  barbershop_id?: number;
+  horarios_funcionamento?: EstabelecimentoWorkingHours | null;
+  estabelecimento_id?: number;
   barbearia_id?: number;
 };
 
@@ -261,7 +261,7 @@ export type WorkingHoursDay = {
   fim: string;
 };
 
-export type BarbershopWorkingHours = Record<WorkingDayKey, WorkingHoursDay> & {
+export type EstabelecimentoWorkingHours = Record<WorkingDayKey, WorkingHoursDay> & {
   intervalo_minutos?: number;
 };
 
@@ -410,7 +410,7 @@ export async function listBarbeiros(): Promise<Barbeiro[]> {
 
 export async function createBarbeiro(payload: {
   nome: string;
-  horarios_funcionamento?: BarbershopWorkingHours | null;
+  horarios_funcionamento?: EstabelecimentoWorkingHours | null;
 }): Promise<Barbeiro> {
   const res = await apiFetch("/profissionais/", {
     method: "POST",
@@ -424,7 +424,7 @@ export async function updateBarbeiro(
   id: number,
   payload: {
     nome: string;
-    horarios_funcionamento?: BarbershopWorkingHours | null;
+    horarios_funcionamento?: EstabelecimentoWorkingHours | null;
   }
 ): Promise<Barbeiro> {
   const res = await apiFetch(`/profissionais/${id}`, {
@@ -506,7 +506,7 @@ export async function updateAgendamento(
   return parseOrThrow(res, "Falha ao atualizar agendamento.");
 }
 
-export function defaultBarbershopWorkingHours(): BarbershopWorkingHours {
+export function defaultEstabelecimentoWorkingHours(): EstabelecimentoWorkingHours {
   return {
     seg: { ativo: true, inicio: "08:00", fim: "18:00" },
     ter: { ativo: true, inicio: "08:00", fim: "18:00" },
@@ -518,14 +518,14 @@ export function defaultBarbershopWorkingHours(): BarbershopWorkingHours {
   };
 }
 
-export async function getBarbershopWorkingHours(): Promise<BarbershopWorkingHours> {
+export async function getEstabelecimentoWorkingHours(): Promise<EstabelecimentoWorkingHours> {
   const res = await apiFetch("/estabelecimentos/me/funcionamento", { cache: "no-store" });
   return parseOrThrow(res, "Falha ao carregar horarios de funcionamento.");
 }
 
-export async function updateBarbershopWorkingHours(
-  payload: BarbershopWorkingHours
-): Promise<BarbershopWorkingHours> {
+export async function updateEstabelecimentoWorkingHours(
+  payload: EstabelecimentoWorkingHours
+): Promise<EstabelecimentoWorkingHours> {
   const res = await apiFetch("/estabelecimentos/me/funcionamento", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
@@ -601,7 +601,7 @@ export async function desativarMfaAdmin(payload: { senha: string; code: string }
   await parseOrThrow(res, "Falha ao desativar a verificacao em duas etapas.");
 }
 
-export async function lookupPublicBarbershop(params: {
+export async function lookupPublicEstabelecimento(params: {
   slug: string;
   data?: string;
   barbeiro_id?: number;
@@ -620,7 +620,7 @@ export async function lookupPublicBarbershop(params: {
   return parseOrThrow(res, "Falha ao carregar disponibilidade publica.");
 }
 
-export async function lookupPublicBarbershopById(params: {
+export async function lookupPublicEstabelecimentoById(params: {
   estabelecimento_id: number;
   data?: string;
   barbeiro_id?: number;

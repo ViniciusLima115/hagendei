@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { lookupPublicBarbershopById } from "@/services/api";
+import { lookupPublicEstabelecimentoById } from "@/services/api";
 
 export default function RedirectToSlugPage() {
   const params = useParams<{ barbeariaId: string }>();
@@ -14,7 +14,7 @@ export default function RedirectToSlugPage() {
       router.replace("/");
       return;
     }
-    lookupPublicBarbershopById({ estabelecimento_id: id })
+    lookupPublicEstabelecimentoById({ estabelecimento_id: id })
       .then((data) => router.replace(`/${data.slug}`))
       .catch(() => router.replace("/"));
   }, [params, router]);

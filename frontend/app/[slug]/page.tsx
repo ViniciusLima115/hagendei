@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import {
   createPublicBooking,
-  lookupPublicBarbershop,
+  lookupPublicEstabelecimento,
   PublicLookupResponse,
   startPublicBookingPayment,
 } from "@/services/api";
@@ -89,7 +89,7 @@ export default function PublicBookingPage() {
       setLoading(true);
       setErro(null);
       try {
-        const base = await lookupPublicBarbershop({ slug });
+        const base = await lookupPublicEstabelecimento({ slug });
         if (!ativo) return;
         setLookup(base);
 
@@ -119,7 +119,7 @@ export default function PublicBookingPage() {
       setLoadingHorarios(true);
       setErro(null);
       try {
-        const atualizado = await lookupPublicBarbershop({
+        const atualizado = await lookupPublicEstabelecimento({
           slug,
           data,
           barbeiro_id: barbeiroId,
@@ -207,7 +207,7 @@ export default function PublicBookingPage() {
       setSucesso("Agendamento criado. Enviamos a confirmação por e-mail.");
       setHoraInicio(null);
 
-      const atualizado = await lookupPublicBarbershop({
+      const atualizado = await lookupPublicEstabelecimento({
         slug,
         data,
         barbeiro_id: barbeiroId,

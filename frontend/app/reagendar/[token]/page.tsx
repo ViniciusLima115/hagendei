@@ -8,7 +8,7 @@ import { CalendarDays } from "lucide-react";
 import { PRODUCT_NAME } from "@/lib/brand";
 import {
   getBookingByToken,
-  lookupPublicBarbershopById,
+  lookupPublicEstabelecimentoById,
   rescheduleBookingByToken,
   PublicAgendamentoTokenResponse,
   PublicLookupResponse,
@@ -83,7 +83,7 @@ export default function ReagendarPage() {
     async function carregarSlots() {
       setLoadingSlots(true);
       try {
-        const resultado = await lookupPublicBarbershopById({
+        const resultado = await lookupPublicEstabelecimentoById({
           estabelecimento_id: booking!.estabelecimento_id,
           data,
           barbeiro_id: barbeiroId!,

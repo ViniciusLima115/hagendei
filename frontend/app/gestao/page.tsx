@@ -3,7 +3,7 @@
 import { ComponentType, FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
 import {
   Agendamento,
-  BarbershopWorkingHours,
+  EstabelecimentoWorkingHours,
   Barbeiro,
   Cliente,
   Servico,
@@ -11,12 +11,12 @@ import {
   createBarbeiro,
   createCliente,
   createServico,
-  defaultBarbershopWorkingHours,
+  defaultEstabelecimentoWorkingHours,
   deleteAgendamento,
   deleteBarbeiro,
   deleteCliente,
   deleteServico,
-  getBarbershopWorkingHours,
+  getEstabelecimentoWorkingHours,
   getMercadoPagoStatus,
   listAgendamentos,
   listBarbeiros,
@@ -25,7 +25,7 @@ import {
   type PaymentAccountStatus,
   updateAgendamento,
   updateBarbeiro,
-  updateBarbershopWorkingHours,
+  updateEstabelecimentoWorkingHours,
   updateCliente,
   updateServico,
 } from "@/services/api";
@@ -129,7 +129,7 @@ function formatDateTime(value: string) {
   }).format(new Date(value));
 }
 
-function summarizeWorkingHours(funcionamento: BarbershopWorkingHours) {
+function summarizeWorkingHours(funcionamento: EstabelecimentoWorkingHours) {
   const ativos = workingDays.filter((day) => funcionamento[day.key].ativo);
   if (ativos.length === 0) return "Nenhum dia ativo";
 
@@ -144,8 +144,8 @@ function summarizeWorkingHours(funcionamento: BarbershopWorkingHours) {
   return `${primeiro.label} a ${ultimo.label} · ${intervalo}`;
 }
 
-function cloneWorkingHours(source?: BarbershopWorkingHours | null): BarbershopWorkingHours {
-  const base = source ?? defaultBarbershopWorkingHours();
+function cloneWorkingHours(source?: EstabelecimentoWorkingHours | null): EstabelecimentoWorkingHours {
+  const base = source ?? defaultEstabelecimentoWorkingHours();
   return {
     seg: { ...base.seg },
     ter: { ...base.ter },
@@ -157,7 +157,7 @@ function cloneWorkingHours(source?: BarbershopWorkingHours | null): BarbershopWo
   };
 }
 
-function createBarbeiroForm(source?: BarbershopWorkingHours | null) {
+function createBarbeiroForm(source?: EstabelecimentoWorkingHours | null) {
   return {
     nome: "",
     horarios_funcionamento: cloneWorkingHours(source),
@@ -479,8 +479,8 @@ export default function GestaoPage() {
   const [servicos, setServicos] = useState<Servico[]>([]);
   const [barbeiros, setBarbeiros] = useState<Barbeiro[]>([]);
   const [agendamentos, setAgendamentos] = useState<Agendamento[]>([]);
-  const [funcionamento, setFuncionamento] = useState<BarbershopWorkingHours>(
-    defaultBarbershopWorkingHours()
+  const [funcionamento, setFuncionamento] = useState<EstabelecimentoWorkingHours>(
+    defaultEstabelecimentoWorkingHours()
   );
   const [savingFuncionamento, setSavingFuncionamento] = useState(false);
   const [intervaloMinutos, setIntervaloMinutos] = useState<number>(30);
@@ -515,7 +515,7 @@ export default function GestaoPage() {
         listServicos(),
         listBarbeiros(),
         listAgendamentos(),
-        getBarbershopWorkingHours(),
+        getEstabelecimentoWorkingHours(),
       ]);
       setClientes(cs);
       setServicos(ss);
@@ -607,7 +607,7 @@ export default function GestaoPage() {
     setSavingFuncionamento(true);
 
     try {
-      const atualizado = await updateBarbershopWorkingHours({
+      const atualizado = await updateEstabelecimentoWorkingHours({
         ...funcionamento,
         intervalo_minutos: intervaloMinutos,
       });
