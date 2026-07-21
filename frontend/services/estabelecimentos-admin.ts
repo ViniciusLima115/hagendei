@@ -90,12 +90,6 @@ export type AdminPaymentEstablishment = {
   payment_validation_status: "valid" | "invalid" | "not_validated" | "error" | null;
 };
 
-// Backward compat aliases
-export type BarbeariaAdmin = EstabelecimentoAdmin;
-export type PlanoBarbearia = PlanoEstabelecimento;
-export type StatusManualBarbearia = StatusManualEstabelecimento;
-export type StatusAssinaturaBarbearia = StatusAssinaturaEstabelecimento;
-
 type EstabelecimentoApi = {
   id: number;
   nome: string;
@@ -197,9 +191,6 @@ export async function listPaymentEstablishmentsAdmin(): Promise<AdminPaymentEsta
   return parseOrThrow(res, "Falha ao carregar status de pagamentos dos estabelecimentos.");
 }
 
-// Backward compat alias
-export const listBarbeariasAdmin = listEstabelecimentosAdmin;
-
 export async function createEstabelecimentoAdmin(payload: {
   nome: string;
   login: string;
@@ -231,9 +222,6 @@ export async function createEstabelecimentoAdmin(payload: {
   const data = (await parseOrThrow(res, "Falha ao cadastrar estabelecimento.")) as EstabelecimentoApi;
   return toUi(data);
 }
-
-// Backward compat alias
-export const createBarbeariaAdmin = createEstabelecimentoAdmin;
 
 export async function updateEstabelecimentoAdmin(
   id: number,
@@ -271,9 +259,6 @@ export async function updateEstabelecimentoAdmin(
   const data = (await parseOrThrow(res, "Falha ao atualizar estabelecimento.")) as EstabelecimentoApi;
   return toUi(data);
 }
-
-// Backward compat alias
-export const updateBarbeariaAdmin = updateEstabelecimentoAdmin;
 
 export async function deleteEstabelecimentoAdmin(id: number): Promise<void> {
   const res = await adminFetch(`${API_URL}/estabelecimentos/${id}`, {
@@ -423,9 +408,6 @@ export async function updatePaymentAccountStatusAdmin(
   return parseOrThrow(res, "Falha ao alterar status da conta de pagamento.");
 }
 
-// Backward compat alias
-export const deleteBarbeariaAdmin = deleteEstabelecimentoAdmin;
-
 export function getStatusAssinaturaEstabelecimento(item: EstabelecimentoAdmin): StatusAssinaturaEstabelecimento {
   if (item.statusManual === "inativo") return "inativo";
 
@@ -441,5 +423,3 @@ export function getStatusAssinaturaEstabelecimento(item: EstabelecimentoAdmin): 
   return "ativo";
 }
 
-// Backward compat alias
-export const getStatusAssinaturaBarbearia = getStatusAssinaturaEstabelecimento;

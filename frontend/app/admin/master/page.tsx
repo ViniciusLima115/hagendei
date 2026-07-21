@@ -9,22 +9,22 @@ import FormInput from "../../components/FormInput";
 import Modal from "../../components/Modal";
 import styles from "./master.module.css";
 import {
-  BarbeariaAdmin,
+  EstabelecimentoAdmin,
   AdminPaymentIntegration,
-  PlanoBarbearia,
+  PlanoEstabelecimento,
   clearMercadoPagoIntegrationFieldAdmin,
-  createBarbeariaAdmin,
-  deleteBarbeariaAdmin,
+  createEstabelecimentoAdmin,
+  deleteEstabelecimentoAdmin,
   disableMercadoPagoIntegrationAdmin,
   getMercadoPagoIntegrationAdmin,
-  getStatusAssinaturaBarbearia,
-  listBarbeariasAdmin,
+  getStatusAssinaturaEstabelecimento,
+  listEstabelecimentosAdmin,
   listPaymentEstablishmentsAdmin,
   saveMercadoPagoIntegrationAdmin,
-  StatusManualBarbearia,
-  StatusAssinaturaBarbearia,
+  StatusManualEstabelecimento,
+  StatusAssinaturaEstabelecimento,
   testMercadoPagoCheckoutAdmin,
-  updateBarbeariaAdmin,
+  updateEstabelecimentoAdmin,
   validateMercadoPagoIntegrationAdmin,
 } from "@/services/estabelecimentos-admin";
 
@@ -37,14 +37,14 @@ function plusDaysISO(days: number): string {
   return `${y}-${m}-${d}`;
 }
 
-function statusLabel(status: StatusAssinaturaBarbearia): string {
+function statusLabel(status: StatusAssinaturaEstabelecimento): string {
   if (status === "trial") return "Trial";
   if (status === "bloqueado_atraso") return "Bloqueado por atraso";
   if (status === "inativo") return "Inativo";
   return "Ativo";
 }
 
-function paymentStatusLabel(status?: BarbeariaAdmin["paymentAccountStatus"]): string {
+function paymentStatusLabel(status?: EstabelecimentoAdmin["paymentAccountStatus"]): string {
   if (status === "active") return "Conta ativa";
   if (status === "inactive") return "Conta inativa";
   if (status === "error") return "Erro";
@@ -58,7 +58,7 @@ const initialForm = {
   nome: "",
   login: "",
   senha: "",
-  plano: "gratis" as PlanoBarbearia,
+  plano: "gratis" as PlanoEstabelecimento,
   vencimentoEm: plusDaysISO(30),
   trialAtivo: false,
   trialFimEm: plusDaysISO(7),
@@ -157,14 +157,14 @@ function SecretPaymentInput({
 }
 
 export default function AdminPage() {
-  const [barbearias, setBarbearias] = useState<BarbeariaAdmin[]>([]);
+  const [estabelecimentos, setEstabelecimentos] = useState<EstabelecimentoAdmin[]>([]);
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState(initialForm);
   const [filtros, setFiltros] = useState(initialFiltros);
   const [showPasswords, setShowPasswords] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [selected, setSelected] = useState<BarbeariaAdmin | null>(null);
+  const [selected, setSelected] = useState<EstabelecimentoAdmin | null>(null);
   const [pagina, setPagina] = useState(1);
   const [buscaRapida, setBuscaRapida] = useState("");
   const POR_PAGINA = 15;
@@ -172,15 +172,15 @@ export default function AdminPage() {
     nome: "",
     login: "",
     senha: "",
-    plano: "gratis" as PlanoBarbearia,
-    statusManual: "ativo" as StatusManualBarbearia,
+    plano: "gratis" as PlanoEstabelecimento,
+    statusManual: "ativo" as StatusManualEstabelecimento,
     vencimentoEm: plusDaysISO(30),
     trialAtivo: false,
     trialFimEm: plusDaysISO(7),
     ultimoAcessoEm: "",
     pagamentoRecusado: false,
   });
-  const [paymentSelected, setPaymentSelected] = useState<BarbeariaAdmin | null>(null);
+  const [paymentSelected, setPaymentSelected] = useState<EstabelecimentoAdmin | null>(null);
   const [paymentIntegration, setPaymentIntegration] = useState<AdminPaymentIntegration | null>(null);
   const [paymentForm, setPaymentForm] = useState(initialPaymentForm);
   const [paymentSecretVisible, setPaymentSecretVisible] = useState(initialPaymentSecretVisibility);
@@ -192,11 +192,11 @@ export default function AdminPage() {
     try {
       setLoading(true);
       const [items, paymentItems] = await Promise.all([
-        listBarbeariasAdmin(),
+        listEstabelecimentosAdmin(),
         listPaymentEstablishmentsAdmin(),
       ]);
       const paymentById = new Map(paymentItems.map((item) => [item.id, item]));
-      setBarbearias(
+      setEstabelecimentos(
         items.map((item) => {
           const payment = paymentById.get(item.id);
           return {
@@ -227,33 +227,33 @@ export default function AdminPage() {
   }, [success]);
 
   const totalGratis = useMemo(
-    () => barbearias.filter((b) => b.plano === "gratis").length,
-    [barbearias]
+    () => estabelecimentos.filter((b) => b.plano === "gratis").length,
+    [estabelecimentos]
   );
   const totalBasico = useMemo(
-    () => barbearias.filter((b) => b.plano === "basico").length,
-    [barbearias]
+    () => estabelecimentos.filter((b) => b.plano === "basico").length,
+    [estabelecimentos]
   );
   const totalPremium = useMemo(
-    () => barbearias.filter((b) => b.plano === "premium").length,
-    [barbearias]
+    () => estabelecimentos.filter((b) => b.plano === "premium").length,
+    [estabelecimentos]
   );
   const totalBloqueadas = useMemo(
-    () => barbearias.filter((b) => getStatusAssinaturaBarbearia(b) === "bloqueado_atraso").length,
-    [barbearias]
+    () => estabelecimentos.filter((b) => getStatusAssinaturaEstabelecimento(b) === "bloqueado_atraso").length,
+    [estabelecimentos]
   );
   const totalTrial = useMemo(
-    () => barbearias.filter((b) => getStatusAssinaturaBarbearia(b) === "trial").length,
-    [barbearias]
+    () => estabelecimentos.filter((b) => getStatusAssinaturaEstabelecimento(b) === "trial").length,
+    [estabelecimentos]
   );
-  const barbeariasFiltradas = useMemo(() => {
+  const estabelecimentosFiltrados = useMemo(() => {
     const busca = filtros.busca.trim().toLowerCase();
 
-    return barbearias.filter((item) => {
-      const status = getStatusAssinaturaBarbearia(item);
-      const nomeBarbearia = item.nome.toLowerCase();
+    return estabelecimentos.filter((item) => {
+      const status = getStatusAssinaturaEstabelecimento(item);
+      const nomeEstabelecimento = item.nome.toLowerCase();
 
-      const matchBusca = !busca || nomeBarbearia.includes(busca);
+      const matchBusca = !busca || nomeEstabelecimento.includes(busca);
       const matchPlano = filtros.plano === "todos" || item.plano === filtros.plano;
       const matchStatus = filtros.status === "todos" || status === filtros.status;
 
@@ -286,18 +286,18 @@ export default function AdminPage() {
 
       return matchBusca && matchPlano && matchStatus && matchDataDe && matchDataAte && matchAtividade;
     });
-  }, [barbearias, filtros]);
+  }, [estabelecimentos, filtros]);
 
   // reset page when filters or quick-search change
   useEffect(() => { setPagina(1); }, [filtros, buscaRapida]);
 
   const listaFiltradaComBusca = useMemo(() => {
     const q = buscaRapida.trim().toLowerCase();
-    if (!q) return barbeariasFiltradas;
-    return barbeariasFiltradas.filter(
+    if (!q) return estabelecimentosFiltrados;
+    return estabelecimentosFiltrados.filter(
       (b) => b.nome.toLowerCase().includes(q) || b.login.toLowerCase().includes(q)
     );
-  }, [barbeariasFiltradas, buscaRapida]);
+  }, [estabelecimentosFiltrados, buscaRapida]);
 
   const totalPaginas = Math.max(1, Math.ceil(listaFiltradaComBusca.length / POR_PAGINA));
   const paginaAtual = Math.min(pagina, totalPaginas);
@@ -319,8 +319,8 @@ export default function AdminPage() {
       descricao: string;
     }> = [];
 
-    barbearias.forEach((item) => {
-      const status = getStatusAssinaturaBarbearia(item);
+    estabelecimentos.forEach((item) => {
+      const status = getStatusAssinaturaEstabelecimento(item);
       if (status === "inativo") return;
 
       if (item.pagamentoRecusado) {
@@ -361,7 +361,7 @@ export default function AdminPage() {
     });
 
     return items;
-  }, [barbearias]);
+  }, [estabelecimentos]);
 
   function limparMensagens() {
     setError(null);
@@ -392,7 +392,7 @@ export default function AdminPage() {
     }
 
     try {
-      await createBarbeariaAdmin(form);
+      await createEstabelecimentoAdmin(form);
       setSuccess("Estabelecimento cadastrado com sucesso!");
       setForm(initialForm);
       await recarregar();
@@ -401,7 +401,7 @@ export default function AdminPage() {
     }
   }
 
-  function abrirModalSenha(item: BarbeariaAdmin) {
+  function abrirModalSenha(item: EstabelecimentoAdmin) {
     setSelected(item);
     setEditForm({
       nome: item.nome,
@@ -418,7 +418,7 @@ export default function AdminPage() {
     limparMensagens();
   }
 
-  async function abrirModalPagamento(item: BarbeariaAdmin) {
+  async function abrirModalPagamento(item: EstabelecimentoAdmin) {
     limparMensagensPagamento();
     setPaymentSelected(item);
     setPaymentIntegration(null);
@@ -636,7 +636,7 @@ export default function AdminPage() {
     }
 
     try {
-      await updateBarbeariaAdmin(selected.id, {
+      await updateEstabelecimentoAdmin(selected.id, {
         nome: editForm.nome.trim(),
         login: editForm.login.trim(),
         senha: editForm.senha,
@@ -656,7 +656,7 @@ export default function AdminPage() {
     }
   }
 
-  async function excluirBarbearia(item: BarbeariaAdmin) {
+  async function excluirEstabelecimento(item: EstabelecimentoAdmin) {
     limparMensagens();
     const confirmar = window.confirm(
       `Tem certeza que deseja excluir o estabelecimento "${item.nome}"? Essa acao nao pode ser desfeita.`
@@ -664,7 +664,7 @@ export default function AdminPage() {
     if (!confirmar) return;
 
     try {
-      await deleteBarbeariaAdmin(item.id);
+      await deleteEstabelecimentoAdmin(item.id);
       setSuccess(`Estabelecimento "${item.nome}" excluido com sucesso.`);
       await recarregar();
     } catch (err) {
@@ -695,7 +695,7 @@ export default function AdminPage() {
             <div className={styles.statIcon}><Building2 size={22} /></div>
             <div className={styles.statContent}>
               <span className={styles.statLabel}>Total</span>
-              <span className={styles.statValue}>{barbearias.length}</span>
+              <span className={styles.statValue}>{estabelecimentos.length}</span>
             </div>
           </div>
           <div className={styles.statCard}>
@@ -820,7 +820,7 @@ export default function AdminPage() {
                   label="Plano"
                   value={form.plano}
                   onChange={(e) =>
-                    setForm((prev) => ({ ...prev, plano: e.target.value as PlanoBarbearia }))
+                    setForm((prev) => ({ ...prev, plano: e.target.value as PlanoEstabelecimento }))
                   }
                 >
                   <option value="gratis">Plano Gratis</option>
@@ -1010,7 +1010,7 @@ export default function AdminPage() {
               <>
               <div className={styles.estabList}>
                 {listaVisivelSlice.map((item) => {
-                  const status = getStatusAssinaturaBarbearia(item);
+                  const status = getStatusAssinaturaEstabelecimento(item);
                   return (
                     <div key={item.id} className={styles.estabRow}>
                       {/* Avatar */}
@@ -1081,7 +1081,7 @@ export default function AdminPage() {
                         <Button variant="secondary" size="sm" onClick={() => abrirModalSenha(item)}>
                           Editar
                         </Button>
-                        <Button variant="danger" size="sm" onClick={() => excluirBarbearia(item)}>
+                        <Button variant="danger" size="sm" onClick={() => excluirEstabelecimento(item)}>
                           <Trash2 size={14} />
                         </Button>
                       </div>
@@ -1349,7 +1349,7 @@ export default function AdminPage() {
               label="Plano"
               value={editForm.plano}
               onChange={(e) =>
-                setEditForm((prev) => ({ ...prev, plano: e.target.value as PlanoBarbearia }))
+                setEditForm((prev) => ({ ...prev, plano: e.target.value as PlanoEstabelecimento }))
               }
             >
               <option value="gratis">Plano Gratis</option>
@@ -1361,7 +1361,7 @@ export default function AdminPage() {
               label="Status Manual"
               value={editForm.statusManual}
               onChange={(e) =>
-                setEditForm((prev) => ({ ...prev, statusManual: e.target.value as StatusManualBarbearia }))
+                setEditForm((prev) => ({ ...prev, statusManual: e.target.value as StatusManualEstabelecimento }))
               }
             >
               <option value="ativo">Ativo</option>
