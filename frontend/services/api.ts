@@ -82,7 +82,6 @@ export type Barbeiro = {
   tempo_por_servico?: Record<string, number> | null;
   horarios_funcionamento?: EstabelecimentoWorkingHours | null;
   estabelecimento_id?: number;
-  barbearia_id?: number;
 };
 
 export type Agendamento = {
@@ -639,15 +638,15 @@ export async function lookupPublicEstabelecimentoById(params: {
   return parseOrThrow(res, "Falha ao carregar disponibilidade publica.");
 }
 
-export async function listPublicServicos(barbeariaId: number): Promise<PublicServico[]> {
-  const res = await fetch(`${API_URL}/public/servicos?estabelecimento_id=${barbeariaId}`, {
+export async function listPublicServicos(estabelecimentoId: number): Promise<PublicServico[]> {
+  const res = await fetch(`${API_URL}/public/servicos?estabelecimento_id=${estabelecimentoId}`, {
     cache: "no-store",
   });
   return parseOrThrow(res, "Falha ao carregar servicos publicos.");
 }
 
-export async function listPublicBarbeiros(barbeariaId: number): Promise<PublicBarbeiro[]> {
-  const res = await fetch(`${API_URL}/public/barbeiros?estabelecimento_id=${barbeariaId}`, {
+export async function listPublicBarbeiros(estabelecimentoId: number): Promise<PublicBarbeiro[]> {
+  const res = await fetch(`${API_URL}/public/barbeiros?estabelecimento_id=${estabelecimentoId}`, {
     cache: "no-store",
   });
   return parseOrThrow(res, "Falha ao carregar barbeiros publicos.");
@@ -806,18 +805,18 @@ export type ClientesResponse = {
   top_5_clientes: TopCliente[];
 };
 
-export async function getDashboardFinanceiro(barbeariaId: string): Promise<FinanceiroResponse> {
-  const res = await apiFetch(`/dashboard/${barbeariaId}/financeiro`);
+export async function getDashboardFinanceiro(estabelecimentoId: string): Promise<FinanceiroResponse> {
+  const res = await apiFetch(`/dashboard/${estabelecimentoId}/financeiro`);
   return parseOrThrow(res, "Falha ao carregar dados financeiros do dashboard.");
 }
 
-export async function getDashboardServicos(barbeariaId: string): Promise<ServicosMaisVendidosResponse> {
-  const res = await apiFetch(`/dashboard/${barbeariaId}/servicos-mais-vendidos`);
+export async function getDashboardServicos(estabelecimentoId: string): Promise<ServicosMaisVendidosResponse> {
+  const res = await apiFetch(`/dashboard/${estabelecimentoId}/servicos-mais-vendidos`);
   return parseOrThrow(res, "Falha ao carregar servicos mais vendidos.");
 }
 
-export async function getDashboardClientes(barbeariaId: string): Promise<ClientesResponse> {
-  const res = await apiFetch(`/dashboard/${barbeariaId}/clientes`);
+export async function getDashboardClientes(estabelecimentoId: string): Promise<ClientesResponse> {
+  const res = await apiFetch(`/dashboard/${estabelecimentoId}/clientes`);
   return parseOrThrow(res, "Falha ao carregar dados de clientes do dashboard.");
 }
 
@@ -860,8 +859,8 @@ export type AnaliseResponse = {
   clientes: ClientesAnalise;
 };
 
-export async function getDashboardAnalise(barbeariaId: string): Promise<AnaliseResponse> {
-  const res = await apiFetch(`/dashboard/${barbeariaId}/analise`);
+export async function getDashboardAnalise(estabelecimentoId: string): Promise<AnaliseResponse> {
+  const res = await apiFetch(`/dashboard/${estabelecimentoId}/analise`);
   return parseOrThrow(res, "Falha ao carregar dados de análise do dashboard.");
 }
 
@@ -879,8 +878,8 @@ export type ResumoBasicoResponse = {
   pagamentos_expirados?: number;
 };
 
-export async function getDashboardResumoBasico(barbeariaId: string): Promise<ResumoBasicoResponse> {
-  const res = await apiFetch(`/dashboard/${barbeariaId}/resumo-basico`);
+export async function getDashboardResumoBasico(estabelecimentoId: string): Promise<ResumoBasicoResponse> {
+  const res = await apiFetch(`/dashboard/${estabelecimentoId}/resumo-basico`);
   return parseOrThrow(res, "Falha ao carregar resumo do dashboard.");
 }
 

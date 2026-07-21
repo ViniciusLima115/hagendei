@@ -129,7 +129,7 @@ export default function ReagendarPage() {
     }
   }
 
-  const linkBarbearia = booking ? `/agendar/${booking.estabelecimento_id}` : "/";
+  const linkEstabelecimento = booking ? `/agendar/${booking.estabelecimento_id}` : "/";
 
   const inputStyle: React.CSSProperties = {
     width: "100%",
@@ -502,7 +502,7 @@ export default function ReagendarPage() {
 
               {(sucesso || booking.status === "cancelado") && (
                 <Link
-                  href={linkBarbearia}
+                  href={linkEstabelecimento}
                   style={{
                     display: "block",
                     textAlign: "center",

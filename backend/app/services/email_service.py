@@ -121,9 +121,9 @@ def _renderizar_template_html(
         "{{intro}}": intro,
         "{{help_text}}": escape(help_text),
         "{{cliente_nome}}": escape(contexto.cliente_nome),
-        # NOTE: chave do placeholder deve casar com o literal {{barbearia_nome}} em
+        # NOTE: chave do placeholder deve casar com o literal {{estabelecimento_nome}} em
         # frontend/public/template.html — nao renomear sem atualizar o template tambem.
-        "{{barbearia_nome}}": escape(contexto.estabelecimento_nome),
+        "{{estabelecimento_nome}}": escape(contexto.estabelecimento_nome),
         "{{servico_nome}}": escape(contexto.servico_nome),
         "{{barbeiro_nome}}": escape(contexto.barbeiro_nome),
         "{{data}}": escape(data_str),
