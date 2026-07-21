@@ -4,14 +4,14 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.estabelecimento import Estabelecimento
 from app.routes.deps import tenant_id_from_header
-from app.schemas.barbearia import BarbeariaFuncionamento
+from app.schemas.estabelecimento import EstabelecimentoFuncionamento
 from app.services.estabelecimento_hours_service import normalize_working_hours
 
 
 router = APIRouter(prefix="/estabelecimentos/me/funcionamento", tags=["estabelecimentos"])
 
 
-@router.get("", response_model=BarbeariaFuncionamento)
+@router.get("", response_model=EstabelecimentoFuncionamento)
 def obter_funcionamento(
     tenant_id: int = Depends(tenant_id_from_header),
     db: Session = Depends(get_db),
@@ -24,9 +24,9 @@ def obter_funcionamento(
     return result
 
 
-@router.put("", response_model=BarbeariaFuncionamento)
+@router.put("", response_model=EstabelecimentoFuncionamento)
 def atualizar_funcionamento(
-    dados: BarbeariaFuncionamento,
+    dados: EstabelecimentoFuncionamento,
     tenant_id: int = Depends(tenant_id_from_header),
     db: Session = Depends(get_db),
 ):

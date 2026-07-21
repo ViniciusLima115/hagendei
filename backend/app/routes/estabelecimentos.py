@@ -9,10 +9,10 @@ from app.models.estabelecimento import Estabelecimento
 from app.routes.deps import require_admin
 from app.security import TokenClaims, hash_senha
 from app.services.admin_audit_service import create_admin_audit_log
-from app.schemas.barbearia import (
-    BarbeariaAdminCreate,
-    BarbeariaAdminResponse,
-    BarbeariaAdminUpdate,
+from app.schemas.estabelecimento import (
+    EstabelecimentoAdminCreate,
+    EstabelecimentoAdminResponse,
+    EstabelecimentoAdminUpdate,
 )
 
 router = APIRouter(prefix="/estabelecimentos", dependencies=[Depends(require_admin)])
@@ -65,14 +65,14 @@ def _gerar_slug_unico(db: Session, nome: str, slug_informado: str | None, *, exc
         idx += 1
 
 
-@router.get("/", response_model=list[BarbeariaAdminResponse])
+@router.get("/", response_model=list[EstabelecimentoAdminResponse])
 def listar(db: Session = Depends(get_db)):
     return db.query(Estabelecimento).order_by(Estabelecimento.criado_em.desc(), Estabelecimento.id.desc()).all()
 
 
-@router.post("/", response_model=BarbeariaAdminResponse)
+@router.post("/", response_model=EstabelecimentoAdminResponse)
 def criar(
-    dados: BarbeariaAdminCreate,
+    dados: EstabelecimentoAdminCreate,
     request: Request,
     claims: TokenClaims = Depends(require_admin),
     db: Session = Depends(get_db),
@@ -105,10 +105,10 @@ def criar(
     return estabelecimento
 
 
-@router.put("/{estabelecimento_id}", response_model=BarbeariaAdminResponse)
+@router.put("/{estabelecimento_id}", response_model=EstabelecimentoAdminResponse)
 def atualizar(
     estabelecimento_id: int,
-    dados: BarbeariaAdminUpdate,
+    dados: EstabelecimentoAdminUpdate,
     request: Request,
     claims: TokenClaims = Depends(require_admin),
     db: Session = Depends(get_db),
