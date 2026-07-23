@@ -159,7 +159,7 @@ No recebimento em `POST /webhooks/megaapi`, o backend:
 1. Valida autenticacao do webhook (`X-Webhook-Token` ou assinatura HMAC).
 2. Recebe o `instance_key`.
 3. Resolve tenant no banco.
-4. Para saudacoes/mensagens simples, responde com link publico (`https://hagendei.com/{slug}`).
+4. Para saudacoes/mensagens simples, responde com link publico (`https://app.hagendei.com/{slug}` — o sistema fica no subdominio `app.`, a raiz `hagendei.com` e reservada para a landing de vendas; ver `docs/deploy-hagendei-checklist.md`).
 5. Para demais mensagens, pode usar fallback para chatbot interno.
 
 Resolucao de tenant:

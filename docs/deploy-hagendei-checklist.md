@@ -1,27 +1,38 @@
 # Checklist de deploy — domínio hagendei.com
 
-Passos manuais (fora do acesso do assistente) para colocar `hagendei.com` no ar
-apontando para o servidor de produção atual. Siga na ordem — pular a Etapa 3
-(rebuild) é o erro mais comum: o site parece "no ar" (DNS e TLS ok) mas o
-frontend continua chamando a API antiga e o backend rejeita as requisições do
-novo domínio.
+Passos manuais (fora do acesso do assistente) para colocar o sistema no ar em
+`app.hagendei.com`, apontando para o servidor de produção atual. Siga na
+ordem — pular a Etapa 3 (rebuild) é o erro mais comum: o site parece "no ar"
+(DNS e TLS ok) mas o frontend continua chamando a API antiga e o backend
+rejeita as requisições do novo domínio.
+
+**Decisão de arquitetura:** `hagendei.com` (raiz) fica reservado para a
+landing de vendas (projeto/deploy separado, fora deste repositório — ainda
+não decidido onde vai ficar hospedada). O sistema deste repositório (o app
+propriamente dito: login, gestão, agenda, agendamento público etc.) fica em
+`app.hagendei.com`, porque a rota raiz (`/`) deste Next.js já é conteúdo
+autenticado do próprio sistema — colocar o sistema na raiz do domínio
+entraria em conflito direto com a landing.
 
 ## 1. DNS (Hostinger, ou onde o domínio estiver gerenciado)
 
-Criar dois registros `A` na zona DNS de `hagendei.com`, apontando para o IP
+Registros `A` necessários na zona DNS de `hagendei.com`, apontando para o IP
 público do servidor onde o Caddy roda hoje:
 
 | Tipo | Host | Valor | TTL |
 |------|------|-------|-----|
-| A | `hagendei.com` (ou `@`) | `<IP do servidor>` | 3600 (ou automático) |
+| A | `app.hagendei.com` | `<IP do servidor>` | 3600 (ou automático) |
 | A | `api.hagendei.com` | `<IP do servidor>` | 3600 (ou automático) |
 
-Se o frontend também deve responder em `www.hagendei.com`, adicionar um terceiro
-registro `A` (ou `CNAME` para `hagendei.com`) para `www` — e lembrar que o DNS
-sozinho não basta: o `Caddyfile` só tem blocos de site para `{$APP_DOMAIN}` e
-`{$API_DOMAIN}`, então é preciso adicionar `www.hagendei.com` também como host
-no bloco do `{$APP_DOMAIN}` (ou um bloco próprio) para o Caddy de fato servir
-e emitir certificado para esse hostname.
+O registro `A` de `hagendei.com` (`@`, raiz) fica em aberto até a landing de
+vendas ter hospedagem decidida — não aponte para o servidor deste sistema
+sem antes configurar um bloco de site próprio no `Caddyfile` para ele (ver
+nota abaixo), ou o Caddy pode acabar servindo o sistema também na raiz por
+engano assim que emitir certificado para esse hostname.
+
+Se o frontend também deve responder em `www.hagendei.com` (redirecionando
+para a landing, por exemplo), isso é definido junto com a decisão de
+hospedagem da landing, não faz parte deste checklist.
 
 ## 2. Variáveis de ambiente no servidor de produção
 
@@ -32,7 +43,7 @@ atualizados, não só um:
 e para o *build* do frontend):
 
 ```
-APP_DOMAIN=hagendei.com
+APP_DOMAIN=app.hagendei.com
 API_DOMAIN=api.hagendei.com
 NEXT_PUBLIC_API_URL=https://api.hagendei.com
 ```
@@ -41,24 +52,21 @@ NEXT_PUBLIC_API_URL=https://api.hagendei.com
 e os links públicos gerados em mensagens/e-mails):
 
 ```
-CORS_ALLOWED_ORIGINS=https://hagendei.com
-FRONTEND_URL=https://hagendei.com
+CORS_ALLOWED_ORIGINS=https://app.hagendei.com
+FRONTEND_URL=https://app.hagendei.com
 BACKEND_PUBLIC_BASE_URL=https://api.hagendei.com
-BOOKING_PUBLIC_BASE_URL=https://hagendei.com
+BOOKING_PUBLIC_BASE_URL=https://app.hagendei.com
 ALLOWED_HOSTS=api.hagendei.com,127.0.0.1
 ```
-
-Se o frontend também responde em `https://www.hagendei.com`, inclua as duas
-variantes em `CORS_ALLOWED_ORIGINS` (formato geralmente aceita lista separada
-por vírgula — confirme o formato esperado em `backend/app/config.py` antes de
-aplicar).
 
 `ALLOWED_HOSTS` é obrigatório em produção e é validado contra o header `Host`
 real de cada requisição (`TrustedHostMiddleware`) — diferente do CORS, que só
 afeta chamadas feitas por um navegador, isso bloqueia **qualquer** requisição
 (inclusive `curl`) se o domínio não estiver na lista. Sem essa variável
 atualizada, o backend inteiro responde `400 Invalid host header` para tudo,
-incluindo os próprios comandos de verificação abaixo.
+incluindo os próprios comandos de verificação abaixo. Note que `ALLOWED_HOSTS`
+lista apenas o host da **API** (`api.hagendei.com`) — o backend nunca recebe
+requisições com `Host: app.hagendei.com`, então esse hostname não entra aqui.
 
 **Importante:** inclua `127.0.0.1` na lista mesmo em produção — o healthcheck
 interno do container do backend (`docker-compose.yml`) chama
@@ -102,12 +110,12 @@ manualmente.
 
 ## 4. Verificação
 
-- [ ] `dig hagendei.com` e `dig api.hagendei.com` resolvem para o IP do servidor.
-- [ ] `curl -I https://hagendei.com` retorna `200` (ou redirect esperado) com
+- [ ] `dig app.hagendei.com` e `dig api.hagendei.com` resolvem para o IP do servidor.
+- [ ] `curl -I https://app.hagendei.com` retorna `200` (ou redirect esperado) com
       certificado válido.
 - [ ] `curl -I https://api.hagendei.com/docs` (ou outro endpoint público)
       retorna `200` com certificado válido.
-- [ ] Abrir `https://hagendei.com` num navegador (não só `curl`) e confirmar que
+- [ ] Abrir `https://app.hagendei.com` num navegador (não só `curl`) e confirmar que
       a página carrega dados reais (ex.: login funciona, uma página pública de
       agendamento carrega horários) — isso testa a chamada real do browser para
       a API, que é onde um CORS mal configurado aparece e que um `curl` direto
@@ -141,3 +149,17 @@ manualmente.
   `ALLOWED_HOSTS=api.hagendei.com,127.0.0.1` em `backend/.env.production` e
   rode o `up -d --build` novamente — o Caddy só sobe depois que o backend
   reportar `healthy`.
+
+## Quando a landing de vendas for definida
+
+Quando decidir onde a landing de `hagendei.com` (raiz) vai ficar hospedada:
+
+- **Se for no mesmo servidor** (outro container/processo atrás do mesmo
+  Caddy): adicionar um novo bloco de site no `Caddyfile` para `hagendei.com`
+  (e opcionalmente `www.hagendei.com`) apontando (`reverse_proxy`) para o
+  serviço da landing, e criar/ajustar o registro `A` de `hagendei.com` para
+  o IP deste servidor.
+- **Se for em outro provedor** (Vercel, Hostinger website builder, outra
+  VPS etc.): apontar o registro `A` (ou `CNAME`) de `hagendei.com` para lá,
+  sem tocar em nada deste `Caddyfile` — os domínios `app.` e `api.` deste
+  sistema continuam intactos independente de onde a landing morar.
