@@ -2,11 +2,15 @@
 
 Reconcilia o schema real de producao (criado antes da consolidacao em
 Alembic, via DDL best-effort em app/database.py) com o estado atual dos
-modelos ORM. Toda operacao que representa uma renomeacao (coluna ja
-existente com nome antigo) usa ALTER COLUMN RENAME, nao drop+add, para
-nao perder dados. Colunas/tabelas removidas foram confirmadas vazias em
-producao antes de escrever esta migration (payment_admin_audit_logs,
-payment_accounts.*, payment_oauth_states.code_verifier,
+modelos ORM. agendamentos.barbearia_id e conversas.estabelecimento_id nao
+sao renomeadas — ambas ja coexistem fisicamente ao lado da coluna nova
+(estabelecimento_id/tenant_id, respectivamente) por causa de uma migracao
+manual antiga que nunca limpou a coluna velha; confirmado por consulta
+direta que barbearia_id esta 100% NULL (11/11 linhas) e conversas tem 0
+linhas, entao o drop da coluna orfa e seguro. Colunas/tabelas removidas
+foram confirmadas vazias em producao antes de escrever esta migration
+(payment_admin_audit_logs, payment_accounts.*,
+payment_oauth_states.code_verifier,
 estabelecimentos.pagamento_adiantado_obrigatorio/advance_payment_*/
 payment_default_provider). NULLs pre-existentes em agendamentos.updated_at
 e servicos.updated_at sao preenchidos antes de aplicar NOT NULL.
@@ -36,9 +40,22 @@ def upgrade() -> None:
     op.execute("UPDATE agendamentos SET updated_at = NOW() WHERE updated_at IS NULL")
     op.execute("UPDATE servicos SET updated_at = NOW() WHERE updated_at IS NULL")
 
-    # --- 2. Renomeacoes (coluna fisica ja existe com nome antigo) ---
-    op.alter_column("agendamentos", "barbearia_id", new_column_name="estabelecimento_id")
-    op.alter_column("conversas", "estabelecimento_id", new_column_name="tenant_id")
+    # --- 2. Colunas duplicadas legadas (nao e renomeacao — as duas colunas ja
+    # coexistem fisicamente, confirmado por consulta direta antes de escrever
+    # esta migration) ---
+    # agendamentos: barbearia_id e uma coluna morta, 100% NULL nas 11 linhas
+    # atuais; estabelecimento_id (ja populada em todas) e a coluna real usada
+    # pelo modelo. Drop da coluna morta cascade-remove seu indice associado
+    # (ix_agendamentos_barbearia_id), por isso esse indice nao aparece na
+    # secao 8 abaixo.
+    op.drop_column("agendamentos", "barbearia_id")
+    # conversas: mesma duplicidade, mas a tabela tem 0 linhas hoje — sem risco
+    # de dado. O modelo usa tenant_id; estabelecimento_id e a coluna orfa
+    # aqui. O drop cascade-remove os 3 indices que a referenciam
+    # (ix_conversas_tenant_id, ix_conversas_tenant_ativa,
+    # ux_conversas_tenant_telefone) — recriados na secao 8, apontando para
+    # tenant_id.
+    op.drop_column("conversas", "estabelecimento_id")
 
     # --- 3. Tabelas novas (confirmado ausentes em producao) ---
     op.create_table(
@@ -173,7 +190,8 @@ def upgrade() -> None:
     op.create_index("ix_profissionais_estabelecimento_id", "profissionais", ["estabelecimento_id"])
     op.create_index("ix_profissionais_id", "profissionais", ["id"])
 
-    op.drop_index("ix_agendamentos_barbearia_id", table_name="agendamentos")
+    # ix_agendamentos_barbearia_id ja foi removido em cascata pelo drop_column
+    # da secao 2 — nao chamar drop_index de novo aqui (daria "does not exist").
     op.drop_index("ux_agendamentos_confirmation_token", table_name="agendamentos")
     # unique=True e obrigatorio aqui: confirmation_token e Column(unique=True, index=True)
     # no modelo — perder a unicidade removeria a garantia que impede dois agendamentos
@@ -190,6 +208,15 @@ def upgrade() -> None:
 
     op.drop_index("ix_clientes_email", table_name="clientes")
     op.drop_index("ux_clientes_barbearia_telefone", table_name="clientes")
+
+    # conversas: recriar os 3 indices cascade-removidos junto com a coluna
+    # estabelecimento_id na secao 2, agora apontando para tenant_id (nome que
+    # o modelo Conversa usa). Nenhum tem unique=True exceto o de telefone,
+    # que precisa ser UNIQUE CONSTRAINT (nao so indice) para bater com
+    # UniqueConstraint("tenant_id", "telefone") no modelo.
+    op.create_index("ix_conversas_tenant_id", "conversas", ["tenant_id"])
+    op.create_index("ix_conversas_tenant_ativa", "conversas", ["tenant_id", "ativa"])
+    op.create_unique_constraint("ux_conversas_tenant_telefone", "conversas", ["tenant_id", "telefone"])
 
     # NAO tocar em "ux_pagamentos_idempotency_key": idempotency_key e
     # Column(unique=True, index=True) no modelo — essa unicidade e a garantia
