@@ -29,8 +29,12 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     # --- 1. Backfill de NULLs antes de qualquer NOT NULL (dados reais confirmados) ---
-    op.execute("UPDATE agendamentos SET updated_at = criado_em WHERE updated_at IS NULL")
-    op.execute("UPDATE servicos SET updated_at = criado_em WHERE updated_at IS NULL")
+    # Nem agendamentos nem servicos tem uma coluna separada de "criado em" —
+    # so existe updated_at. Para as poucas linhas legadas sem valor, usa NOW()
+    # como melhor aproximacao disponivel (nao ha logica de negocio que dependa
+    # do valor historico exato desses registros).
+    op.execute("UPDATE agendamentos SET updated_at = NOW() WHERE updated_at IS NULL")
+    op.execute("UPDATE servicos SET updated_at = NOW() WHERE updated_at IS NULL")
 
     # --- 2. Renomeacoes (coluna fisica ja existe com nome antigo) ---
     op.alter_column("agendamentos", "barbearia_id", new_column_name="estabelecimento_id")
