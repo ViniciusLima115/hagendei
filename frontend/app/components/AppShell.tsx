@@ -2,9 +2,20 @@
 
 import { ReactNode } from "react";
 import { usePathname } from "next/navigation";
-import Header from "./Header";
+import {
+  BarChart2,
+  CalendarDays,
+  LayoutDashboard,
+  Settings,
+  Settings2,
+  Shield,
+} from "lucide-react";
+import Sidebar from "./Sidebar";
+import TopBar from "./TopBar";
 import { useTenantTheme } from "@/hooks/useTenantTheme";
+import { useAuthSession } from "@/services/auth";
 import { NotificacoesProvider } from "./NotificacoesProvider";
+import styles from "./AppShell.module.css";
 
 type AppShellProps = {
   children: ReactNode;
@@ -15,6 +26,8 @@ const TOKEN_ACTION_PREFIXES = ["/confirmar/", "/cancelar/", "/reagendar/"];
 export default function AppShell({ children }: AppShellProps) {
   const pathname = usePathname();
   useTenantTheme();
+  const session = useAuthSession();
+
   const inLogin = pathname === "/login";
   const isPublicBookingById = pathname.startsWith("/agendar/");
   const isTokenActionPage = TOKEN_ACTION_PREFIXES.some((p) => pathname.startsWith(p));
@@ -25,18 +38,34 @@ export default function AppShell({ children }: AppShellProps) {
     /^\/[^/]+$/.test(pathname) &&
     !ADMIN_PATHS.includes(pathname);
 
-  const hideHeader = inLogin || isPublicBookingPath || isPublicBookingById || isTokenActionPage;
+  const hideNav = inLogin || isPublicBookingPath || isPublicBookingById || isTokenActionPage;
 
-  const content = (
-    <>
-      {!hideHeader && <Header />}
-      {children}
-    </>
-  );
+  const isAdmin = session?.tenantId === "admin";
+  const inAdminPage = pathname.startsWith("/admin");
+  const navItems = [
+    { href: "/", label: "Painel", icon: LayoutDashboard },
+    { href: "/agenda", label: "Agenda", icon: CalendarDays },
+    { href: "/gestao", label: "Gestao", icon: Settings2 },
+    ...(!isAdmin && session?.plan === "premium" ? [{ href: "/dashboard", label: "Dashboard", icon: BarChart2 }] : []),
+    ...(!isAdmin ? [{ href: "/configuracoes", label: "Config.", icon: Settings }] : []),
+    ...(isAdmin && !inAdminPage ? [{ href: "/admin", label: "Admin", icon: Shield }] : []),
+  ];
+  const activeItem = navItems.find((item) => item.href === pathname);
+  const tenantName = session?.tenantName ?? "Estabelecimento";
 
-  if (hideHeader) {
-    return content;
+  if (hideNav) {
+    return children;
   }
 
-  return <NotificacoesProvider>{content}</NotificacoesProvider>;
+  return (
+    <NotificacoesProvider>
+      <div className={styles.shell}>
+        <Sidebar navItems={navItems} />
+        <div className={styles.mainColumn}>
+          <TopBar tenantName={tenantName} sectionLabel={activeItem?.label ?? tenantName} />
+          <div className={styles.content}>{children}</div>
+        </div>
+      </div>
+    </NotificacoesProvider>
+  );
 }
