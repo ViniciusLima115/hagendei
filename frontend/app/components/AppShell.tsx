@@ -60,7 +60,7 @@ export default function AppShell({ children }: AppShellProps) {
   return (
     <NotificacoesProvider>
       <div className={styles.shell}>
-        <Sidebar navItems={navItems} />
+        <Sidebar navItems={inAdminPage ? [] : navItems} />
         <div className={styles.mainColumn}>
           <TopBar tenantName={tenantName} sectionLabel={activeItem?.label ?? tenantName} />
           <div className={styles.content}>{children}</div>
