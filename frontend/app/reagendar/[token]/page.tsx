@@ -450,7 +450,7 @@ export default function ReagendarPage() {
                                 ? "#1e3a5f"
                                 : "#ffffff",
                             color: !slot.disponivel
-                              ? "#c4a882"
+                              ? "#9a9a9a"
                               : horaInicio === slot.hora
                                 ? "#ffffff"
                                 : "#1a1a1a",
