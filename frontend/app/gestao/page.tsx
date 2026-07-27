@@ -383,14 +383,16 @@ function StatCard({
   label,
   value,
   helper,
+  highlight,
 }: {
   icon: ReactNode;
   label: string;
   value: string;
   helper: string;
+  highlight?: boolean;
 }) {
   return (
-    <article className={styles.statCard}>
+    <article className={cx(styles.statCard, highlight && styles.statCardHighlight)}>
       <div className={styles.statIcon}>{icon}</div>
       <div className={styles.statContent}>
         <span className={styles.statLabel}>{label}</span>
@@ -927,6 +929,7 @@ export default function GestaoPage() {
             label="Agendamentos"
             value={String(agendamentos.length)}
             helper={proximoAgendamento ? "Com proximos horarios cadastrados" : "Nenhum horario futuro"}
+            highlight
           />
           <StatCard
             icon={<Users size={20} />}

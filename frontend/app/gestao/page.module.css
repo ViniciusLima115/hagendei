@@ -93,6 +93,10 @@
   box-shadow: var(--shadow-sm);
 }
 
+.statCardHighlight {
+  border-left: 3px solid var(--warm);
+}
+
 .statIcon {
   display: inline-flex;
   align-items: center;

@@ -24,10 +24,10 @@ type Preset = {
 };
 
 const PRESETS: Preset[] = [
-  { label: "Indigo", accent: "#4f46e5", bg: "#ffffff" },
+  { label: "Petroleo", accent: "#1e3a5f", bg: "#ffffff" },
   { label: "Teal", accent: "#0d9488", bg: "#ffffff" },
   { label: "Rosa", accent: "#db2777", bg: "#ffffff" },
-  { label: "Ambar", accent: "#d4930a", bg: "#ffffff" },
+  { label: "Ambar", accent: "#d99b3f", bg: "#ffffff" },
   { label: "Ardosia", accent: "#475569", bg: "#f8fafc" },
   { label: "Coral", accent: "#e2522b", bg: "#fffaf8" },
   { label: "Noturno", accent: "#e5a820", bg: "#0f0f0e" },
@@ -78,7 +78,7 @@ function ConfiguracoesContent() {
   const [novaSenha, setNovaSenha] = useState("");
   const [confirmarSenha, setConfirmarSenha] = useState("");
 
-  const [accentColor, setAccentColor] = useState(session?.accentColor ?? "#4f46e5");
+  const [accentColor, setAccentColor] = useState(session?.accentColor ?? "#1e3a5f");
   const [bgColor, setBgColor] = useState(session?.bgColor ?? "#ffffff");
   const [logoUrl, setLogoUrl] = useState(session?.logoUrl ?? "");
   const [activePreset, setActivePreset] = useState<string | null>(null);

@@ -44,14 +44,16 @@ function StatCard({
   value,
   helper,
   icon,
+  highlight,
 }: {
   label: string;
   value: string;
   helper: string;
   icon: React.ReactNode;
+  highlight?: boolean;
 }) {
   return (
-    <article className={styles.statCard}>
+    <article className={cx(styles.statCard, highlight && styles.statCardHighlight)}>
       <div className={styles.statIcon}>{icon}</div>
       <div className={styles.statContent}>
         <span className={styles.statLabel}>{label}</span>
@@ -171,6 +173,7 @@ export default function AgendaPage() {
             value={loading ? "..." : String(totalSlots)}
             helper="Todos os horarios validos na agenda"
             icon={<CalendarDays size={20} />}
+            highlight
           />
           <StatCard
             label="Ocupados"
