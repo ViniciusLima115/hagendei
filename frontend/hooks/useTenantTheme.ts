@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { useAuthSession } from "@/services/auth";
 
-const DEFAULT_ACCENT = "#d4930a";
+const DEFAULT_ACCENT = "#1e3a5f";
 const DEFAULT_BG = "#ffffff";
 
 export function useTenantTheme() {
