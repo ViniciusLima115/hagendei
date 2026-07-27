@@ -1206,10 +1206,9 @@ Esta é a página pública de agendamento (a real — `/agendar/[estabelecimento
 - `.statePanel` — fundo `#ffffff` fica igual; `border: ...#dce3dd;` → `border: ...#e5e9ee;`; `box-shadow: rgba(24, 32, 27, 0.08)` fica igual
 - `.statePanel strong` — `color: #18201b;` → `color: #1a1a1a;`
 - `.statePanel p` — `color: #758078;` → `color: #4a4a4a;`
-- `.errorAlert` — `border: rgba(248, 113, 113, 0.35)` → `border: 1px solid #fecaca`; `background: rgba(127, 29, 29, 0.28)` → `background: #fef2f2`; `color: #fecaca;` → `color: #991b1b;`
-- `.successAlert` — `border: rgba(74, 222, 128, 0.28)` → `border: 1px solid #bbf7d0`; `background: rgba(20, 83, 45, 0.32)` → `background: #f0fdf4`; `color: #bbf7d0;` → `color: #166534;`
+- `.errorAlert`/`.successAlert` — **ficam iguais, sem mudança** (ver nota de correção abaixo).
 
-(Note: `.errorAlert`/`.successAlert` originalmente usavam `border`/`background` translúcidos pensados pra um fundo escuro — como `.statePanel` (o pai mais provável) tem fundo branco, a versão nova usa cores sólidas claras, que é o padrão usado em todo o resto do app pra alertas de sucesso/erro. Confira visualmente no Step 9 se o contraste ficou bom.)
+**Correção pós-implementação (2026-07-27):** a versão original deste plano dizia pra trocar `.errorAlert`/`.successAlert` pra cores sólidas claras, assumindo que `.statePanel` (fundo branco) era o pai desses elementos. Isso estava errado — checando `frontend/app/[slug]/page.tsx`, `.errorAlert`/`.successAlert` na verdade renderizam dentro de `.feedback`, dentro de `<aside className={styles.summaryPanel}>` (fundo escuro `#142a44`), igual ao `.paymentNotice` que já ficava corretamente com cores translúcidas no mesmo painel. A implementação seguiu a instrução original e converteu pra cores sólidas claras, o que ficou visualmente quebrado (uma caixa clara boiando no meio do painel escuro) — encontrado e corrigido na revisão de qualidade de código antes do merge, revertendo `.errorAlert`/`.successAlert` pros valores translúcidos originais (que já estavam corretos pro fundo escuro).
 
 - [ ] **Step 8: Rodar o build**
 
