@@ -35,9 +35,9 @@ function formatarDataHora(valor: string) {
 
 function labelStatus(status: PublicAgendamentoTokenResponse["status"]) {
   const mapa: Record<string, { label: string; color: string }> = {
-    pendente:                 { label: "Pendente",                color: "#b45309" },
-    confirmado:               { label: "Confirmado",              color: "#15803d" },
-    cancelado:                { label: "Cancelado",               color: "#b91c1c" },
+    pendente:                 { label: "Pendente",                color: "#854d0e" },
+    confirmado:               { label: "Confirmado",              color: "#166534" },
+    cancelado:                { label: "Cancelado",               color: "#991b1b" },
     reagendamento_solicitado: { label: "Reagendamento solicitado", color: "#6d28d9" },
   };
   return mapa[status] ?? { label: status, color: "#6b7280" };
@@ -55,9 +55,9 @@ const modeConfig = {
     botao: "Confirmar presença",
     executar: confirmBookingByToken,
     sucessoMsg: "Presença confirmada! Até logo.",
-    accentColor: "#15803d",
+    accentColor: "#166534",
     accentBg: "#f0fdf4",
-    accentText: "#14532d",
+    accentText: "#166534",
   },
   cancelar: {
     titulo: "Cancelar agendamento",
@@ -65,9 +65,9 @@ const modeConfig = {
     botao: "Cancelar horário",
     executar: cancelBookingByToken,
     sucessoMsg: "Agendamento cancelado.",
-    accentColor: "#b91c1c",
-    accentBg: "#fff1f2",
-    accentText: "#7f1d1d",
+    accentColor: "#991b1b",
+    accentBg: "#fef2f2",
+    accentText: "#991b1b",
   },
   reagendar: {
     titulo: "Reagendar",
@@ -75,9 +75,9 @@ const modeConfig = {
     botao: "Solicitar reagendamento",
     executar: requestRescheduleByToken,
     sucessoMsg: "Pedido de reagendamento registrado.",
-    accentColor: "#c36b2d",
-    accentBg: "#fff7ed",
-    accentText: "#7c2d12",
+    accentColor: "#1e3a5f",
+    accentBg: "#eaf0f5",
+    accentText: "#142a44",
   },
 } satisfies Record<BookingActionMode, unknown>;
 
@@ -134,7 +134,7 @@ export default function BookingTokenActionCard({
     <div
       style={{
         minHeight: "100vh",
-        backgroundColor: "#f5efe7",
+        backgroundColor: "#f6f8fb",
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
@@ -147,7 +147,7 @@ export default function BookingTokenActionCard({
       <div
         style={{
           width: "100%",
-          backgroundColor: "#1a120b",
+          backgroundColor: "#14283f",
           padding: "14px 24px",
           display: "flex",
           alignItems: "center",
@@ -159,7 +159,7 @@ export default function BookingTokenActionCard({
             width: 32,
             height: 32,
             borderRadius: 8,
-            backgroundColor: "#c36b2d",
+            backgroundColor: "#1e3a5f",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -167,7 +167,7 @@ export default function BookingTokenActionCard({
         >
           <CalendarDays size={17} color="#ffffff" aria-hidden="true" />
         </div>
-        <span style={{ color: "#f5efe7", fontWeight: 700, fontSize: 15, letterSpacing: "0.02em" }}>
+        <span style={{ color: "#ffffff", fontWeight: 700, fontSize: 15, letterSpacing: "0.02em" }}>
           {PRODUCT_NAME}
         </span>
       </div>
@@ -187,7 +187,7 @@ export default function BookingTokenActionCard({
         {/* Card header */}
         <div
           style={{
-            background: "linear-gradient(135deg, #1a120b 0%, #3b1f0d 100%)",
+            background: "linear-gradient(135deg, #1e3a5f 0%, #122840 100%)",
             padding: "32px 32px 28px",
           }}
         >
@@ -198,7 +198,7 @@ export default function BookingTokenActionCard({
               fontWeight: 700,
               letterSpacing: "0.18em",
               textTransform: "uppercase",
-              color: "#f2c89a",
+              color: "#d99b3f",
             }}
           >
             Email de agendamento
@@ -214,7 +214,7 @@ export default function BookingTokenActionCard({
           >
             {config.titulo}
           </h1>
-          <p style={{ margin: 0, fontSize: 14, color: "#e8d5c0" }}>
+          <p style={{ margin: 0, fontSize: 14, color: "rgba(255,255,255,0.75)" }}>
             {config.subtitulo}
           </p>
         </div>
@@ -224,7 +224,7 @@ export default function BookingTokenActionCard({
 
           {/* Loading */}
           {loading && (
-            <p style={{ color: "#9ca3af", fontSize: 14, margin: 0 }}>
+            <p style={{ color: "#9a9a9a", fontSize: 14, margin: 0 }}>
               Carregando dados do agendamento...
             </p>
           )}
@@ -233,13 +233,13 @@ export default function BookingTokenActionCard({
           {erro && (
             <div
               style={{
-                backgroundColor: "#fff1f2",
-                border: "1px solid #fecdd3",
+                backgroundColor: "#fef2f2",
+                border: "1px solid #fecaca",
                 borderRadius: 12,
                 padding: "12px 16px",
                 marginBottom: 20,
                 fontSize: 14,
-                color: "#9f1239",
+                color: "#991b1b",
                 fontWeight: 500,
               }}
             >
@@ -270,7 +270,7 @@ export default function BookingTokenActionCard({
             <>
               <div
                 style={{
-                  backgroundColor: "#faf7f4",
+                  backgroundColor: "#f0f2f5",
                   borderRadius: 14,
                   padding: "20px 22px",
                   marginBottom: 24,
@@ -280,10 +280,10 @@ export default function BookingTokenActionCard({
                 }}
               >
                 <div>
-                  <p style={{ margin: "0 0 4px", fontSize: 10, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: "#c36b2d" }}>
+                  <p style={{ margin: "0 0 4px", fontSize: 10, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: "#d99b3f" }}>
                     Cliente
                   </p>
-                  <p style={{ margin: 0, fontSize: 15, fontWeight: 600, color: "#1a120b" }}>
+                  <p style={{ margin: 0, fontSize: 15, fontWeight: 600, color: "#1a1a1a" }}>
                     {dados.cliente_nome}
                   </p>
                   {dados.cliente_email && (
@@ -294,7 +294,7 @@ export default function BookingTokenActionCard({
                 </div>
 
                 <div>
-                  <p style={{ margin: "0 0 4px", fontSize: 10, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: "#c36b2d" }}>
+                  <p style={{ margin: "0 0 4px", fontSize: 10, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: "#d99b3f" }}>
                     Status
                   </p>
                   <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: status?.color }}>
@@ -303,10 +303,10 @@ export default function BookingTokenActionCard({
                 </div>
 
                 <div>
-                  <p style={{ margin: "0 0 4px", fontSize: 10, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: "#c36b2d" }}>
+                  <p style={{ margin: "0 0 4px", fontSize: 10, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: "#d99b3f" }}>
                     Serviço
                   </p>
-                  <p style={{ margin: 0, fontSize: 14, fontWeight: 500, color: "#1a120b" }}>
+                  <p style={{ margin: 0, fontSize: 14, fontWeight: 500, color: "#1a1a1a" }}>
                     {dados.servico_nome}
                   </p>
                   <p style={{ margin: "2px 0 0", fontSize: 12, color: "#6b7280" }}>
@@ -315,10 +315,10 @@ export default function BookingTokenActionCard({
                 </div>
 
                 <div>
-                  <p style={{ margin: "0 0 4px", fontSize: 10, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: "#c36b2d" }}>
+                  <p style={{ margin: "0 0 4px", fontSize: 10, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: "#d99b3f" }}>
                     Horário
                   </p>
-                  <p style={{ margin: 0, fontSize: 13, fontWeight: 500, color: "#1a120b", lineHeight: 1.4 }}>
+                  <p style={{ margin: 0, fontSize: 13, fontWeight: 500, color: "#1a1a1a", lineHeight: 1.4 }}>
                     {formatarDataHora(dados.data_hora_inicio)}
                   </p>
                 </div>
@@ -356,9 +356,9 @@ export default function BookingTokenActionCard({
                         textAlign: "center",
                         padding: "13px 20px",
                         borderRadius: 12,
-                        border: "1.5px solid #e5d5c5",
+                        border: "1.5px solid #e5e9ee",
                         backgroundColor: "transparent",
-                        color: "#3b1f0d",
+                        color: "#142a44",
                         fontSize: 14,
                         fontWeight: 600,
                         textDecoration: "none",
@@ -378,9 +378,9 @@ export default function BookingTokenActionCard({
                     textAlign: "center",
                     padding: "13px 20px",
                     borderRadius: 12,
-                    border: "1.5px solid #e5d5c5",
+                    border: "1.5px solid #e5e9ee",
                     backgroundColor: "transparent",
-                    color: "#3b1f0d",
+                    color: "#142a44",
                     fontSize: 14,
                     fontWeight: 600,
                     textDecoration: "none",
@@ -395,7 +395,7 @@ export default function BookingTokenActionCard({
       </div>
 
       {/* Footer */}
-      <p style={{ fontSize: 12, color: "#a18070", marginBottom: 32 }}>
+      <p style={{ fontSize: 12, color: "#9a9a9a", marginBottom: 32 }}>
         Agendamento por {PRODUCT_NAME}
       </p>
     </div>
