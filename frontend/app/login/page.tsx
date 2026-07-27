@@ -3,7 +3,8 @@
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { Copy, Eye, Headset, Laptop, MessageCircle, ShieldCheck, User, X } from "lucide-react";
+import { Copy, Eye, Headset, MessageCircle, ShieldCheck, User, X } from "lucide-react";
+import CalendarCheckLogo from "../components/icons/CalendarCheckLogo";
 import { login, fetchMe } from "@/services/auth";
 import { AdminMfaSetup, confirmarMfaAdmin, iniciarMfaAdmin, loginUsuario, verificarMfaAdmin } from "@/services/api";
 import { PRODUCT_NAME } from "@/lib/brand";
@@ -153,8 +154,7 @@ export default function LoginPage() {
       <div className={styles.left}>
         <div className={styles.leftBrand}>
           <div className={styles.leftIcon}>
-            {/* Laptop já é o ícone usado no login atual — mantido por consistência */}
-            <Laptop size={18} color="white" />
+            <CalendarCheckLogo size={20} variant="mark" />
           </div>
           <div>
             <div className={styles.leftEyebrow}>Sistema de gestão</div>

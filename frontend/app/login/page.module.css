@@ -6,7 +6,7 @@
 }
 
 .left {
-  background: #1a1a1a;
+  background: #14283f;
   background-image: repeating-linear-gradient(
     45deg,
     rgba(255,255,255,0.02) 0px,
@@ -23,7 +23,7 @@
 }
 
 .right {
-  background: #f9f9f7;
+  background: #f6f8fb;
   padding: 44px 48px;
   display: flex;
   flex-direction: column;
@@ -44,7 +44,7 @@
   width: 38px;
   height: 38px;
   border-radius: var(--radius-md);
-  background: #d4930a;
+  background: #1e3a5f;
   flex-shrink: 0;
 }
 
@@ -85,7 +85,7 @@
 .leftDivider {
   width: 28px;
   height: 2px;
-  background: #d4930a;
+  background: #d99b3f;
   border-radius: 2px;
 }
 
@@ -103,7 +103,7 @@
   width: 28px;
   height: 28px;
   border-radius: 999px;
-  border: 2px solid #1a1a1a;
+  border: 2px solid #14283f;
   background: #333;
   display: flex;
   align-items: center;
@@ -137,7 +137,7 @@
   font-weight: 700;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: #d4930a;
+  color: #d99b3f;
   margin-bottom: 8px;
 }
 
@@ -168,7 +168,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  color: #74520a;
+  color: #7a5726;
   font-size: 0.82rem;
   font-weight: 700;
 }
@@ -222,7 +222,7 @@
 
 .recoveryGrid code {
   padding: 7px;
-  border: 1px solid #e0e0dc;
+  border: 1px solid #e5e9ee;
   border-radius: 4px;
   background: #ffffff;
   text-align: center;
@@ -264,7 +264,7 @@
   width: 100%;
   min-height: 46px;
   padding: 0 40px 0 14px;
-  border: 1px solid #e0e0dc;
+  border: 1px solid #e5e9ee;
   border-radius: var(--radius-md);
   background: #ffffff;
   color: #1a1a1a;
@@ -275,8 +275,8 @@
 }
 
 .input:focus {
-  border-color: #d4930a;
-  box-shadow: 0 0 0 3px rgba(212,147,10,0.12);
+  border-color: #d99b3f;
+  box-shadow: 0 0 0 3px rgba(217,155,63,0.12);
 }
 
 .input::placeholder {
@@ -355,7 +355,7 @@
   margin-top: 14px;
   border: 0;
   background: transparent;
-  color: #d4930a;
+  color: #d99b3f;
   font-family: var(--font-body);
   font-size: 11px;
   font-weight: 600;
@@ -364,7 +364,7 @@
 }
 
 .supportLink:hover {
-  color: #a36f06;
+  color: #a67a34;
 }
 
 /* ─── SUPPORT CARD (overlay) ─────────────────────────────── */
