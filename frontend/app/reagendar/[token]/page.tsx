@@ -135,10 +135,10 @@ export default function ReagendarPage() {
     width: "100%",
     padding: "10px 12px",
     borderRadius: 10,
-    border: "1.5px solid #e5d5c5",
-    backgroundColor: "#faf7f4",
+    border: "1.5px solid #e5e9ee",
+    backgroundColor: "#f0f2f5",
     fontSize: 14,
-    color: "#1a120b",
+    color: "#1a1a1a",
     outline: "none",
     boxSizing: "border-box",
   };
@@ -154,7 +154,7 @@ export default function ReagendarPage() {
     fontWeight: 700,
     letterSpacing: "0.14em",
     textTransform: "uppercase",
-    color: "#c36b2d",
+    color: "#d99b3f",
     margin: 0,
   };
 
@@ -162,7 +162,7 @@ export default function ReagendarPage() {
     <div
       style={{
         minHeight: "100vh",
-        backgroundColor: "#f5efe7",
+        backgroundColor: "#f6f8fb",
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
@@ -173,7 +173,7 @@ export default function ReagendarPage() {
       <div
         style={{
           width: "100%",
-          backgroundColor: "#1a120b",
+          backgroundColor: "#14283f",
           padding: "14px 24px",
           display: "flex",
           alignItems: "center",
@@ -185,7 +185,7 @@ export default function ReagendarPage() {
             width: 32,
             height: 32,
             borderRadius: 8,
-            backgroundColor: "#c36b2d",
+            backgroundColor: "#1e3a5f",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -193,7 +193,7 @@ export default function ReagendarPage() {
         >
           <CalendarDays size={17} color="#ffffff" aria-hidden="true" />
         </div>
-        <span style={{ color: "#f5efe7", fontWeight: 700, fontSize: 15, letterSpacing: "0.02em" }}>
+        <span style={{ color: "#ffffff", fontWeight: 700, fontSize: 15, letterSpacing: "0.02em" }}>
           {PRODUCT_NAME}
         </span>
       </div>
@@ -213,7 +213,7 @@ export default function ReagendarPage() {
         {/* Header */}
         <div
           style={{
-            background: "linear-gradient(135deg, #1a120b 0%, #3b1f0d 100%)",
+            background: "linear-gradient(135deg, #1e3a5f 0%, #122840 100%)",
             padding: "32px 32px 28px",
           }}
         >
@@ -224,7 +224,7 @@ export default function ReagendarPage() {
               fontWeight: 700,
               letterSpacing: "0.18em",
               textTransform: "uppercase",
-              color: "#f2c89a",
+              color: "#d99b3f",
             }}
           >
             Email de agendamento
@@ -240,7 +240,7 @@ export default function ReagendarPage() {
           >
             Escolher novo horário
           </h1>
-          <p style={{ margin: 0, fontSize: 14, color: "#e8d5c0" }}>
+          <p style={{ margin: 0, fontSize: 14, color: "rgba(255,255,255,0.75)" }}>
             Selecione data e horário para seu reagendamento.
           </p>
         </div>
@@ -249,7 +249,7 @@ export default function ReagendarPage() {
         <div style={{ padding: "28px 32px 32px" }}>
 
           {loadingBooking && (
-            <p style={{ color: "#9ca3af", fontSize: 14, margin: 0 }}>
+            <p style={{ color: "#9a9a9a", fontSize: 14, margin: 0 }}>
               Carregando agendamento...
             </p>
           )}
@@ -257,12 +257,12 @@ export default function ReagendarPage() {
           {!loadingBooking && !booking && (
             <div
               style={{
-                backgroundColor: "#fff1f2",
-                border: "1px solid #fecdd3",
+                backgroundColor: "#fef2f2",
+                border: "1px solid #fecaca",
                 borderRadius: 12,
                 padding: "12px 16px",
                 fontSize: 14,
-                color: "#9f1239",
+                color: "#991b1b",
               }}
             >
               {erro ?? "Agendamento não encontrado."}
@@ -274,7 +274,7 @@ export default function ReagendarPage() {
               {/* Current booking info */}
               <div
                 style={{
-                  backgroundColor: "#faf7f4",
+                  backgroundColor: "#f0f2f5",
                   borderRadius: 14,
                   padding: "20px 22px",
                   marginBottom: 24,
@@ -285,23 +285,23 @@ export default function ReagendarPage() {
               >
                 <div>
                   <p style={{ ...labelTextStyle, marginBottom: 4 }}>Cliente</p>
-                  <p style={{ margin: 0, fontSize: 15, fontWeight: 600, color: "#1a120b" }}>
+                  <p style={{ margin: 0, fontSize: 15, fontWeight: 600, color: "#1a1a1a" }}>
                     {booking.cliente_nome}
                   </p>
                 </div>
                 <div>
                   <p style={{ ...labelTextStyle, marginBottom: 4 }}>Horário atual</p>
-                  <p style={{ margin: 0, fontSize: 13, fontWeight: 500, color: "#1a120b", lineHeight: 1.4 }}>
+                  <p style={{ margin: 0, fontSize: 13, fontWeight: 500, color: "#1a1a1a", lineHeight: 1.4 }}>
                     {formatarDataHora(booking.data_hora_inicio)}
                   </p>
                 </div>
                 <div>
                   <p style={{ ...labelTextStyle, marginBottom: 4 }}>Serviço</p>
-                  <p style={{ margin: 0, fontSize: 14, color: "#1a120b" }}>{booking.servico_nome}</p>
+                  <p style={{ margin: 0, fontSize: 14, color: "#1a1a1a" }}>{booking.servico_nome}</p>
                 </div>
                 <div>
                   <p style={{ ...labelTextStyle, marginBottom: 4 }}>Profissional</p>
-                  <p style={{ margin: 0, fontSize: 14, color: "#1a120b" }}>{booking.barbeiro_nome}</p>
+                  <p style={{ margin: 0, fontSize: 14, color: "#1a1a1a" }}>{booking.barbeiro_nome}</p>
                 </div>
               </div>
 
@@ -315,7 +315,7 @@ export default function ReagendarPage() {
                     padding: "12px 16px",
                     marginBottom: 20,
                     fontSize: 14,
-                    color: "#14532d",
+                    color: "#166534",
                     fontWeight: 600,
                   }}
                 >
@@ -326,13 +326,13 @@ export default function ReagendarPage() {
               {erro && !sucesso && (
                 <div
                   style={{
-                    backgroundColor: "#fff1f2",
-                    border: "1px solid #fecdd3",
+                    backgroundColor: "#fef2f2",
+                    border: "1px solid #fecaca",
                     borderRadius: 12,
                     padding: "12px 16px",
                     marginBottom: 20,
                     fontSize: 14,
-                    color: "#9f1239",
+                    color: "#991b1b",
                   }}
                 >
                   {erro}
@@ -342,13 +342,13 @@ export default function ReagendarPage() {
               {booking.status === "cancelado" && (
                 <div
                   style={{
-                    backgroundColor: "#fff1f2",
-                    border: "1px solid #fecdd3",
+                    backgroundColor: "#fef2f2",
+                    border: "1px solid #fecaca",
                     borderRadius: 12,
                     padding: "12px 16px",
                     marginBottom: 20,
                     fontSize: 14,
-                    color: "#9f1239",
+                    color: "#991b1b",
                   }}
                 >
                   Este agendamento foi cancelado e não pode ser reagendado.
@@ -417,7 +417,7 @@ export default function ReagendarPage() {
 
                   {/* Time slots */}
                   {loadingSlots ? (
-                    <p style={{ color: "#9ca3af", fontSize: 13, marginBottom: 20 }}>
+                    <p style={{ color: "#9a9a9a", fontSize: 13, marginBottom: 20 }}>
                       Carregando horários...
                     </p>
                   ) : lookup && lookup.horarios_grade.length > 0 ? (
@@ -440,20 +440,20 @@ export default function ReagendarPage() {
                             borderRadius: 10,
                             border: "1.5px solid",
                             borderColor: !slot.disponivel
-                              ? "#e5d5c5"
+                              ? "#e5e9ee"
                               : horaInicio === slot.hora
-                                ? "#c36b2d"
-                                : "#e5d5c5",
+                                ? "#1e3a5f"
+                                : "#e5e9ee",
                             backgroundColor: !slot.disponivel
-                              ? "#faf7f4"
+                              ? "#f0f2f5"
                               : horaInicio === slot.hora
-                                ? "#c36b2d"
+                                ? "#1e3a5f"
                                 : "#ffffff",
                             color: !slot.disponivel
                               ? "#c4a882"
                               : horaInicio === slot.hora
                                 ? "#ffffff"
-                                : "#1a120b",
+                                : "#1a1a1a",
                             fontSize: 13,
                             fontWeight: 600,
                             cursor: slot.disponivel ? "pointer" : "not-allowed",
@@ -472,7 +472,7 @@ export default function ReagendarPage() {
                       ))}
                     </div>
                   ) : lookup ? (
-                    <p style={{ color: "#9ca3af", fontSize: 13, marginBottom: 20 }}>
+                    <p style={{ color: "#9a9a9a", fontSize: 13, marginBottom: 20 }}>
                       Nenhum horário disponível nesta data.
                     </p>
                   ) : null}
@@ -486,7 +486,7 @@ export default function ReagendarPage() {
                       padding: "14px 20px",
                       borderRadius: 12,
                       border: "none",
-                      backgroundColor: "#c36b2d",
+                      backgroundColor: "#1e3a5f",
                       color: "#ffffff",
                       fontSize: 15,
                       fontWeight: 700,
@@ -509,8 +509,8 @@ export default function ReagendarPage() {
                     marginTop: 12,
                     padding: "13px 20px",
                     borderRadius: 12,
-                    border: "1.5px solid #e5d5c5",
-                    color: "#3b1f0d",
+                    border: "1.5px solid #e5e9ee",
+                    color: "#142a44",
                     fontSize: 14,
                     fontWeight: 600,
                     textDecoration: "none",
@@ -525,7 +525,7 @@ export default function ReagendarPage() {
       </div>
 
       {/* Footer */}
-      <p style={{ fontSize: 12, color: "#a18070", marginBottom: 32 }}>
+      <p style={{ fontSize: 12, color: "#9a9a9a", marginBottom: 32 }}>
         Agendamento por {PRODUCT_NAME}
       </p>
     </div>
