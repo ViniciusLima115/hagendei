@@ -1,21 +1,13 @@
 import type { Metadata } from "next";
-import { Plus_Jakarta_Sans, Jost } from "next/font/google";
+import { Inter } from "next/font/google";
 import "./globals.css";
 import AppShell from "./components/AppShell";
 import { ThemeProvider } from "./components/ThemeProvider";
 
-const plusJakartaSans = Plus_Jakarta_Sans({
+const inter = Inter({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700", "800"],
-  style: ["normal", "italic"],
-  variable: "--font-display",
-  display: "swap",
-});
-
-const jost = Jost({
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700"],
-  variable: "--font-body",
+  variable: "--font-sans",
   display: "swap",
 });
 
@@ -59,7 +51,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pt-BR" suppressHydrationWarning>
-      <body className={`antialiased ${plusJakartaSans.variable} ${jost.variable}`} suppressHydrationWarning>
+      <body className={`antialiased ${inter.variable}`} suppressHydrationWarning>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
         <ThemeProvider>
           <AppShell>{children}</AppShell>
