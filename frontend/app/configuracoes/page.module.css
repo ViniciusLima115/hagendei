@@ -274,7 +274,7 @@
 
 .colorPickerTrigger:focus-within {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(212,147,10,0.12);
+  box-shadow: 0 0 0 3px var(--accent-ring);
 }
 
 .colorSwatch {

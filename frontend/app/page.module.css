@@ -267,7 +267,7 @@
   height: 34px;
   border-radius: 12px;
   color: var(--accent-dark);
-  background: rgba(212, 147, 10, 0.12);
+  background: var(--accent-soft);
   font-weight: 800;
 }
 

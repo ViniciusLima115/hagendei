@@ -259,7 +259,7 @@
   height: 44px;
   flex-shrink: 0;
   border-radius: var(--radius-md);
-  background: rgba(212, 147, 10, 0.12);
+  background: var(--accent-soft);
   color: var(--accent-dark);
 }
 
@@ -714,8 +714,8 @@
 
 .input:focus,
 .select:focus {
-  border-color: rgba(212, 147, 10, 0.48);
-  box-shadow: 0 0 0 4px rgba(212, 147, 10, 0.12);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px var(--accent-ring);
 }
 
 .input:disabled,
