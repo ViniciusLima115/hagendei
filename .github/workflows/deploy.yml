@@ -14,7 +14,7 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    environment: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
+    environment: ${{ github.ref_name == 'main' && 'Production' || 'Preview' }}
     steps:
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -38,8 +38,7 @@ jobs:
           VPS_USER: ${{ secrets.VPS_USER }}
           VPS_PATH: ${{ secrets.VPS_PATH }}
           BRANCH: ${{ github.ref_name }}
-          COMPOSE_PROJECT: ${{ github.ref_name == 'main' && 'prod' || 'staging' }}
           COMPOSE_FILE: docker-compose.yml
         run: |
           ssh -o BatchMode=yes -o StrictHostKeyChecking=yes "$VPS_USER@$VPS_HOST" \
-            "cd '$VPS_PATH' && git fetch --prune origin '$BRANCH' && git checkout '$BRANCH' && git merge --ff-only 'origin/$BRANCH' && docker compose -p '$COMPOSE_PROJECT' -f '$COMPOSE_FILE' up -d --build --remove-orphans"
+            "cd '$VPS_PATH' && git fetch --prune origin '$BRANCH' && git checkout '$BRANCH' && git merge --ff-only 'origin/$BRANCH' && docker compose -f '$COMPOSE_FILE' up -d --build --remove-orphans"
