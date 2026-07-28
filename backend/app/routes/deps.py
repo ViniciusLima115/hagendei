@@ -8,6 +8,7 @@ from fastapi import Depends, Header, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
+from app.config import admin_mfa_required
 from app.database import get_db
 from app.models.estabelecimento import Estabelecimento
 from app.models.admin_mfa import AdminMfaSetting
@@ -91,11 +92,9 @@ def get_current_claims(
             raise HTTPException(status_code=401, detail="Sessao revogada.")
     elif claims.is_admin:
         setting = db.get(AdminMfaSetting, claims.sub.strip().lower())
-        if (
-            not setting
-            or not setting.enabled
-            or int(setting.session_version or 0) != claims.session_version
-        ):
+        invalid_session = not setting or int(setting.session_version or 0) != claims.session_version
+        missing_required_mfa = admin_mfa_required() and (not setting or not setting.enabled)
+        if invalid_session or missing_required_mfa:
             raise HTTPException(status_code=401, detail="MFA obrigatorio para o acesso administrativo.")
     elif (claims.role or "").lower() == MFA_SETUP_ROLE:
         setting = db.get(AdminMfaSetting, claims.sub.strip().lower())

@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from app.config import admin_mfa_required
 from app.database import get_db
 from app.limiter import RATE_LIMIT_LOGIN, RATE_LIMIT_MFA, limiter
 from app.models.admin_mfa import AdminMfaSetting
@@ -86,9 +87,12 @@ def _configured_admin_username() -> str:
 
 
 def _verify_admin_password(password: str) -> bool:
-    if ADMIN_SENHA_HASH:
-        return verificar_senha(password, ADMIN_SENHA_HASH)
-    return bool(ADMIN_SENHA) and secrets.compare_digest(password, ADMIN_SENHA)
+    if ADMIN_SENHA_HASH and verificar_senha(password, ADMIN_SENHA_HASH):
+        return True
+
+    app_env = os.getenv("APP_ENV", "development").strip().lower()
+    allow_legacy_password = app_env not in {"prod", "production"}
+    return allow_legacy_password and bool(ADMIN_SENHA) and secrets.compare_digest(password, ADMIN_SENHA)
 
 
 def _require_configured_admin(claims: TokenClaims) -> str:
@@ -148,6 +152,8 @@ def login(request: Request, response: Response, payload: LoginRequest, db: Sessi
     is_admin_pass = _verify_admin_password(senha)
     if is_admin_user and is_admin_pass:
         setting = get_or_create_setting(db, usuario)
+        if not admin_mfa_required():
+            return _admin_login_response(response, usuario, setting)
         if setting.enabled:
             return LoginResponse(
                 is_admin=True,

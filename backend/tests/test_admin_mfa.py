@@ -1,7 +1,13 @@
 import pyotp
+import pytest
 
 import app.routes.auth as auth_module
 from app.models.admin_mfa import AdminMfaSetting
+
+
+@pytest.fixture(autouse=True)
+def require_admin_mfa(monkeypatch):
+    monkeypatch.setenv("ADMIN_MFA_REQUIRED", "true")
 
 
 def _login_admin(client):
