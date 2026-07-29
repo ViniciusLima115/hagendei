@@ -16,6 +16,18 @@ MEGAAPI_SEND_URL = os.getenv("MEGAAPI_SEND_URL")
 MEGAAPI_SEND_TIMEOUT_SECONDS = max(3, min(int(os.getenv("MEGAAPI_SEND_TIMEOUT_SECONDS", "8")), 20))
 
 
+def _reminder_max_attempts() -> int:
+    return max(1, min(int(os.getenv("REMINDER_MAX_ATTEMPTS", "3")), 10))
+
+
+def _reminder_retry_delay(attempt_number: int) -> timedelta:
+    base_minutes = max(1, min(int(os.getenv("REMINDER_RETRY_MINUTES", "5")), 60))
+    # Backoff limitado evita tanto uma rajada no provedor quanto jobs presos
+    # por tempo excessivo após uma falha transitória.
+    minutes = min(base_minutes * (2 ** max(attempt_number - 1, 0)), 60)
+    return timedelta(minutes=minutes)
+
+
 def _validated_megaapi_url() -> str | None:
     value = (MEGAAPI_SEND_URL or "").strip()
     if not value:
@@ -188,10 +200,15 @@ def processar_lembretes_pendentes(db: Session, limite: int = 100) -> dict[str, i
         if ok:
             job.status = "enviado"
             job.enviado_em = utcnow_naive()
+            job.ultimo_erro = None
             enviados += 1
         else:
-            job.status = "falha"
             job.ultimo_erro = "falha_envio_whatsapp"
+            if job.tentativas >= _reminder_max_attempts():
+                job.status = "falha"
+            else:
+                job.status = "pendente"
+                job.enviar_em = agora + _reminder_retry_delay(job.tentativas)
             falhas += 1
 
     if pendentes:

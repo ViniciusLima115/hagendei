@@ -2,19 +2,33 @@
 
 import { useEffect } from "react";
 import { useAuthSession } from "@/services/auth";
-
-const DEFAULT_ACCENT = "#1e3a5f";
-const DEFAULT_BG = "#ffffff";
+import {
+  applyTenantTheme,
+  DEFAULT_ACCENT_COLOR,
+  DEFAULT_BACKGROUND_COLOR,
+} from "@/lib/theme";
 
 export function useTenantTheme() {
   const session = useAuthSession();
 
   useEffect(() => {
-    const accent = session?.accentColor || DEFAULT_ACCENT;
-    const bg = session?.bgColor || DEFAULT_BG;
+    const root = document.documentElement;
+    const apply = () =>
+      applyTenantTheme(
+        root,
+        session?.accentColor || DEFAULT_ACCENT_COLOR,
+        session?.bgColor || DEFAULT_BACKGROUND_COLOR,
+      );
 
-    document.documentElement.style.setProperty("--accent", accent);
-    document.documentElement.style.setProperty("--accent-tenant", accent);
-    document.documentElement.style.setProperty("--bg-tenant", bg);
+    apply();
+
+    const observer = new MutationObserver((mutations) => {
+      if (mutations.some((mutation) => mutation.attributeName === "data-theme")) {
+        apply();
+      }
+    });
+    observer.observe(root, { attributes: true, attributeFilter: ["data-theme"] });
+
+    return () => observer.disconnect();
   }, [session?.accentColor, session?.bgColor]);
 }

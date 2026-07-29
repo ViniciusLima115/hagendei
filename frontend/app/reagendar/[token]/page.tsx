@@ -15,7 +15,9 @@ import {
 } from "@/services/api";
 
 function hojeISO() {
-  return new Date().toISOString().slice(0, 10);
+  const agora = new Date();
+  const local = new Date(agora.getTime() - agora.getTimezoneOffset() * 60_000);
+  return local.toISOString().slice(0, 10);
 }
 
 function formatarDataHora(valor: string) {
@@ -82,6 +84,7 @@ export default function ReagendarPage() {
 
     async function carregarSlots() {
       setLoadingSlots(true);
+      setErro(null);
       try {
         const resultado = await lookupPublicEstabelecimentoById({
           estabelecimento_id: booking!.estabelecimento_id,
@@ -99,6 +102,8 @@ export default function ReagendarPage() {
         });
       } catch {
         if (!ativo) return;
+        setLookup(null);
+        setErro("Nao foi possivel carregar os horarios para a selecao atual.");
       } finally {
         if (ativo) setLoadingSlots(false);
       }
@@ -109,8 +114,8 @@ export default function ReagendarPage() {
   }, [booking, barbeiroId, servicoId, data]);
 
   async function onSubmit() {
-    if (!horaInicio) {
-      setErro("Selecione um horário disponível.");
+    if (!horaInicio || !barbeiroId || !servicoId) {
+      setErro("Selecione profissional, servico e um horario disponivel.");
       return;
     }
     setSubmitting(true);
@@ -118,7 +123,12 @@ export default function ReagendarPage() {
     setSucesso(null);
     try {
       const dataHoraInicio = `${data}T${horaInicio}:00`;
-      const atualizado = await rescheduleBookingByToken(token, dataHoraInicio);
+      const atualizado = await rescheduleBookingByToken(
+        token,
+        dataHoraInicio,
+        barbeiroId,
+        servicoId,
+      );
       setBooking(atualizado);
       setSucesso("Agendamento reagendado com sucesso!");
       setHoraInicio(null);

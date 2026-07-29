@@ -197,6 +197,64 @@ def test_remarcar_por_token_altera_data_hora(client, db_session, estabelecimento
     assert body["data_hora_inicio"] != data_hora_original
 
 
+def test_remarcar_por_token_aplica_profissional_e_servico_selecionados(
+    client,
+    db_session,
+    estabelecimento_com_barbeiro_e_servico,
+):
+    fix = estabelecimento_com_barbeiro_e_servico
+    novo_barbeiro = Barbeiro(
+        nome="Profissional Alternativo",
+        estabelecimento_id=fix["estabelecimento"].id,
+        ativo=True,
+    )
+    novo_servico = Servico(
+        nome="Servico Alternativo",
+        duracao_minutos=60,
+        preco=75.0,
+        estabelecimento_id=fix["estabelecimento"].id,
+    )
+    db_session.add_all([novo_barbeiro, novo_servico])
+    db_session.commit()
+    db_session.refresh(novo_barbeiro)
+    db_session.refresh(novo_servico)
+
+    resp = _criar_agendamento_publico(
+        client,
+        fix["estabelecimento"].id,
+        fix["barbeiro"].id,
+        fix["servico"].id,
+        offset_days=3,
+    )
+    assert resp.status_code == 200
+    token = resp.json()["confirmation_token"]
+    nova_data_hora = (datetime.now() + timedelta(days=5)).replace(
+        hour=15,
+        minute=0,
+        second=0,
+        microsecond=0,
+    )
+
+    remarcar = client.put(
+        f"/agendamentos/{token}/remarcar",
+        json={
+            "data_hora_inicio": nova_data_hora.isoformat(),
+            "barbeiro_id": novo_barbeiro.id,
+            "servico_id": novo_servico.id,
+        },
+    )
+
+    assert remarcar.status_code == 200
+    body = remarcar.json()
+    assert body["barbeiro_id"] == novo_barbeiro.id
+    assert body["servico_id"] == novo_servico.id
+    assert body["barbeiro_nome"] == novo_barbeiro.nome
+    assert body["servico_nome"] == novo_servico.nome
+    assert datetime.fromisoformat(body["data_hora_fim"]) - datetime.fromisoformat(
+        body["data_hora_inicio"]
+    ) == timedelta(minutes=60)
+
+
 def test_remarcar_com_conflito_retorna_400(client, db_session, estabelecimento_com_barbeiro_e_servico):
     fix = estabelecimento_com_barbeiro_e_servico
 
@@ -234,6 +292,68 @@ def test_remarcar_com_conflito_retorna_400(client, db_session, estabelecimento_c
         f"/agendamentos/{token2}/remarcar",
         json={"data_hora_inicio": conflito_hora.isoformat()},
     )
+    assert remarcar.status_code == 400
+    assert "indisponível" in remarcar.json()["detail"].lower()
+
+
+def test_remarcar_valida_conflito_no_profissional_selecionado(
+    client,
+    db_session,
+    estabelecimento_com_barbeiro_e_servico,
+):
+    fix = estabelecimento_com_barbeiro_e_servico
+    profissional_destino = Barbeiro(
+        nome="Profissional Destino",
+        estabelecimento_id=fix["estabelecimento"].id,
+        ativo=True,
+    )
+    db_session.add(profissional_destino)
+    db_session.commit()
+    db_session.refresh(profissional_destino)
+
+    data_base = datetime.now() + timedelta(days=6)
+    ocupado = client.post(
+        "/public/agendamentos",
+        json={
+            "estabelecimento_id": fix["estabelecimento"].id,
+            "cliente_nome": "Cliente Destino",
+            "cliente_telefone": "5582933333333",
+            "barbeiro_id": profissional_destino.id,
+            "servico_id": fix["servico"].id,
+            "data": data_base.date().isoformat(),
+            "hora_inicio": "15:00",
+        },
+    )
+    assert ocupado.status_code == 200
+
+    origem = client.post(
+        "/public/agendamentos",
+        json={
+            "estabelecimento_id": fix["estabelecimento"].id,
+            "cliente_nome": "Cliente Origem",
+            "cliente_telefone": "5582944444444",
+            "barbeiro_id": fix["barbeiro"].id,
+            "servico_id": fix["servico"].id,
+            "data": data_base.date().isoformat(),
+            "hora_inicio": "11:00",
+        },
+    )
+    assert origem.status_code == 200
+
+    remarcar = client.put(
+        f"/agendamentos/{origem.json()['confirmation_token']}/remarcar",
+        json={
+            "data_hora_inicio": data_base.replace(
+                hour=15,
+                minute=0,
+                second=0,
+                microsecond=0,
+            ).isoformat(),
+            "barbeiro_id": profissional_destino.id,
+            "servico_id": fix["servico"].id,
+        },
+    )
+
     assert remarcar.status_code == 400
     assert "indisponível" in remarcar.json()["detail"].lower()
 

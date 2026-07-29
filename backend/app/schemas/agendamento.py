@@ -65,6 +65,8 @@ class AgendamentoResponse(BaseModel):
 
 class AgendamentoRemarcacaoRequest(StrictRequestModel):
     data_hora_inicio: datetime
+    barbeiro_id: int | None = Field(default=None, gt=0)
+    servico_id: int | None = Field(default=None, gt=0)
 
 
 class AgendamentoTokenDataResponse(BaseModel):

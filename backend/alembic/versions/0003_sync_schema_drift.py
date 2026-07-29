@@ -31,7 +31,95 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
+def _schema_ja_consolidado() -> bool:
+    """Detecta bases criadas pela 0001 consolidada, onde esta migration e no-op."""
+    inspector = sa.inspect(op.get_bind())
+    tabelas = set(inspector.get_table_names())
+    tabelas_esperadas = {"admin_audit_logs", "payment_integrations"}
+    if not tabelas_esperadas.issubset(tabelas):
+        return False
+
+    colunas_agendamentos = {coluna["name"] for coluna in inspector.get_columns("agendamentos")}
+    colunas_conversas = {coluna["name"] for coluna in inspector.get_columns("conversas")}
+    colunas_estabelecimentos = {coluna["name"] for coluna in inspector.get_columns("estabelecimentos")}
+    colunas_pagamentos = {coluna["name"] for coluna in inspector.get_columns("pagamentos")}
+
+    return (
+        "barbearia_id" not in colunas_agendamentos
+        and "estabelecimento_id" not in colunas_conversas
+        and "confirmation_token_expires_at" in colunas_agendamentos
+        and "auth_version" in colunas_estabelecimentos
+        and "payment_integration_id" in colunas_pagamentos
+    )
+
+
+def _schema_runtime_atual() -> bool:
+    """Detecta bancos legados já alinhados pelo antigo DDL de inicialização.
+
+    Algumas instalações em uso nunca receberam uma linha em
+    ``alembic_version``, embora já tenham as tabelas/colunas do runtime atual.
+    Elas ainda podem carregar apenas as duas colunas órfãs que esta revisão
+    remove. Executar abaixo a reconciliação histórica completa nesses bancos
+    tentaria recriar tabelas existentes e falharia antes do deploy.
+    """
+    inspector = sa.inspect(op.get_bind())
+    tabelas = set(inspector.get_table_names())
+    tabelas_esperadas = {
+        "admin_audit_logs",
+        "payment_integrations",
+        "notificacoes",
+        "payment_oauth_states",
+        "reminder_jobs",
+        "webhook_events",
+    }
+    if not tabelas_esperadas.issubset(tabelas):
+        return False
+
+    def colunas(tabela: str) -> set[str]:
+        return {coluna["name"] for coluna in inspector.get_columns(tabela)}
+
+    return (
+        {"user_sub", "state", "consumed_at"}.issubset(colunas("payment_oauth_states"))
+        and {"canal", "destinatario", "mensagem", "status", "tentativas"}.issubset(
+            colunas("reminder_jobs")
+        )
+        and {"provider", "event_id", "tenant_id", "criado_em"}.issubset(
+            colunas("webhook_events")
+        )
+    )
+
+
+def _remover_colunas_duplicadas_do_runtime() -> None:
+    inspector = sa.inspect(op.get_bind())
+    colunas_agendamentos = {
+        coluna["name"] for coluna in inspector.get_columns("agendamentos")
+    }
+    if "barbearia_id" in colunas_agendamentos:
+        op.drop_column("agendamentos", "barbearia_id")
+
+    # Recriar o inspector depois do DDL evita metadados em cache na mesma
+    # transação da migration.
+    inspector = sa.inspect(op.get_bind())
+    colunas_conversas = {
+        coluna["name"] for coluna in inspector.get_columns("conversas")
+    }
+    if "estabelecimento_id" in colunas_conversas:
+        op.drop_column("conversas", "estabelecimento_id")
+
+
 def upgrade() -> None:
+    if _schema_runtime_atual():
+        _remover_colunas_duplicadas_do_runtime()
+        return
+
+    # A revisao 0001 ja representa o schema consolidado para instalacoes
+    # novas. A 0003 existe exclusivamente para reconciliar bancos legados
+    # que antecedem o Alembic; nesses bancos as colunas/tabelas antigas ainda
+    # servem como marcadores. Sem esta guarda, um banco vazio criado pela
+    # propria 0001 falharia tentando remover objetos que nunca existiram.
+    if _schema_ja_consolidado():
+        return
+
     # --- 1. Backfill de NULLs antes de qualquer NOT NULL (dados reais confirmados) ---
     # Nem agendamentos nem servicos tem uma coluna separada de "criado em" —
     # so existe updated_at. Para as poucas linhas legadas sem valor, usa NOW()

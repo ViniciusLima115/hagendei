@@ -1,7 +1,19 @@
 from datetime import datetime
 from uuid import uuid4
 
-from sqlalchemy import Boolean, Column, Date, DateTime, ForeignKey, Index, Integer, Numeric, String, Time
+from sqlalchemy import (
+    Boolean,
+    Column,
+    Date,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    Numeric,
+    String,
+    Time,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import relationship, synonym
 from app.database import Base
 from app.time_utils import utcnow_naive
@@ -13,6 +25,11 @@ class Agendamento(Base):
         Index("ix_agendamentos_tenant_data_barbeiro", "estabelecimento_id", "data", "profissional_id"),
         Index("ix_agendamentos_payment_status", "payment_status"),
         Index("ix_agendamentos_payment_hold_expires_at", "payment_hold_expires_at"),
+        Index("ix_agendamentos_confirmation_token", "confirmation_token"),
+        UniqueConstraint(
+            "confirmation_token",
+            name="ux_agendamentos_confirmation_token",
+        ),
     )
 
     id = Column(Integer, primary_key=True, index=True)
@@ -30,7 +47,11 @@ class Agendamento(Base):
     data_hora_inicio = Column(DateTime, nullable=False)
     data_hora_fim = Column(DateTime, nullable=False)
     status = Column(String(50), nullable=False, default="pendente")
-    confirmation_token = Column(String(36), nullable=False, unique=True, index=True, default=lambda: str(uuid4()))
+    confirmation_token = Column(
+        String(36),
+        nullable=False,
+        default=lambda: str(uuid4()),
+    )
     confirmation_token_expires_at = Column(DateTime, nullable=True)
     lembrete_24h_enviado = Column(Boolean, nullable=False, default=False)
     lembrete_2h_enviado = Column(Boolean, nullable=False, default=False)

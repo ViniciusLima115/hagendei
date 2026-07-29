@@ -12,6 +12,7 @@ from app.models.cliente import Cliente
 from app.models.reminder_job import ReminderJob
 from app.models.servico import Servico
 from app.services.estabelecimento_hours_service import is_within_working_hours
+from app.services.tenant_access_service import tenant_account_is_active
 from app.services.email_service import (
     AgendamentoEmailContext,
     build_confirmation_email,
@@ -123,6 +124,11 @@ def _obter_agendamento_por_token(
         query = query.with_for_update()
     agendamento = query.first()
     if not agendamento:
+        return None
+    if (
+        not agendamento.estabelecimento
+        or not tenant_account_is_active(agendamento.estabelecimento)
+    ):
         return None
     expires_at = agendamento.confirmation_token_expires_at or (
         agendamento.data_hora_fim + timedelta(days=1)
@@ -554,7 +560,14 @@ def atualizar_status_agendamento_por_token(db: Session, token: str, status: str)
     return _serializar_dados_token(agendamento)
 
 
-def remarcar_agendamento_por_token(db: Session, token: str, nova_data_hora_inicio: datetime):
+def remarcar_agendamento_por_token(
+    db: Session,
+    token: str,
+    nova_data_hora_inicio: datetime,
+    *,
+    barbeiro_id: int | None = None,
+    servico_id: int | None = None,
+):
     agendamento = _obter_agendamento_por_token(db, token, for_update=True)
     if not agendamento:
         raise ValueError("Token de agendamento inválido")
@@ -565,19 +578,32 @@ def remarcar_agendamento_por_token(db: Session, token: str, nova_data_hora_inici
     tenant_id = agendamento.estabelecimento_id
     estabelecimento = _obter_estabelecimento(db, tenant_id)
 
+    target_servico_id = servico_id or agendamento.servico_id
+    target_barbeiro_id = barbeiro_id or agendamento.barbeiro_id
+
     servico = db.query(Servico).filter(
-        Servico.id == agendamento.servico_id,
+        Servico.id == target_servico_id,
         Servico.estabelecimento_id == tenant_id,
     ).first()
     if not servico:
         raise ValueError("Serviço não encontrado")
 
     barbeiro = db.query(Barbeiro).filter(
-        Barbeiro.id == agendamento.barbeiro_id,
+        Barbeiro.id == target_barbeiro_id,
         Barbeiro.estabelecimento_id == tenant_id,
     ).with_for_update().first()
     if not barbeiro:
         raise ValueError("Profissional não encontrado")
+
+    servico_alterado = target_servico_id != agendamento.servico_id
+    if servico_alterado and (
+        bool(agendamento.pagamento_adiantado_exigido)
+        or bool(getattr(servico, "pagamento_adiantado_obrigatorio", False))
+    ):
+        raise ValueError(
+            "Servicos com pagamento online nao podem ser alterados por este link. "
+            "Escolha outro horario ou fale com o estabelecimento."
+        )
 
     nova_fim = nova_data_hora_inicio + timedelta(minutes=servico.duracao_minutos)
     _validar_funcionamento(estabelecimento, nova_data_hora_inicio, nova_fim)
@@ -585,7 +611,7 @@ def remarcar_agendamento_por_token(db: Session, token: str, nova_data_hora_inici
 
     conflito = db.query(Agendamento).filter(
         Agendamento.id != agendamento.id,
-        Agendamento.barbeiro_id == agendamento.barbeiro_id,
+        Agendamento.barbeiro_id == target_barbeiro_id,
         Agendamento.estabelecimento_id == tenant_id,
         Agendamento.data_hora_inicio < nova_fim,
         Agendamento.data_hora_fim > nova_data_hora_inicio,
@@ -598,6 +624,8 @@ def remarcar_agendamento_por_token(db: Session, token: str, nova_data_hora_inici
     agendamento.data_hora_fim = nova_fim
     agendamento.data = nova_data_hora_inicio.date()
     agendamento.hora_inicio = nova_data_hora_inicio.time().replace(microsecond=0)
+    agendamento.barbeiro_id = target_barbeiro_id
+    agendamento.servico_id = target_servico_id
     agendamento.confirmation_token_expires_at = nova_fim + timedelta(days=1)
     agendamento.status = "confirmado"
     _resetar_flags_lembrete(agendamento)

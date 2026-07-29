@@ -34,6 +34,11 @@ function PaymentReturnInner({ variant }: { variant: Variant }) {
   const [status, setStatus] = useState<PublicPaymentStatusResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const returnHref = status?.slug
+    ? `/${status.slug}`
+    : status?.estabelecimento_id
+      ? `/agendar/${status.estabelecimento_id}`
+      : "/login";
 
   useEffect(() => {
     let mounted = true;
@@ -98,8 +103,8 @@ function PaymentReturnInner({ variant }: { variant: Variant }) {
         )}
 
         <div className="mt-6 flex gap-3">
-          <Link href="/" className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-semibold text-white">
-            Voltar ao inicio
+          <Link href={returnHref} className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-semibold text-white">
+            {status ? "Voltar ao estabelecimento" : "Ir para o Hagendei"}
           </Link>
         </div>
       </div>

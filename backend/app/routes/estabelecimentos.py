@@ -117,7 +117,10 @@ def atualizar(
     if not estabelecimento:
         raise HTTPException(status_code=404, detail="Estabelecimento nao encontrado.")
 
-    slug = _gerar_slug_unico(db, dados.nome, dados.slug, excluir_id=estabelecimento_id)
+    if "slug" in dados.model_fields_set or not estabelecimento.slug:
+        slug = _gerar_slug_unico(db, dados.nome, dados.slug, excluir_id=estabelecimento_id)
+    else:
+        slug = estabelecimento.slug
     login = dados.login.strip().lower()
 
     conflito_login = (
@@ -131,7 +134,8 @@ def atualizar(
     estabelecimento.nome = dados.nome.strip()
     estabelecimento.slug = slug
     estabelecimento.login = login
-    estabelecimento.senha = hash_senha(dados.senha)
+    if dados.senha is not None:
+        estabelecimento.senha = hash_senha(dados.senha)
     estabelecimento.auth_version = int(estabelecimento.auth_version or 0) + 1
     estabelecimento.plano = dados.plano
     estabelecimento.status_manual = dados.status_manual
@@ -140,7 +144,8 @@ def atualizar(
     estabelecimento.trial_fim_em = dados.trial_fim_em if dados.trial_ativo else None
     estabelecimento.ultimo_acesso_em = dados.ultimo_acesso_em
     estabelecimento.pagamento_recusado = dados.pagamento_recusado
-    estabelecimento.endereco = dados.endereco.strip()
+    if dados.endereco is not None:
+        estabelecimento.endereco = dados.endereco.strip()
     db.commit()
     db.refresh(estabelecimento)
     _audit_tenant_action(db, request, claims, estabelecimento, "tenant_account_updated")

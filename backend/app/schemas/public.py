@@ -38,7 +38,7 @@ class PublicEstabelecimentoLookupResponse(BaseModel):
     horarios_disponiveis: list[str]
     horarios_grade: list[PublicHorarioItem] = []
     # Tema por tenant
-    accent_color: str = "#d4930a"
+    accent_color: str = "#1e3a5f"
     bg_color: str = "#ffffff"
     logo_url: str | None = None
 
@@ -113,6 +113,8 @@ class PublicPagamentoInitResponse(BaseModel):
 class PublicPagamentoStatusResponse(BaseModel):
     external_reference: str
     agendamento_id: int
+    estabelecimento_id: int
+    slug: str | None = None
     pagamento_status: str
     agendamento_status: str
     amount: float

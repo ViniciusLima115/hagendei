@@ -33,6 +33,26 @@ from app.database import Base
 target_metadata = Base.metadata
 
 
+def compare_server_default(
+    context,
+    inspected_column,
+    metadata_column,
+    inspected_default,
+    metadata_default,
+    rendered_metadata_default,
+):
+    """Compara defaults que fazem parte explicitamente do contrato ORM.
+
+    A baseline mantém defaults adicionais no PostgreSQL como proteção para
+    inserções operacionais/raw SQL, enquanto o ORM usa ``default=`` Python
+    equivalente. Esses defaults extras não são drift. Quando o modelo declara
+    ``server_default``, porém, o Alembic continua usando sua comparação normal.
+    """
+    if metadata_default is None:
+        return False
+    return None
+
+
 def get_url() -> str:
     from app.config import DATABASE_URL
     return DATABASE_URL
@@ -46,7 +66,7 @@ def run_migrations_offline() -> None:
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
         compare_type=True,
-        compare_server_default=True,
+        compare_server_default=compare_server_default,
     )
     with context.begin_transaction():
         context.run_migrations()
@@ -67,7 +87,7 @@ def run_migrations_online() -> None:
             connection=connection,
             target_metadata=target_metadata,
             compare_type=True,
-            compare_server_default=True,
+            compare_server_default=compare_server_default,
         )
         with context.begin_transaction():
             context.run_migrations()

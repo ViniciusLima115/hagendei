@@ -118,7 +118,7 @@
   letter-spacing: 0.1em;
   text-transform: uppercase;
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   border-radius: 999px;
   padding: 3px 10px;
 }
@@ -212,7 +212,7 @@
 
 .ctaButtonPrimary {
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
 }
 
 .ctaButtonPrimary:disabled {

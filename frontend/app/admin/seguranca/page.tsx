@@ -43,7 +43,10 @@ export default function AdminSecurityPage() {
       router.replace("/admin");
       return;
     }
-    void loadStatus();
+    const frame = window.requestAnimationFrame(() => {
+      void loadStatus();
+    });
+    return () => window.cancelAnimationFrame(frame);
   }, [session, router]);
 
   async function startSetup(event: FormEvent<HTMLFormElement>) {

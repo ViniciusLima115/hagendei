@@ -147,3 +147,45 @@ def test_estabelecimentos_crud_atualiza_com_senha_hasheada(client, db_session, m
     db_session.refresh(estabelecimento)
     assert estabelecimento.senha != "senha_nova"
     assert verificar_senha("senha_nova", estabelecimento.senha)
+
+
+def test_estabelecimentos_crud_atualiza_sem_trocar_senha_e_aceita_plano_gratis(
+    client,
+    db_session,
+    make_tenant_headers,
+):
+    admin_headers = make_tenant_headers(is_admin=True)
+    senha_original = hash_senha("senha_original")
+    estabelecimento = Estabelecimento(
+        nome="Conta Editavel",
+        slug="conta-editavel",
+        login="conta.editavel",
+        senha=senha_original,
+        plano="premium",
+        endereco="Rua D",
+    )
+    db_session.add(estabelecimento)
+    db_session.commit()
+    db_session.refresh(estabelecimento)
+
+    payload = {
+        "nome": "Conta Editada",
+        "login": "conta.editada",
+        "plano": "gratis",
+        "status_manual": "ativo",
+        "vencimento_em": "2027-01-01",
+        "trial_ativo": False,
+        "pagamento_recusado": False,
+        "endereco": "Rua D",
+    }
+    resp = client.put(f"/estabelecimentos/{estabelecimento.id}", json=payload, headers=admin_headers)
+    assert resp.status_code == 200
+    assert resp.json()["plano"] == "gratis"
+
+    db_session.refresh(estabelecimento)
+    assert estabelecimento.nome == "Conta Editada"
+    assert estabelecimento.slug == "conta-editavel"
+    assert estabelecimento.login == "conta.editada"
+    assert estabelecimento.endereco == "Rua D"
+    assert estabelecimento.senha == senha_original
+    assert verificar_senha("senha_original", estabelecimento.senha)

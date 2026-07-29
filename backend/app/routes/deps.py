@@ -1,8 +1,6 @@
 import os
 import time
-from datetime import datetime
 from typing import Annotated
-from zoneinfo import ZoneInfo
 
 from fastapi import Depends, Header, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -14,12 +12,12 @@ from app.models.estabelecimento import Estabelecimento
 from app.models.admin_mfa import AdminMfaSetting
 from app.models.token_blacklist import TokenBlacklist
 from app.security import SESSION_COOKIE_NAME, TokenClaims, decode_access_token
+from app.services.tenant_access_service import tenant_account_is_active
 
 
 bearer_scheme = HTTPBearer(auto_error=False)
 ADMIN_ROLES = {"admin", "super_admin"}
 MFA_SETUP_ROLE = "mfa_setup"
-BUSINESS_TIMEZONE = ZoneInfo(os.getenv("BUSINESS_TIMEZONE", "America/Sao_Paulo"))
 ADMIN_REAUTH_MAX_AGE_SECONDS = max(
     60,
     min(int(os.getenv("ADMIN_REAUTH_MAX_AGE_SECONDS", "900")), 3600),
@@ -28,16 +26,6 @@ ADMIN_REAUTH_MAX_AGE_SECONDS = max(
 
 def has_admin_access(claims: TokenClaims) -> bool:
     return claims.is_admin or (claims.role or "").lower() in ADMIN_ROLES
-
-
-def tenant_account_is_active(estabelecimento: Estabelecimento) -> bool:
-    if (estabelecimento.status_manual or "ativo").strip().lower() != "ativo":
-        return False
-    today = datetime.now(BUSINESS_TIMEZONE).date()
-    if estabelecimento.trial_ativo and estabelecimento.trial_fim_em:
-        return estabelecimento.trial_fim_em >= today
-    return not estabelecimento.vencimento_em or estabelecimento.vencimento_em >= today
-
 
 def get_current_claims(
     request: Request,

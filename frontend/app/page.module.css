@@ -86,7 +86,7 @@
 }
 
 .actionPrimary {
-  color: #ffffff;
+  color: var(--on-accent);
   background: var(--accent);
 }
 

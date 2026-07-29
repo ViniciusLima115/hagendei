@@ -12,17 +12,24 @@ from app.models.servico import Servico
 from app.repositories.booking_repository import BookingRepository
 from app.repositories.tenant_repository import TenantRepository
 from app.services.agenda_service import gerar_horarios_disponiveis
+from app.services.booking_quota_service import validar_limite_mensal_agendamentos
 from app.services.estabelecimento_hours_service import build_day_slots, is_within_working_hours
 from app.services.notificacao_service import (
     agendar_lembretes_agendamento,
     enviar_mensagem_whatsapp,
     montar_mensagem_confirmacao,
 )
+from app.services.tenant_access_service import tenant_account_is_active
 
 
 BOOKING_PUBLIC_BASE_URL = os.getenv("BOOKING_PUBLIC_BASE_URL", "http://127.0.0.1:3000")
 _TZ_BRASIL = ZoneInfo("America/Sao_Paulo")
 STATUS_VALIDOS = {"pending_payment", "pendente", "confirmado", "cancelado", "failed", "reagendamento_solicitado", "compareceu", "no_show", "expired"}
+PUBLIC_ESTABELECIMENTO_NAO_ENCONTRADO = "Estabelecimento nao encontrado."
+
+
+class EstabelecimentoPublicoIndisponivelError(ValueError):
+    pass
 
 
 def _normalizar_texto(texto: str) -> str:
@@ -106,21 +113,45 @@ def _obter_estabelecimento(
     estabelecimento_id: int | None = None,
 ) -> Estabelecimento | None:
     tenant_repo = TenantRepository(db)
+    estabelecimento = None
     if estabelecimento_id:
-        return tenant_repo.get_by_id(estabelecimento_id)
-    if slug:
-        return tenant_repo.get_by_slug(slug)
-    return None
+        estabelecimento = tenant_repo.get_by_id(estabelecimento_id)
+    elif slug:
+        estabelecimento = tenant_repo.get_by_slug(slug)
+
+    if not estabelecimento or not tenant_account_is_active(estabelecimento):
+        return None
+    return estabelecimento
+
+
+def _exigir_estabelecimento_publico(
+    db: Session,
+    *,
+    slug: str | None = None,
+    estabelecimento_id: int | None = None,
+) -> Estabelecimento:
+    estabelecimento = _obter_estabelecimento(
+        db,
+        slug=slug,
+        estabelecimento_id=estabelecimento_id,
+    )
+    if not estabelecimento:
+        raise EstabelecimentoPublicoIndisponivelError(
+            PUBLIC_ESTABELECIMENTO_NAO_ENCONTRADO
+        )
+    return estabelecimento
 
 
 def listar_barbeiros_publico(db: Session, *, estabelecimento_id: int) -> list[Barbeiro]:
+    _exigir_estabelecimento_publico(db, estabelecimento_id=estabelecimento_id)
     return BookingRepository(db).list_public_barbeiros(estabelecimento_id, only_active=True)
 
 
 def listar_servicos_publico(db: Session, *, estabelecimento_id: int) -> list[dict]:
-    estabelecimento = _obter_estabelecimento(db, estabelecimento_id=estabelecimento_id)
-    if not estabelecimento:
-        return []
+    estabelecimento = _exigir_estabelecimento_publico(
+        db,
+        estabelecimento_id=estabelecimento_id,
+    )
     servicos = BookingRepository(db).list_public_servicos(estabelecimento_id)
     return [_serializar_servico_publico(servico, estabelecimento) for servico in servicos]
 
@@ -154,6 +185,10 @@ def listar_horarios_disponiveis_publico(
     servico_id: int,
     data_referencia: date,
 ) -> dict:
+    estabelecimento = _exigir_estabelecimento_publico(
+        db,
+        estabelecimento_id=estabelecimento_id,
+    )
     repo = BookingRepository(db)
     barbeiro = repo.get_barbeiro(estabelecimento_id, barbeiro_id, only_active=True)
     servico = repo.get_servico(estabelecimento_id, servico_id)
@@ -176,7 +211,7 @@ def listar_horarios_disponiveis_publico(
             "disponivel": slot.strftime("%H:%M") in horarios_set and slot >= agora_br,
         }
         for slot in build_day_slots(
-            _obter_estabelecimento(db, estabelecimento_id=estabelecimento_id),
+            estabelecimento,
             data_referencia,
             duracao,
             barbeiro=barbeiro,
@@ -193,9 +228,7 @@ def obter_lookup_publico(
     servico_id: int | None = None,
     data_referencia: date | None = None,
 ) -> dict:
-    estabelecimento = _obter_estabelecimento(db, slug=slug)
-    if not estabelecimento:
-        raise ValueError("Estabelecimento nao encontrado.")
+    estabelecimento = _exigir_estabelecimento_publico(db, slug=slug)
     return obter_lookup_publico_por_id(
         db,
         estabelecimento_id=estabelecimento.id,
@@ -213,9 +246,10 @@ def obter_lookup_publico_por_id(
     servico_id: int | None = None,
     data_referencia: date | None = None,
 ) -> dict:
-    estabelecimento = _obter_estabelecimento(db, estabelecimento_id=estabelecimento_id)
-    if not estabelecimento:
-        raise ValueError("Estabelecimento nao encontrado.")
+    estabelecimento = _exigir_estabelecimento_publico(
+        db,
+        estabelecimento_id=estabelecimento_id,
+    )
 
     barbeiros = listar_barbeiros_publico(db, estabelecimento_id=estabelecimento.id)
     servicos_model = BookingRepository(db).list_public_servicos(estabelecimento.id)
@@ -245,13 +279,14 @@ def obter_lookup_publico_por_id(
         "servicos": servicos,
         "horarios_disponiveis": horarios_disponiveis,
         "horarios_grade": horarios_grade,
-        "accent_color": getattr(estabelecimento, "accent_color", None) or "#d4930a",
+        "accent_color": getattr(estabelecimento, "accent_color", None) or "#1e3a5f",
         "bg_color": getattr(estabelecimento, "bg_color", None) or "#ffffff",
         "logo_url": getattr(estabelecimento, "logo_url", None),
     }
 
 
 def buscar_cliente_publico(db: Session, *, estabelecimento_id: int, telefone: str) -> dict | None:
+    _exigir_estabelecimento_publico(db, estabelecimento_id=estabelecimento_id)
     telefone_norm = _normalizar_telefone_storage(telefone)
     cliente = BookingRepository(db).get_cliente_by_telefone(
         tenant_id=estabelecimento_id,
@@ -283,9 +318,15 @@ def criar_agendamento_publico(
     enviar_confirmacao_apos_criacao: bool = True,
     agendar_lembretes: bool = True,
 ) -> dict:
-    estabelecimento = _obter_estabelecimento(db, slug=slug, estabelecimento_id=estabelecimento_id)
-    if not estabelecimento:
-        raise ValueError("Estabelecimento nao encontrado.")
+    estabelecimento = _exigir_estabelecimento_publico(
+        db,
+        slug=slug,
+        estabelecimento_id=estabelecimento_id,
+    )
+    validar_limite_mensal_agendamentos(
+        db,
+        estabelecimento=estabelecimento,
+    )
 
     repo = BookingRepository(db)
     barbeiro = repo.get_barbeiro(estabelecimento.id, barbeiro_id, only_active=True, for_update=True)
@@ -398,9 +439,11 @@ def servico_exige_pagamento_adiantado_publico(
     estabelecimento_id: int | None = None,
     servico_id: int,
 ) -> tuple[bool, Decimal, int]:
-    estabelecimento = _obter_estabelecimento(db, slug=slug, estabelecimento_id=estabelecimento_id)
-    if not estabelecimento:
-        raise ValueError("Estabelecimento nao encontrado.")
+    estabelecimento = _exigir_estabelecimento_publico(
+        db,
+        slug=slug,
+        estabelecimento_id=estabelecimento_id,
+    )
 
     servico = BookingRepository(db).get_servico(estabelecimento.id, servico_id)
     if not servico:

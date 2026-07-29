@@ -23,6 +23,20 @@ jobs:
 
   test:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: hagendei_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d hagendei_ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
       - name: Checkout repository
@@ -40,6 +54,14 @@ jobs:
           cd backend
           python -m pip install --upgrade pip
           pip install -r requirements-dev.txt
+
+      - name: Validate fresh PostgreSQL migrations
+        working-directory: backend
+        env:
+          DATABASE_URL: postgresql+psycopg2://postgres:postgres@127.0.0.1:5432/hagendei_ci
+        run: |
+          python -m alembic upgrade head
+          python -m alembic check
 
       - name: Run tests
         run: |
@@ -70,11 +92,26 @@ jobs:
         working-directory: frontend
         run: npm ci
 
-      - name: Audit, lint, and build
+      - name: Audit production dependencies
+        working-directory: frontend
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Lint
+        working-directory: frontend
+        run: npm run lint
+
+      - name: Build
         working-directory: frontend
         env:
           NEXT_PUBLIC_API_URL: http://127.0.0.1:8000
-        run: |
-          npm audit --audit-level=high
-          npm run lint
-          npm run build
+        run: npm run build
+
+      - name: Install Playwright Chromium
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: Run critical browser flows
+        working-directory: frontend
+        env:
+          NEXT_PUBLIC_API_URL: http://127.0.0.1:8000
+        run: npm run test:e2e

@@ -25,6 +25,7 @@ services:
     env_file:
       - ./backend/.env.production
     environment:
+      APP_ENV: production
       RATE_LIMIT_STORAGE_URI: redis://redis:6379/0
     read_only: true
     tmpfs:

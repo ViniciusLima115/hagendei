@@ -54,6 +54,39 @@ function paymentStatusLabel(status?: EstabelecimentoAdmin["paymentAccountStatus"
   return "Sem conta";
 }
 
+const LOGIN_PATTERN = /^[A-Za-z0-9._@+-]+$/;
+
+function validarDadosAcesso(
+  nome: string,
+  login: string,
+  senha: string,
+  senhaObrigatoria: boolean
+): string | null {
+  const nomeLimpo = nome.trim();
+  const loginLimpo = login.trim();
+  const senhaLimpa = senha.trim();
+  const senhaInformada = Boolean(senhaLimpa);
+
+  if (!nomeLimpo || !loginLimpo || (senhaObrigatoria && !senhaInformada)) {
+    return senhaObrigatoria
+      ? "Preencha nome, login e senha."
+      : "Preencha nome e login.";
+  }
+  if (nomeLimpo.length < 2) {
+    return "O nome deve ter pelo menos 2 caracteres.";
+  }
+  if (loginLimpo.length < 3 || !LOGIN_PATTERN.test(loginLimpo)) {
+    return "O login deve ter pelo menos 3 caracteres e usar apenas letras, numeros, ponto, arroba, +, - ou _.";
+  }
+  if (senhaInformada && senhaLimpa.length < 8) {
+    return "A senha deve ter pelo menos 8 caracteres.";
+  }
+  if (senhaInformada && new TextEncoder().encode(senhaLimpa).length > 72) {
+    return "A senha deve ter no maximo 72 bytes.";
+  }
+  return null;
+}
+
 const initialForm = {
   nome: "",
   login: "",
@@ -165,6 +198,8 @@ export default function AdminPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [selected, setSelected] = useState<EstabelecimentoAdmin | null>(null);
+  const [editError, setEditError] = useState<string | null>(null);
+  const [editSaving, setEditSaving] = useState(false);
   const [pagina, setPagina] = useState(1);
   const [buscaRapida, setBuscaRapida] = useState("");
   const POR_PAGINA = 15;
@@ -217,7 +252,10 @@ export default function AdminPage() {
   }
 
   useEffect(() => {
-    recarregar();
+    const frame = window.requestAnimationFrame(() => {
+      void recarregar();
+    });
+    return () => window.cancelAnimationFrame(frame);
   }, []);
 
   useEffect(() => {
@@ -289,7 +327,10 @@ export default function AdminPage() {
   }, [estabelecimentos, filtros]);
 
   // reset page when filters or quick-search change
-  useEffect(() => { setPagina(1); }, [filtros, buscaRapida]);
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => setPagina(1));
+    return () => window.cancelAnimationFrame(frame);
+  }, [filtros, buscaRapida]);
 
   const listaFiltradaComBusca = useMemo(() => {
     const q = buscaRapida.trim().toLowerCase();
@@ -378,8 +419,9 @@ export default function AdminPage() {
     e.preventDefault();
     limparMensagens();
 
-    if (!form.nome.trim() || !form.login.trim() || !form.senha.trim()) {
-      setError("Preencha nome, login e senha para cadastrar.");
+    const accessError = validarDadosAcesso(form.nome, form.login, form.senha, true);
+    if (accessError) {
+      setError(accessError);
       return;
     }
     if (!form.vencimentoEm) {
@@ -403,10 +445,11 @@ export default function AdminPage() {
 
   function abrirModalSenha(item: EstabelecimentoAdmin) {
     setSelected(item);
+    setEditError(null);
     setEditForm({
       nome: item.nome,
       login: item.login,
-      senha: item.senha,
+      senha: "",
       plano: item.plano,
       statusManual: item.statusManual,
       vencimentoEm: item.vencimentoEm,
@@ -622,24 +665,28 @@ export default function AdminPage() {
   async function salvarNovaSenha(e: FormEvent) {
     e.preventDefault();
     if (!selected) return;
-    if (!editForm.nome.trim() || !editForm.login.trim() || !editForm.senha.trim()) {
-      setError("Preencha nome, login e senha.");
+
+    setEditError(null);
+    const accessError = validarDadosAcesso(editForm.nome, editForm.login, editForm.senha, false);
+    if (accessError) {
+      setEditError(accessError);
       return;
     }
     if (!editForm.vencimentoEm) {
-      setError("Informe o vencimento.");
+      setEditError("Informe o vencimento.");
       return;
     }
     if (editForm.trialAtivo && !editForm.trialFimEm) {
-      setError("Informe a data de fim do trial.");
+      setEditError("Informe a data de fim do trial.");
       return;
     }
 
+    setEditSaving(true);
     try {
       await updateEstabelecimentoAdmin(selected.id, {
         nome: editForm.nome.trim(),
         login: editForm.login.trim(),
-        senha: editForm.senha,
+        senha: editForm.senha.trim() || undefined,
         plano: editForm.plano,
         statusManual: editForm.statusManual,
         vencimentoEm: editForm.vencimentoEm,
@@ -652,7 +699,9 @@ export default function AdminPage() {
       setSelected(null);
       await recarregar();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Falha ao atualizar estabelecimento.");
+      setEditError(err instanceof Error ? err.message : "Falha ao atualizar estabelecimento.");
+    } finally {
+      setEditSaving(false);
     }
   }
 
@@ -809,9 +858,12 @@ export default function AdminPage() {
                 />
                 <FormInput
                   label="Senha"
-                  type="text"
+                  type="password"
                   value={form.senha}
                   placeholder="Defina uma senha inicial"
+                  minLength={8}
+                  maxLength={72}
+                  autoComplete="new-password"
                   onChange={(e) => setForm((prev) => ({ ...prev, senha: e.target.value }))}
                   required
                 />
@@ -1312,11 +1364,16 @@ export default function AdminPage() {
 
       <Modal
         isOpen={Boolean(selected)}
-        onClose={() => setSelected(null)}
+        onClose={() => {
+          setSelected(null);
+          setEditError(null);
+        }}
         title="Editar Estabelecimento"
       >
         {!selected ? null : (
           <form onSubmit={salvarNovaSenha} className={styles.formStack}>
+            {editError && <Alert type="error" message={editError} onClose={() => setEditError(null)} />}
+
             <div className={styles.modalInfoBox}>
               <p className={styles.modalInfoName}>{selected.nome}</p>
               <p className={styles.modalInfoLogin}>
@@ -1328,21 +1385,30 @@ export default function AdminPage() {
             <FormInput
               label="Nome do Estabelecimento"
               value={editForm.nome}
+              minLength={2}
+              maxLength={255}
               onChange={(e) => setEditForm((prev) => ({ ...prev, nome: e.target.value }))}
               required
             />
             <FormInput
               label="Login"
               value={editForm.login}
+              minLength={3}
+              maxLength={255}
+              pattern="[A-Za-z0-9._@+\-]+"
+              title="Use apenas letras, numeros, ponto, arroba, +, - ou _."
               onChange={(e) => setEditForm((prev) => ({ ...prev, login: e.target.value }))}
               required
             />
             <FormInput
-              label="Senha"
-              type="text"
+              label="Nova senha (opcional)"
+              type="password"
               value={editForm.senha}
+              minLength={8}
+              maxLength={72}
+              autoComplete="new-password"
+              placeholder="Deixe em branco para manter a senha atual"
               onChange={(e) => setEditForm((prev) => ({ ...prev, senha: e.target.value }))}
-              required
             />
             <FormInput
               as="select"
@@ -1409,12 +1475,19 @@ export default function AdminPage() {
             />
 
             <div className="flex justify-end gap-3">
-              <Button variant="secondary" onClick={() => setSelected(null)}>
+              <Button
+                variant="secondary"
+                disabled={editSaving}
+                onClick={() => {
+                  setSelected(null);
+                  setEditError(null);
+                }}
+              >
                 Cancelar
               </Button>
-              <Button type="submit">
+              <Button type="submit" disabled={editSaving}>
                 <KeyRound size={16} />
-                Salvar Alteracoes
+                {editSaving ? "Salvando..." : "Salvar Alteracoes"}
               </Button>
             </div>
           </form>

@@ -1,12 +1,29 @@
 from datetime import datetime
 
-from sqlalchemy import JSON, Column, DateTime, ForeignKey, Integer, String
+from sqlalchemy import (
+    JSON,
+    Column,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    UniqueConstraint,
+)
 from app.database import Base
 from app.time_utils import utcnow_naive
 
 
 class Cliente(Base):
     __tablename__ = "clientes"
+    __table_args__ = (
+        Index("ix_clientes_email", "email"),
+        UniqueConstraint(
+            "estabelecimento_id",
+            "telefone",
+            name="ux_clientes_estabelecimento_telefone",
+        ),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     nome = Column(String(255), nullable=False)

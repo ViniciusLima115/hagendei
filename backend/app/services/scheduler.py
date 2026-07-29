@@ -8,6 +8,7 @@ from app.database import SessionLocal
 from app.models.agendamento import Agendamento
 from app.services.payments.payment_service import expire_pending_bookings_and_payments
 from app.services.session_service import purge_expired_revoked_tokens
+from app.services.notificacao_service import processar_lembretes_pendentes
 from app.services.email_service import (
     AgendamentoEmailContext,
     build_reminder_email,
@@ -70,6 +71,21 @@ def _processar_notificacoes_pendentes():
     db = SessionLocal()
     try:
         processar_pendentes_confirmacao(db)
+    finally:
+        db.close()
+
+
+def _processar_lembretes_whatsapp():
+    db = SessionLocal()
+    try:
+        resultado = processar_lembretes_pendentes(db)
+        if resultado["processados"]:
+            logger.info(
+                "Scheduler de WhatsApp processou %s lembretes (%s enviados, %s falhas).",
+                resultado["processados"],
+                resultado["enviados"],
+                resultado["falhas"],
+            )
     finally:
         db.close()
 
@@ -185,6 +201,15 @@ def start_scheduler():
             "interval",
             minutes=1,
             id="inapp-notifications",
+            max_instances=1,
+            replace_existing=True,
+            coalesce=True,
+        )
+        scheduler.add_job(
+            _processar_lembretes_whatsapp,
+            "interval",
+            minutes=1,
+            id="whatsapp-reminders",
             max_instances=1,
             replace_existing=True,
             coalesce=True,

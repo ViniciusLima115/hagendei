@@ -20,6 +20,8 @@ from app.schemas.public import (
     PublicServicoItem,
 )
 from app.services.public_booking_service import (
+    EstabelecimentoPublicoIndisponivelError,
+    PUBLIC_ESTABELECIMENTO_NAO_ENCONTRADO,
     criar_agendamento_publico,
     listar_barbeiros_publico,
     listar_horarios_disponiveis_publico,
@@ -28,6 +30,8 @@ from app.services.public_booking_service import (
     obter_lookup_publico_por_id,
     servico_exige_pagamento_adiantado_publico,
 )
+from app.services.booking_quota_service import LimiteAgendamentosPlanoError
+from app.services.tenant_access_service import tenant_account_is_active
 from app.time_utils import utcnow_naive
 from app.services.agendamento_service import obter_payload_email_confirmacao
 from app.services.payments.constants import (
@@ -53,6 +57,15 @@ def _normalizar_telefone_storage(telefone: str) -> str:
     if len(digits) >= 12 and digits.startswith("55"):
         digits = digits[2:]
     return digits
+
+
+def _erro_estabelecimento_publico_indisponivel(
+    exc: EstabelecimentoPublicoIndisponivelError,
+) -> HTTPException:
+    return HTTPException(
+        status_code=404,
+        detail=PUBLIC_ESTABELECIMENTO_NAO_ENCONTRADO,
+    )
 
 
 @router.get("/estabelecimento/{slug}", response_model=PublicEstabelecimentoLookupResponse)
@@ -114,7 +127,10 @@ def listar_servicos_public(
     estabelecimento_id: int = Query(...),
     db: Session = Depends(get_db),
 ):
-    return listar_servicos_publico(db, estabelecimento_id=estabelecimento_id)
+    try:
+        return listar_servicos_publico(db, estabelecimento_id=estabelecimento_id)
+    except EstabelecimentoPublicoIndisponivelError as exc:
+        raise _erro_estabelecimento_publico_indisponivel(exc) from exc
 
 
 @router.get("/barbeiros", response_model=list[PublicBarbeiroItem])
@@ -124,7 +140,10 @@ def listar_barbeiros_public(
     estabelecimento_id: int = Query(...),
     db: Session = Depends(get_db),
 ):
-    return listar_barbeiros_publico(db, estabelecimento_id=estabelecimento_id)
+    try:
+        return listar_barbeiros_publico(db, estabelecimento_id=estabelecimento_id)
+    except EstabelecimentoPublicoIndisponivelError as exc:
+        raise _erro_estabelecimento_publico_indisponivel(exc) from exc
 
 
 @router.get("/horarios-disponiveis")
@@ -137,13 +156,16 @@ def horarios_disponiveis_public(
     data: date = Query(...),
     db: Session = Depends(get_db),
 ):
-    return listar_horarios_disponiveis_publico(
-        db,
-        estabelecimento_id=estabelecimento_id,
-        barbeiro_id=barbeiro_id,
-        servico_id=servico_id,
-        data_referencia=data,
-    )
+    try:
+        return listar_horarios_disponiveis_publico(
+            db,
+            estabelecimento_id=estabelecimento_id,
+            barbeiro_id=barbeiro_id,
+            servico_id=servico_id,
+            data_referencia=data,
+        )
+    except EstabelecimentoPublicoIndisponivelError as exc:
+        raise _erro_estabelecimento_publico_indisponivel(exc) from exc
 
 
 @router.post("/agendamentos", response_model=PublicAgendamentoResponse)
@@ -183,6 +205,10 @@ def criar_agendamento_public(
             background_tasks.add_task(send_email_payload, payload)
         background_tasks.add_task(task_notificacao_novo_agendamento, agendamento["id"])
         return agendamento
+    except EstabelecimentoPublicoIndisponivelError as exc:
+        raise _erro_estabelecimento_publico_indisponivel(exc) from exc
+    except LimiteAgendamentosPlanoError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
     except ValueError as exc:
         mensagem = str(exc)
         status_code = 404 if "nao encontrada" in mensagem.lower() else 400
@@ -329,6 +355,10 @@ def iniciar_pagamento_agendamento_public(
             "agendamento_status": agendamento_model.status,
             "expires_at": pagamento.expires_at,
         }
+    except EstabelecimentoPublicoIndisponivelError as exc:
+        raise _erro_estabelecimento_publico_indisponivel(exc) from exc
+    except LimiteAgendamentosPlanoError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
     except HTTPException:
         raise
     except ValueError as exc:
@@ -345,7 +375,12 @@ def consultar_status_pagamento(
     db: Session = Depends(get_db),
 ):
     pagamento = db.query(Pagamento).filter(Pagamento.external_reference == external_reference).first()
-    if not pagamento or not pagamento.agendamento:
+    if (
+        not pagamento
+        or not pagamento.agendamento
+        or not pagamento.agendamento.estabelecimento
+        or not tenant_account_is_active(pagamento.agendamento.estabelecimento)
+    ):
         raise HTTPException(status_code=404, detail="Pagamento nao encontrado.")
     try:
         pagamento, _ = sync_payment_status_from_provider(db, payment=pagamento)
@@ -356,6 +391,12 @@ def consultar_status_pagamento(
     return {
         "external_reference": pagamento.external_reference,
         "agendamento_id": pagamento.agendamento_id,
+        "estabelecimento_id": pagamento.agendamento.estabelecimento_id,
+        "slug": (
+            pagamento.agendamento.estabelecimento.slug
+            if pagamento.agendamento.estabelecimento
+            else None
+        ),
         "pagamento_status": pagamento.status,
         "agendamento_status": pagamento.agendamento.status,
         "amount": pagamento.amount,

@@ -64,11 +64,14 @@ class AdminMfaSetupConfirmResponse(BaseModel):
 class MeResponse(BaseModel):
     id: int | None = None
     nome: str
+    endereco: str | None = None
+    whatsapp_number: str | None = None
+    slug: str | None = None
     plano: str
     is_admin: bool
     tipo_servico: str | None = None  # None para admin
     # Tema por tenant (admin retorna defaults)
-    accent_color: str = "#d4930a"
+    accent_color: str = "#1e3a5f"
     bg_color: str = "#ffffff"
     logo_url: str | None = None
     notif_ativo: bool = True

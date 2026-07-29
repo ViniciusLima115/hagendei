@@ -1,24 +1,58 @@
 name: Deploy VPS
 
 on:
-  push:
-    branches: [main, develop]
+  workflow_run:
+    workflows: ["Security and Tests"]
+    types: [completed]
   workflow_dispatch:
 
 permissions:
+  actions: read
   contents: read
 
 concurrency:
-  group: deploy-${{ github.ref_name }}
+  group: deploy-${{ github.event.workflow_run.head_branch || github.ref_name }}
   cancel-in-progress: false
 
 jobs:
   deploy:
+    if: >-
+      (
+        github.event_name == 'workflow_dispatch' &&
+        (github.ref_name == 'main' || github.ref_name == 'develop')
+      ) ||
+      (
+        github.event_name == 'workflow_run' &&
+        github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.event == 'push' &&
+        github.event.workflow_run.head_repository.full_name == github.repository &&
+        (github.event.workflow_run.head_branch == 'main' || github.event.workflow_run.head_branch == 'develop')
+      )
     runs-on: ubuntu-latest
-    environment: ${{ github.ref_name == 'main' && 'Production' || 'Preview' }}
+    environment: ${{ (github.event.workflow_run.head_branch || github.ref_name) == 'main' && 'Production' || 'Preview' }}
     steps:
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Verify manual deploy commit passed CI
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ github.ref_name }}
+          DEPLOY_SHA: ${{ github.sha }}
+        run: |
+          tested_run_id="$(
+            gh api \
+              "repos/$GITHUB_REPOSITORY/actions/workflows/tests.yml/runs?branch=$BRANCH&event=push&status=success&per_page=100" \
+              --jq ".workflow_runs[] | select(.head_sha == \"$DEPLOY_SHA\") | .id" \
+              | head -n 1
+          )"
+          test -n "$tested_run_id" || {
+            echo "Commit $DEPLOY_SHA nao possui execucao verde de Security and Tests."
+            exit 1
+          }
 
       - name: Setup SSH agent
         uses: webfactory/ssh-agent@a6f90b1f127823b31d4d4a8d96047790581349bd # v0.9.1
@@ -38,8 +72,9 @@ jobs:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_USER: ${{ secrets.VPS_USER }}
           VPS_PATH: ${{ secrets.VPS_PATH }}
-          BRANCH: ${{ github.ref_name }}
+          BRANCH: ${{ github.event.workflow_run.head_branch || github.ref_name }}
+          DEPLOY_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
           COMPOSE_FILE: docker-compose.yml
         run: |
           ssh -o BatchMode=yes -o StrictHostKeyChecking=yes "$VPS_USER@$VPS_HOST" \
-            "cd '$VPS_PATH' && git fetch --prune origin '$BRANCH' && git checkout '$BRANCH' && git merge --ff-only 'origin/$BRANCH' && docker compose -f '$COMPOSE_FILE' up -d --build --remove-orphans"
+            "cd '$VPS_PATH' && git fetch --prune origin '$BRANCH' && git checkout '$BRANCH' && git merge --ff-only '$DEPLOY_SHA' && test \"\$(git rev-parse HEAD)\" = '$DEPLOY_SHA' && docker compose -f '$COMPOSE_FILE' up -d --build --remove-orphans --wait --wait-timeout 180"

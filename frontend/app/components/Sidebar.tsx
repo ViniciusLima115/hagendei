@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import CalendarCheckLogo from "./icons/CalendarCheckLogo";
+import { HagendeiMark } from "./brand/HagendeiLogo";
 import styles from "./Sidebar.module.css";
 
 function cx(...values: Array<string | false | null | undefined>) {
@@ -25,7 +25,7 @@ export default function Sidebar({ navItems }: SidebarProps) {
   return (
     <aside className={styles.sidebar} aria-label="Navegacao principal">
       <Link href="/" className={styles.brand} aria-label="Hagendei">
-        <CalendarCheckLogo size={26} variant="mark" />
+        <HagendeiMark size={30} themed />
       </Link>
 
       <nav className={styles.nav}>

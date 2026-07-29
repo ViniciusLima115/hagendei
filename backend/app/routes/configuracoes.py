@@ -85,10 +85,15 @@ def atualizar_tema(
         est.accent_color = dados.accent_color
     if dados.bg_color is not None:
         est.bg_color = dados.bg_color
-    if dados.logo_url is not None:
+    if "logo_url" in dados.model_fields_set:
         est.logo_url = dados.logo_url
     db.commit()
-    return {"detail": "Tema atualizado."}
+    return {
+        "detail": "Tema atualizado.",
+        "accent_color": est.accent_color,
+        "bg_color": est.bg_color,
+        "logo_url": est.logo_url,
+    }
 
 
 @router.patch("/notificacoes")

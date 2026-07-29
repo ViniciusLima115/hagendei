@@ -10,7 +10,7 @@ class Profissional(Base):
     id = Column(Integer, primary_key=True, index=True)
     nome = Column(String(255), nullable=False)
     estabelecimento_id = Column(Integer, ForeignKey("estabelecimentos.id"), nullable=False, index=True)
-    ativo = Column(Boolean, nullable=False, default=True)
+    ativo = Column(Boolean, nullable=False, default=True, index=True)
     tempo_por_servico = Column(JSON, nullable=True)
     horarios_funcionamento = Column(JSON, nullable=True)
 

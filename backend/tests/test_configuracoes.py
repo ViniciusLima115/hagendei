@@ -125,6 +125,22 @@ def test_atualizar_tema_logo_url_invalida(client, tenant_com_senha, headers_tena
     assert resp.status_code == 422
 
 
+def test_atualizar_tema_permite_remover_logo(client, db_session, tenant_com_senha, headers_tenant):
+    tenant_com_senha.logo_url = "https://example.com/logo.png"
+    db_session.commit()
+
+    resp = client.patch(
+        "/configuracoes/tema",
+        json={"logo_url": None},
+        headers=headers_tenant,
+    )
+
+    assert resp.status_code == 200
+    db_session.refresh(tenant_com_senha)
+    assert tenant_com_senha.logo_url is None
+    assert resp.json()["logo_url"] is None
+
+
 def test_atualizar_notificacoes_sucesso(client, db_session, tenant_com_senha, headers_tenant):
     resp = client.patch(
         "/configuracoes/notificacoes",
@@ -146,14 +162,26 @@ def test_atualizar_notificacoes_horas_invalidas(client, tenant_com_senha, header
     assert resp.status_code == 422
 
 
-def test_me_retorna_campos_de_tema(client, db_session, tenant_com_senha, headers_tenant):
+def test_me_retorna_perfil_tema_e_notificacoes(
+    client,
+    db_session,
+    tenant_com_senha,
+    headers_tenant,
+):
     tenant_com_senha.accent_color = "#aabbcc"
+    tenant_com_senha.whatsapp_number = "5582999999999"
+    tenant_com_senha.notif_ativo = False
+    tenant_com_senha.notif_horas_antes = 24
     db_session.commit()
 
     resp = client.get("/auth/me", headers=headers_tenant)
     assert resp.status_code == 200
     body = resp.json()
+    assert body["nome"] == tenant_com_senha.nome
+    assert body["endereco"] == "Rua A"
+    assert body["whatsapp_number"] == "5582999999999"
+    assert body["slug"] == "config-teste"
     assert body["accent_color"] == "#aabbcc"
     assert "bg_color" in body
-    assert "notif_ativo" in body
-    assert "notif_horas_antes" in body
+    assert body["notif_ativo"] is False
+    assert body["notif_horas_antes"] == 24
