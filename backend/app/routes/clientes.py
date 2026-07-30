@@ -70,6 +70,7 @@ def atualizar(
 
     cliente.nome = dados.nome
     cliente.telefone = dados.telefone
+    cliente.email = dados.email
     if dados.etapa_atual is not None:
         cliente.etapa_atual = dados.etapa_atual
     db.commit()

@@ -60,6 +60,7 @@ export type Cliente = {
   id: number;
   telefone: string;
   nome: string;
+  email?: string | null;
   etapa_atual: string;
   data_criacao: string;
 };
@@ -355,6 +356,7 @@ export async function listClientes(): Promise<Cliente[]> {
 export async function createCliente(payload: {
   nome: string;
   telefone: string;
+  email?: string;
   etapa_atual?: string;
 }): Promise<Cliente> {
   const res = await apiFetch("/clientes/", {
@@ -367,7 +369,7 @@ export async function createCliente(payload: {
 
 export async function updateCliente(
   id: number,
-  payload: { nome: string; telefone: string; etapa_atual?: string }
+  payload: { nome: string; telefone: string; email?: string; etapa_atual?: string }
 ): Promise<Cliente> {
   const res = await apiFetch(`/clientes/${id}`, {
     method: "PUT",

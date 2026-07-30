@@ -47,7 +47,7 @@ import styles from "./page.module.css";
 
 type Tab = "agendamentos" | "clientes" | "servicos" | "funcionamento";
 
-const initialCliente = { nome: "", telefone: "" };
+const initialCliente = { nome: "", telefone: "", email: "" };
 const initialServico = {
   nome: "",
   duracao_minutos: 40,
@@ -637,11 +637,12 @@ export default function GestaoPage() {
     e.preventDefault();
     limparMensagens();
     try {
+      const email = novoCliente.email.trim() || undefined;
       if (editClienteId) {
-        await updateCliente(editClienteId, { ...novoCliente, etapa_atual: "menu" });
+        await updateCliente(editClienteId, { ...novoCliente, email, etapa_atual: "menu" });
         setSuccess("Cliente atualizado com sucesso!");
       } else {
-        await createCliente({ ...novoCliente, etapa_atual: "menu" });
+        await createCliente({ ...novoCliente, email, etapa_atual: "menu" });
         setSuccess("Cliente criado com sucesso!");
       }
       setNovoCliente(initialCliente);
@@ -657,7 +658,7 @@ export default function GestaoPage() {
     limparMensagens();
     if (cliente) {
       setEditClienteId(cliente.id);
-      setNovoCliente({ nome: cliente.nome, telefone: cliente.telefone });
+      setNovoCliente({ nome: cliente.nome, telefone: cliente.telefone, email: cliente.email ?? "" });
     } else {
       setEditClienteId(null);
       setNovoCliente(initialCliente);
@@ -1491,6 +1492,15 @@ export default function GestaoPage() {
               value={novoCliente.telefone}
               onChange={(e) => setNovoCliente((prev) => ({ ...prev, telefone: e.target.value }))}
               required
+            />
+          </Field>
+          <Field label="Email">
+            <input
+              type="email"
+              className={styles.input}
+              placeholder="Ex: joao@email.com"
+              value={novoCliente.email}
+              onChange={(e) => setNovoCliente((prev) => ({ ...prev, email: e.target.value }))}
             />
           </Field>
           <div className={styles.formActions}>

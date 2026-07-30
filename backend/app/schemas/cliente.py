@@ -6,6 +6,7 @@ from pydantic import BaseModel, ConfigDict
 class ClienteCreate(BaseModel):
     telefone: str
     nome: str
+    email: str | None = None
     etapa_atual: str = "inicio"
 
 
@@ -15,6 +16,7 @@ class ClienteResponse(BaseModel):
     id: int
     telefone: str
     nome: str
+    email: str | None = None
     etapa_atual: str
     data_criacao: datetime
 
@@ -22,4 +24,5 @@ class ClienteResponse(BaseModel):
 class ClienteUpdate(BaseModel):
     telefone: str
     nome: str
+    email: str | None = None
     etapa_atual: str | None = None
