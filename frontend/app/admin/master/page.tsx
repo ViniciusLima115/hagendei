@@ -1150,6 +1150,9 @@ export default function AdminPage() {
       >
         {!paymentSelected ? null : (
           <form onSubmit={salvarPagamento} className={styles.formStack}>
+            {error && <Alert type="error" message={error} onClose={() => setError(null)} />}
+            {success && <Alert type="success" message={success} onClose={() => setSuccess(null)} />}
+
             <div className={styles.modalInfoBox}>
               <p className={styles.modalInfoName}>{paymentSelected.nome}</p>
               <p className={styles.modalInfoLogin}>
@@ -1317,6 +1320,9 @@ export default function AdminPage() {
       >
         {!selected ? null : (
           <form onSubmit={salvarNovaSenha} className={styles.formStack}>
+            {error && <Alert type="error" message={error} onClose={() => setError(null)} />}
+            {success && <Alert type="success" message={success} onClose={() => setSuccess(null)} />}
+
             <div className={styles.modalInfoBox}>
               <p className={styles.modalInfoName}>{selected.nome}</p>
               <p className={styles.modalInfoLogin}>
