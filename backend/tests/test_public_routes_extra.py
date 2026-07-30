@@ -10,6 +10,7 @@ from app.models.barbeiro import Barbeiro
 from app.models.cliente import Cliente
 from app.models.pagamento import Pagamento
 from app.models.servico import Servico
+from app.services.tenant_access_service import BUSINESS_TIMEZONE
 
 
 # ── helpers ───────────────────────────────────────────────────────────────────
@@ -75,8 +76,8 @@ def _agendamento(
 @pytest.mark.parametrize(
     ("status_manual", "vencimento_em"),
     [
-        ("inativo", date.today() + timedelta(days=30)),
-        ("ativo", date.today() - timedelta(days=1)),
+        ("inativo", datetime.now(BUSINESS_TIMEZONE).date() + timedelta(days=30)),
+        ("ativo", datetime.now(BUSINESS_TIMEZONE).date() - timedelta(days=1)),
     ],
 )
 def test_conta_indisponivel_nao_e_exposta_nos_endpoints_publicos(

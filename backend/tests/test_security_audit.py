@@ -1,7 +1,7 @@
 import base64
 import json
 import time
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 import jwt
 import pytest
@@ -16,6 +16,7 @@ from app.limiter import RATE_LIMIT_PAYMENT_STATUS, limiter
 from app.models.estabelecimento import Estabelecimento
 from app.models.token_blacklist import TokenBlacklist
 from app.routes.deps import ADMIN_REAUTH_MAX_AGE_SECONDS, require_recent_admin
+from app.services.tenant_access_service import BUSINESS_TIMEZONE
 from app.security import (
     JWT_ALGORITHM,
     JWT_AUDIENCE,
@@ -115,7 +116,7 @@ def test_inactive_or_expired_tenant_cannot_login(client, db_session, status_manu
         login=f"tenant.{status_manual}.{expires_delta}",
         senha=hash_senha("senha-segura"),
         status_manual=status_manual,
-        vencimento_em=date.today() + timedelta(days=expires_delta),
+        vencimento_em=datetime.now(BUSINESS_TIMEZONE).date() + timedelta(days=expires_delta),
     )
     db_session.add(tenant)
     db_session.commit()
@@ -134,7 +135,7 @@ def test_auth_version_revokes_existing_tenant_session(client, db_session):
         login="tenant.revogacao",
         senha=hash_senha("senha-segura"),
         status_manual="ativo",
-        vencimento_em=date.today() + timedelta(days=30),
+        vencimento_em=datetime.now(BUSINESS_TIMEZONE).date() + timedelta(days=30),
     )
     db_session.add(tenant)
     db_session.commit()
