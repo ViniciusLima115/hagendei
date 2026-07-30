@@ -32,6 +32,33 @@ def test_auth_login_admin_retorna_token(client):
     assert body["access_token"]
 
 
+def test_auth_login_admin_aceita_senha_local_quando_hash_esta_desatualizado(client, monkeypatch):
+    monkeypatch.setenv("APP_ENV", "development")
+    monkeypatch.setattr(auth_module, "ADMIN_SENHA", "senha-local-atual")
+    monkeypatch.setattr(auth_module, "ADMIN_SENHA_HASH", hash_senha("senha-antiga"))
+
+    response = client.post(
+        "/auth/login",
+        json={"usuario": auth_module.ADMIN_USUARIO, "senha": "senha-local-atual"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["is_admin"] is True
+
+
+def test_auth_login_admin_nao_aceita_fallback_plaintext_em_producao(client, monkeypatch):
+    monkeypatch.setenv("APP_ENV", "production")
+    monkeypatch.setattr(auth_module, "ADMIN_SENHA", "senha-local-atual")
+    monkeypatch.setattr(auth_module, "ADMIN_SENHA_HASH", hash_senha("senha-antiga"))
+
+    response = client.post(
+        "/auth/login",
+        json={"usuario": auth_module.ADMIN_USUARIO, "senha": "senha-local-atual"},
+    )
+
+    assert response.status_code == 401
+
+
 def test_auth_login_tenant_sucesso_e_senha_invalida(client, db_session):
     estabelecimento = Estabelecimento(
         nome="Estabelecimento Login",

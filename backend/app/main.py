@@ -75,6 +75,7 @@ def _validate_runtime_config() -> None:
         "FRONTEND_URL",
         "BACKEND_PUBLIC_BASE_URL",
         "BOOKING_PUBLIC_BASE_URL",
+        "EMAIL_ACTION_BASE_URL",
     ]
     missing = [name for name in required if not os.getenv(name, "").strip()]
     if missing:
@@ -95,7 +96,12 @@ def _validate_runtime_config() -> None:
     for origin in _csv_env("CORS_ALLOWED_ORIGINS"):
         if urlsplit(origin).scheme != "https":
             raise RuntimeError("CORS_ALLOWED_ORIGINS deve conter apenas origens HTTPS em producao.")
-    for name in ("FRONTEND_URL", "BACKEND_PUBLIC_BASE_URL", "BOOKING_PUBLIC_BASE_URL"):
+    for name in (
+        "FRONTEND_URL",
+        "BACKEND_PUBLIC_BASE_URL",
+        "BOOKING_PUBLIC_BASE_URL",
+        "EMAIL_ACTION_BASE_URL",
+    ):
         if urlsplit(os.getenv(name, "")).scheme != "https":
             raise RuntimeError(f"{name} deve usar HTTPS em producao.")
     if _as_bool(os.getenv("DOCS_ENABLED")):

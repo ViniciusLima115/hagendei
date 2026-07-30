@@ -348,7 +348,7 @@
 }
 
 .actionButtonPrimary {
-  color: #ffffff;
+  color: var(--on-accent);
   background: var(--accent);
   box-shadow: 0 16px 32px rgba(163, 111, 6, 0.22);
 }

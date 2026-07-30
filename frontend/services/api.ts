@@ -179,6 +179,9 @@ export type PublicLookupResponse = {
   estabelecimento_id: number;
   nome: string;
   slug: string;
+  accent_color?: string;
+  bg_color?: string;
+  logo_url?: string | null;
   barbeiros: PublicBarbeiro[];
   servicos: PublicServico[];
   horarios_disponiveis: string[];
@@ -232,6 +235,8 @@ export type PublicPaymentInitResponse = {
 export type PublicPaymentStatusResponse = {
   external_reference: string;
   agendamento_id: number;
+  estabelecimento_id: number;
+  slug?: string | null;
   pagamento_status: "pending" | "approved" | "rejected" | "cancelled" | "refunded" | "charged_back" | "expired";
   agendamento_status: "pending_payment" | "pendente" | "confirmado" | "payment_review_required" | "cancelado" | "failed" | "expired";
   amount: number;
@@ -299,13 +304,35 @@ async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
   return res;
 }
 
+function formatApiDetail(detail: unknown): string | null {
+  if (!detail) return null;
+  if (typeof detail === "string") return detail;
+  if (!Array.isArray(detail)) return null;
+
+  const messages = detail
+    .map((item) => {
+      if (typeof item === "string") return item;
+      if (!item || typeof item !== "object" || !("msg" in item)) return "";
+
+      const record = item as { msg?: unknown; loc?: unknown };
+      const location = Array.isArray(record.loc)
+        ? record.loc.filter((part) => part !== "body").join(".")
+        : "";
+      const message = typeof record.msg === "string" ? record.msg : "";
+      return location && message ? `${location}: ${message}` : message;
+    })
+    .filter(Boolean);
+
+  return messages.length ? messages.join(" ") : null;
+}
+
 async function parseOrThrow(res: Response, fallbackMessage: string) {
   if (res.ok) return res.status === 204 ? null : res.json();
   const body = await res.json().catch(() => ({}));
   if (res.status === 429) {
     throw new Error("Muitas tentativas em pouco tempo. Aguarde um minuto e tente novamente.");
   }
-  throw new Error(body?.detail || body?.error || fallbackMessage);
+  throw new Error(formatApiDetail(body?.detail) || body?.error || fallbackMessage);
 }
 
 export async function getAgendaDia(data: string): Promise<AgendaDiaResponse> {
@@ -747,11 +774,13 @@ export async function requestRescheduleByToken(token: string): Promise<PublicAge
 export async function rescheduleBookingByToken(
   token: string,
   data_hora_inicio: string,
+  barbeiro_id: number,
+  servico_id: number,
 ): Promise<PublicAgendamentoTokenResponse> {
   const res = await fetch(`${API_URL}/agendamentos/${token}/remarcar`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ data_hora_inicio }),
+    body: JSON.stringify({ data_hora_inicio, barbeiro_id, servico_id }),
   });
   return parseOrThrow(res, "Falha ao reagendar agendamento.");
 }

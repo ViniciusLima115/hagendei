@@ -4,6 +4,9 @@ import { API_URL } from "./api";
 export type MeResponse = {
   id?: number;
   nome: string;
+  endereco?: string | null;
+  whatsapp_number?: string | null;
+  slug?: string | null;
   plano: string;
   is_admin: boolean;
   tipo_servico?: string | null;
@@ -39,7 +42,7 @@ export type AuthSession = {
   email: string;
   tenantId: string;
   tenantName: string;
-  plan: "basico" | "premium";
+  plan: "gratis" | "basico" | "premium";
   accentColor?: string;
   bgColor?: string;
   logoUrl?: string | null;
@@ -67,7 +70,12 @@ export function getAuthSession(): AuthSession | null {
       email: parsed.email,
       tenantId: parsed.tenantId,
       tenantName: parsed.tenantName,
-      plan: parsed.plan === "premium" ? "premium" : "basico",
+      plan:
+        parsed.plan === "premium"
+          ? "premium"
+          : parsed.plan === "basico"
+            ? "basico"
+            : "gratis",
       accentColor: parsed.accentColor,
       bgColor: parsed.bgColor,
       logoUrl: parsed.logoUrl ?? null,
@@ -90,6 +98,19 @@ export function login(session: AuthSession): void {
   const secure = window.location.protocol === "https:" ? "; Secure" : "";
   document.cookie = `${UI_SESSION_COOKIE_NAME}=1; Path=/; SameSite=Lax${secure}`;
   window.dispatchEvent(new Event(AUTH_CHANGE_EVENT));
+}
+
+export function updateAuthSession(patch: Partial<AuthSession>): AuthSession | null {
+  if (typeof window === "undefined") return null;
+  const current = getAuthSession();
+  if (!current) return null;
+
+  const next = { ...current, ...patch };
+  window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(next));
+  cachedRawSession = null;
+  cachedParsedSession = null;
+  window.dispatchEvent(new Event(AUTH_CHANGE_EVENT));
+  return next;
 }
 
 export function logout(): void {

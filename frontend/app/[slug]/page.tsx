@@ -23,11 +23,20 @@ import {
   PublicLookupResponse,
   startPublicBookingPayment,
 } from "@/services/api";
+import { HagendeiMark } from "../components/brand/HagendeiLogo";
+import { createTenantThemeVariables } from "@/lib/theme";
 import styles from "./page.module.css";
 
 function hojeISO() {
   const agora = new Date();
   const local = new Date(agora.getTime() - agora.getTimezoneOffset() * 60_000);
+  return local.toISOString().slice(0, 10);
+}
+
+function dataLimiteISO() {
+  const limite = new Date();
+  limite.setDate(limite.getDate() + 730);
+  const local = new Date(limite.getTime() - limite.getTimezoneOffset() * 60_000);
   return local.toISOString().slice(0, 10);
 }
 
@@ -50,6 +59,15 @@ function formatarTelefone(valor: string) {
     return `(${numeros.slice(0, 2)}) ${numeros.slice(2, 6)}-${numeros.slice(6)}`;
   }
   return `(${numeros.slice(0, 2)}) ${numeros.slice(2, 7)}-${numeros.slice(7)}`;
+}
+
+function telefoneValido(valor: string) {
+  const numeros = normalizarTelefone(valor);
+  return numeros.length === 10 || numeros.length === 11;
+}
+
+function emailValido(valor: string) {
+  return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(valor.trim());
 }
 
 function formatarData(data: string) {
@@ -80,6 +98,11 @@ export default function PublicBookingPage() {
   const [servicoId, setServicoId] = useState<number | null>(null);
   const [data, setData] = useState(hojeISO());
   const [horaInicio, setHoraInicio] = useState<string | null>(null);
+  const publicTheme = createTenantThemeVariables(
+    lookup?.accent_color,
+    lookup?.bg_color,
+    "light",
+  );
 
   useEffect(() => {
     let ativo = true;
@@ -167,23 +190,34 @@ export default function PublicBookingPage() {
       ? Number(servicoSelecionado?.advance_payment_amount || 0)
       : Number(servicoSelecionado?.preco || 0);
   const dadosClientePreenchidos = Boolean(
-    nomeCliente.trim() && normalizarTelefone(telefoneCliente) && emailCliente.trim()
+    nomeCliente.trim().length >= 2 &&
+      telefoneValido(telefoneCliente) &&
+      emailValido(emailCliente)
   );
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setErro(null);
+    setSucesso(null);
+
     if (!slug || !barbeiroId || !servicoId || !horaInicio) {
       setErro("Preencha todos os campos e selecione um horário disponível.");
       return;
     }
-    if (!nomeCliente.trim() || !normalizarTelefone(telefoneCliente) || !emailCliente.trim()) {
-      setErro("Preencha nome, telefone e e-mail.");
+    if (nomeCliente.trim().length < 2) {
+      setErro("Informe o nome completo com pelo menos 2 caracteres.");
+      return;
+    }
+    if (!telefoneValido(telefoneCliente)) {
+      setErro("Informe um telefone com DDD e 10 ou 11 digitos.");
+      return;
+    }
+    if (!emailValido(emailCliente)) {
+      setErro("Informe um e-mail valido.");
       return;
     }
 
     setSubmitting(true);
-    setErro(null);
-    setSucesso(null);
     try {
       const payload = {
         slug,
@@ -197,8 +231,8 @@ export default function PublicBookingPage() {
       };
 
       if (pagamentoAdiantadoObrigatorio) {
-        setSucesso("Seu horário foi reservado por 5 minutos. Redirecionando para o checkout...");
         const pagamento = await startPublicBookingPayment(payload);
+        setSucesso("Seu horario foi reservado por 5 minutos. Redirecionando para o checkout...");
         window.location.href = pagamento.checkout_url;
         return;
       }
@@ -215,6 +249,7 @@ export default function PublicBookingPage() {
       });
       setLookup(atualizado);
     } catch (err) {
+      setSucesso(null);
       setErro(err instanceof Error ? err.message : "Não foi possível concluir o agendamento.");
     } finally {
       setSubmitting(false);
@@ -223,7 +258,7 @@ export default function PublicBookingPage() {
 
   if (loading) {
     return (
-      <main className={styles.page}>
+      <main className={styles.page} style={publicTheme}>
         <div className={styles.statePanel} role="status">
           <LoaderCircle className={styles.stateSpinner} size={24} aria-hidden="true" />
           <div>
@@ -237,7 +272,7 @@ export default function PublicBookingPage() {
 
   if (!lookup) {
     return (
-      <main className={styles.page}>
+      <main className={styles.page} style={publicTheme}>
         <div className={styles.statePanel} role="alert">
           <AlertCircle size={24} aria-hidden="true" />
           <div>
@@ -250,12 +285,20 @@ export default function PublicBookingPage() {
   }
 
   return (
-    <main className={styles.page}>
+    <main className={styles.page} style={publicTheme}>
       <div className={styles.shell}>
         <header className={styles.brandHeader}>
           <div className={styles.brandIdentity}>
-            <span className={styles.brandMark} aria-hidden="true">
-              <CalendarDays size={24} strokeWidth={2} />
+            <span className={`${styles.brandMark} ${lookup.logo_url ? styles.brandMarkCustom : ""}`}>
+              {lookup.logo_url ? (
+                <>
+                  {/* URLs de tenant são validadas pelo backend e não passam pelo otimizador. */}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={lookup.logo_url} alt={`Logo de ${lookup.nome}`} />
+                </>
+              ) : (
+                <HagendeiMark size={32} themed />
+              )}
             </span>
             <div>
               <p className={styles.eyebrow}>Agendamento online</p>
@@ -269,7 +312,7 @@ export default function PublicBookingPage() {
           </div>
         </header>
 
-        <form className={styles.bookingLayout} onSubmit={onSubmit}>
+        <form className={styles.bookingLayout} onSubmit={onSubmit} noValidate>
           <div className={styles.formPanel}>
             <section className={styles.stepSection}>
               <div className={styles.stepHeader}>
@@ -371,6 +414,7 @@ export default function PublicBookingPage() {
                     className={styles.control}
                     type="date"
                     min={hojeISO()}
+                    max={dataLimiteISO()}
                     value={data}
                     onChange={(event) => {
                       setData(event.target.value);
@@ -447,6 +491,8 @@ export default function PublicBookingPage() {
                       className={styles.control}
                       required
                       autoComplete="name"
+                      minLength={2}
+                      maxLength={120}
                       value={nomeCliente}
                       onChange={(event) => setNomeCliente(event.target.value)}
                       placeholder="Ex.: Joao Silva"
@@ -464,6 +510,8 @@ export default function PublicBookingPage() {
                       type="tel"
                       inputMode="tel"
                       autoComplete="tel"
+                      minLength={10}
+                      maxLength={16}
                       value={telefoneCliente}
                       onChange={(event) => setTelefoneCliente(formatarTelefone(event.target.value))}
                       placeholder="(82) 99999-0000"
@@ -480,6 +528,7 @@ export default function PublicBookingPage() {
                       required
                       type="email"
                       autoComplete="email"
+                      maxLength={255}
                       value={emailCliente}
                       onChange={(event) => setEmailCliente(event.target.value)}
                       placeholder="cliente@email.com"

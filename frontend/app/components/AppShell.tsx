@@ -31,6 +31,7 @@ export default function AppShell({ children }: AppShellProps) {
   const inLogin = pathname === "/login";
   const isPublicBookingById = pathname.startsWith("/agendar/");
   const isTokenActionPage = TOKEN_ACTION_PREFIXES.some((p) => pathname.startsWith(p));
+  const isPaymentReturnPage = pathname.startsWith("/agendamento/pagamento/");
   const ADMIN_PATHS = ["/login", "/admin", "/agenda", "/gestao", "/dashboard", "/configuracoes", "/upgrade", "/painel"];
   const isPublicBookingPath =
     !isPublicBookingById &&
@@ -38,7 +39,12 @@ export default function AppShell({ children }: AppShellProps) {
     /^\/[^/]+$/.test(pathname) &&
     !ADMIN_PATHS.includes(pathname);
 
-  const hideNav = inLogin || isPublicBookingPath || isPublicBookingById || isTokenActionPage;
+  const hideNav =
+    inLogin ||
+    isPublicBookingPath ||
+    isPublicBookingById ||
+    isTokenActionPage ||
+    isPaymentReturnPage;
 
   const isAdmin = session?.tenantId === "admin";
   const inAdminPage = pathname.startsWith("/admin");
@@ -46,7 +52,9 @@ export default function AppShell({ children }: AppShellProps) {
     { href: "/", label: "Painel", icon: LayoutDashboard },
     { href: "/agenda", label: "Agenda", icon: CalendarDays },
     { href: "/gestao", label: "Gestao", icon: Settings2 },
-    ...(!isAdmin && session?.plan === "premium" ? [{ href: "/dashboard", label: "Dashboard", icon: BarChart2 }] : []),
+    ...(!isAdmin && session && session.plan !== "gratis"
+      ? [{ href: "/dashboard", label: "Dashboard", icon: BarChart2 }]
+      : []),
     ...(!isAdmin ? [{ href: "/configuracoes", label: "Config.", icon: Settings }] : []),
     ...(isAdmin && !inAdminPage ? [{ href: "/admin", label: "Admin", icon: Shield }] : []),
   ];

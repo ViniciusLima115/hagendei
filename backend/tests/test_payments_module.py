@@ -1283,6 +1283,8 @@ def test_public_status_syncs_payment_without_webhook(client, db_session, make_te
     assert response.status_code == 200
     assert response.json()["pagamento_status"] == "approved"
     assert response.json()["agendamento_status"] == "confirmado"
+    assert response.json()["estabelecimento_id"] == tenant.id
+    assert response.json()["slug"] == tenant.slug
 
     db_session.refresh(payment)
     booking = db_session.query(Agendamento).filter(Agendamento.id == payment.agendamento_id).first()

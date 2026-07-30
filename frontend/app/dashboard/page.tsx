@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { ArrowLeft, CalendarCheck2, DollarSign, Lock, TrendingUp, Users } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   LineChart,
   Line,
@@ -51,7 +52,7 @@ function UpgradeScreen({ minPlan = "basico" }: { minPlan?: "basico" | "premium" 
           }
           {" "}Fale com o suporte para fazer upgrade.
         </p>
-        <Link href="/upgrade" style={{ display: "inline-block", marginTop: "16px", padding: "10px 24px", background: "var(--accent)", color: "#fff", borderRadius: "8px", fontWeight: 600, fontSize: "0.9rem", textDecoration: "none" }}>
+        <Link href="/upgrade" style={{ display: "inline-block", marginTop: "16px", padding: "10px 24px", background: "var(--accent)", color: "var(--on-accent)", borderRadius: "8px", fontWeight: 600, fontSize: "0.9rem", textDecoration: "none" }}>
           Ver planos
         </Link>
       </div>
@@ -164,7 +165,7 @@ function DashboardBasico({ tenantId }: { tenantId: string }) {
           <p style={{ color: "var(--ink-muted)", fontSize: "0.9rem", marginBottom: "16px" }}>
             Com o plano <strong>Premium</strong> você acessa dashboard financeiro completo, ranking de serviços, análise de clientes e muito mais.
           </p>
-          <Link href="/upgrade" style={{ display: "inline-block", padding: "10px 20px", background: "var(--accent)", color: "#fff", borderRadius: "8px", fontWeight: 600, fontSize: "0.9rem", textDecoration: "none" }}>
+          <Link href="/upgrade" style={{ display: "inline-block", padding: "10px 20px", background: "var(--accent)", color: "var(--on-accent)", borderRadius: "8px", fontWeight: 600, fontSize: "0.9rem", textDecoration: "none" }}>
             Ver plano Premium
           </Link>
         </div>
@@ -177,6 +178,7 @@ type Tab = "visao-geral" | "analise";
 
 export default function DashboardPage() {
   const session = useAuthSession();
+  const router = useRouter();
   const plano = session?.plan ?? "gratis";
   const isPremium = plano === "premium";
   const isBasico = plano === "basico";
@@ -190,7 +192,7 @@ export default function DashboardPage() {
   const [error, setError] = useState<string | null>(null);
 
   const carregarDadosPremium = useCallback(() => {
-    if (!isPremium || !tenantId) return;
+    if (!isPremium || !tenantId || tenantId === "admin") return;
     setLoading(true);
     Promise.all([
       getDashboardFinanceiro(tenantId),
@@ -215,7 +217,13 @@ export default function DashboardPage() {
     };
   }, [carregarDadosPremium]);
 
-  if (!session) return null;
+  useEffect(() => {
+    if (session?.tenantId === "admin") {
+      router.replace("/admin");
+    }
+  }, [router, session?.tenantId]);
+
+  if (!session || session.tenantId === "admin") return null;
   // Plano gratis: pedir upgrade para basico
   if (!isPremium && !isBasico) return <UpgradeScreen minPlan="basico" />;
   // Plano basico: mostrar dashboard simplificado

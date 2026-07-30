@@ -1,7 +1,17 @@
 from datetime import datetime
 from uuid import uuid4
 
-from sqlalchemy import JSON, Column, DateTime, ForeignKey, Index, Integer, Numeric, String
+from sqlalchemy import (
+    JSON,
+    Column,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    Numeric,
+    String,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import relationship, synonym
 
 from app.database import Base
@@ -16,20 +26,42 @@ class Pagamento(Base):
         Index("ix_pagamentos_status", "status"),
         Index("ix_pagamentos_provider_payment_id", "provider_payment_id"),
         Index("ix_pagamentos_preference_id", "preference_id"),
+        Index("ix_pagamentos_agendamento_id", "agendamento_id"),
+        Index("ix_pagamentos_expires_at", "expires_at"),
+        UniqueConstraint(
+            "agendamento_id",
+            name="pagamentos_agendamento_id_key",
+        ),
+        UniqueConstraint(
+            "idempotency_key",
+            name="ux_pagamentos_idempotency_key",
+        ),
+        UniqueConstraint(
+            "external_reference",
+            name="ux_pagamentos_external_reference",
+        ),
     )
 
     id = Column(Integer, primary_key=True, index=True)
-    agendamento_id = Column(Integer, ForeignKey("agendamentos.id"), nullable=False, unique=True, index=True)
+    agendamento_id = Column(
+        Integer,
+        ForeignKey("agendamentos.id"),
+        nullable=False,
+    )
     estabelecimento_id = Column(Integer, ForeignKey("estabelecimentos.id"), nullable=True)
     payment_account_id = Column(Integer, ForeignKey("payment_accounts.id"), nullable=True, index=True)
     payment_integration_id = Column(Integer, ForeignKey("payment_integrations.id"), nullable=True, index=True)
     provider = Column(String(50), nullable=False, default="mercado_pago")
-    idempotency_key = Column(String(120), nullable=False, unique=True, index=True, default=lambda: str(uuid4()))
+    idempotency_key = Column(
+        String(120),
+        nullable=False,
+        default=lambda: str(uuid4()),
+    )
     provider_payment_id = Column(String(120), nullable=True, unique=True)
     preference_id = Column(String(120), nullable=True, unique=True)
     external_merchant_order_id = Column(String(120), nullable=True, index=True)
     external_status = Column(String(80), nullable=True)
-    external_reference = Column(String(120), nullable=False, unique=True, index=True)
+    external_reference = Column(String(120), nullable=False)
     amount = Column(Numeric(12, 2), nullable=False)
     platform_fee_amount = Column(Numeric(12, 2), nullable=False, default=0)
     currency = Column(String(10), nullable=False, default="BRL")

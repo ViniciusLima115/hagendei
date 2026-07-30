@@ -1,6 +1,17 @@
 from datetime import datetime
 
-from sqlalchemy import JSON, Boolean, Column, Date, DateTime, Integer, String, Text
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    Column,
+    Date,
+    DateTime,
+    Index,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import relationship
 
 from app.database import Base
@@ -9,14 +20,28 @@ from app.time_utils import utcnow_naive
 
 class Estabelecimento(Base):
     __tablename__ = "estabelecimentos"
+    __table_args__ = (
+        UniqueConstraint("slug", name="ux_estabelecimentos_slug"),
+        UniqueConstraint(
+            "mega_instance_key",
+            name="uq_estabelecimentos_mega_instance_key",
+        ),
+        UniqueConstraint(
+            "whatsapp_number",
+            name="uq_estabelecimentos_whatsapp_number",
+        ),
+        Index("ix_estabelecimentos_slug", "slug"),
+        Index("ix_estabelecimentos_mega_instance_key", "mega_instance_key"),
+        Index("ix_estabelecimentos_whatsapp_number", "whatsapp_number"),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     nome = Column(String(255), nullable=False)
-    slug = Column(String(120), nullable=True, unique=True, index=True)
+    slug = Column(String(120), nullable=True)
     endereco = Column(String(255), nullable=True, default="")
-    mega_instance_key = Column(String(255), nullable=True, unique=True, index=True)
+    mega_instance_key = Column(String(255), nullable=True)
     mega_token = Column(Text, nullable=True)
-    whatsapp_number = Column(String(30), nullable=True, unique=True, index=True)
+    whatsapp_number = Column(String(30), nullable=True)
 
     # Campos administrativos usados pelo painel /admin.
     login = Column(String(255), nullable=True, unique=True)
@@ -34,7 +59,7 @@ class Estabelecimento(Base):
 
     tipo_servico = Column(String(50), nullable=False, server_default="barbearia")
 
-    accent_color = Column(String(7), nullable=False, server_default="#d4930a")
+    accent_color = Column(String(7), nullable=False, server_default="#1e3a5f")
     bg_color = Column(String(7), nullable=False, server_default="#ffffff")
     logo_url = Column(String(500), nullable=True)
     notif_ativo = Column(Boolean, nullable=False, default=True)

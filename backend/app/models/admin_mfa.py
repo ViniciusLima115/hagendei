@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, Column, DateTime, Index, Integer, JSON, String
+from sqlalchemy import Boolean, Column, DateTime, Index, Integer, JSON, String, Text
 
 from app.database import Base
 from app.time_utils import utcnow_naive
@@ -10,8 +10,8 @@ class AdminMfaSetting(Base):
     __tablename__ = "admin_mfa_settings"
 
     admin_username = Column(String(120), primary_key=True)
-    secret_encrypted = Column(String, nullable=True)
-    pending_secret_encrypted = Column(String, nullable=True)
+    secret_encrypted = Column(Text, nullable=True)
+    pending_secret_encrypted = Column(Text, nullable=True)
     recovery_code_hashes = Column(JSON, nullable=True)
     enabled = Column(Boolean, nullable=False, default=False)
     session_version = Column(Integer, nullable=False, default=0)

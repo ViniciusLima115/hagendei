@@ -228,7 +228,7 @@ export async function updateEstabelecimentoAdmin(
   payload: {
     nome: string;
     login: string;
-    senha: string;
+    senha?: string;
     plano: PlanoEstabelecimento;
     statusManual: StatusManualEstabelecimento;
     vencimentoEm: string;
@@ -244,7 +244,7 @@ export async function updateEstabelecimentoAdmin(
     body: JSON.stringify({
       nome: payload.nome.trim(),
       login: payload.login.trim(),
-      senha: payload.senha,
+      ...(payload.senha ? { senha: payload.senha } : {}),
       plano: payload.plano,
       status_manual: payload.statusManual,
       vencimento_em: payload.vencimentoEm,
@@ -252,7 +252,6 @@ export async function updateEstabelecimentoAdmin(
       trial_fim_em: payload.trialAtivo ? payload.trialFimEm : null,
       ultimo_acesso_em: payload.ultimoAcessoEm,
       pagamento_recusado: payload.pagamentoRecusado,
-      endereco: "",
     }),
   });
 

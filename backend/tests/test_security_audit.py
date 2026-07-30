@@ -247,6 +247,7 @@ def test_production_requires_shared_rate_limit_storage(monkeypatch):
         "FRONTEND_URL": "https://app.example.com",
         "BACKEND_PUBLIC_BASE_URL": "https://api.example.com",
         "BOOKING_PUBLIC_BASE_URL": "https://app.example.com",
+        "EMAIL_ACTION_BASE_URL": "https://app.example.com",
         "RATE_LIMIT_STORAGE_URI": "memory://",
         "AUTH_EXPOSE_BEARER_TOKEN": "false",
         "SESSION_COOKIE_SECURE": "true",
@@ -262,6 +263,10 @@ def test_production_requires_shared_rate_limit_storage(monkeypatch):
 
     monkeypatch.setenv("RATE_LIMIT_STORAGE_URI", "rediss://redis.example.com/0")
     _validate_runtime_config()
+
+    monkeypatch.setenv("EMAIL_ACTION_BASE_URL", "http://127.0.0.1:3000")
+    with pytest.raises(RuntimeError, match="EMAIL_ACTION_BASE_URL deve usar HTTPS"):
+        _validate_runtime_config()
 
 
 def test_meta_webhook_rejects_unsigned_payload(client, monkeypatch):

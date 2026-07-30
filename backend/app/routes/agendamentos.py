@@ -33,6 +33,10 @@ from app.services.agendamento_service import (
     remover_agendamento,
 )
 from app.services.email_service import send_email_payload
+from app.services.booking_quota_service import (
+    LimiteAgendamentosPlanoError,
+    validar_limite_mensal_agendamentos,
+)
 from app.services.notificacao_inapp_service import (
     task_notificacao_novo_agendamento,
     task_notificacao_confirmado,
@@ -47,9 +51,6 @@ from app.schemas.notificacao import ConfirmarPresencaPayload
 router = APIRouter(prefix="/agendamentos")
 
 
-LIMITE_AGENDAMENTOS_GRATIS = 30
-
-
 @router.post("/", response_model=AgendamentoResponse)
 def criar(
     dados: AgendamentoCreate,
@@ -57,32 +58,21 @@ def criar(
     tenant_id: int = Depends(tenant_id_from_header),
     db: Session = Depends(get_db),
 ):
-    # Verificar limite mensal para plano Gratis
-    estab = db.query(Estabelecimento).filter(Estabelecimento.id == tenant_id).first()
-    if estab and (estab.plano or "gratis").lower() == "gratis":
-        hoje = date.today()
-        inicio_mes = hoje.replace(day=1)
-        total_mes = (
-            db.query(AgendamentoModel)
-            .filter(
-                AgendamentoModel.estabelecimento_id == tenant_id,
-                AgendamentoModel.data >= inicio_mes,
-            )
-            .count()
-        )
-        if total_mes >= LIMITE_AGENDAMENTOS_GRATIS:
-            raise HTTPException(
-                status_code=403,
-                detail=f"Limite de {LIMITE_AGENDAMENTOS_GRATIS} agendamentos por mes atingido no plano Gratis. Faca o upgrade para continuar.",
-            )
-
     try:
+        estabelecimento = db.get(Estabelecimento, tenant_id)
+        if estabelecimento:
+            validar_limite_mensal_agendamentos(
+                db,
+                estabelecimento=estabelecimento,
+            )
         agendamento = criar_agendamento(db, dados, tenant_id=tenant_id)
         payload = obter_payload_email_confirmacao(db, agendamento_id=agendamento["id"])
         if payload:
             background_tasks.add_task(send_email_payload, payload)
         background_tasks.add_task(task_notificacao_novo_agendamento, agendamento["id"])
         return agendamento
+    except LimiteAgendamentosPlanoError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except SQLAlchemyError as exc:
@@ -193,7 +183,13 @@ def remarcar_por_token(
     db: Session = Depends(get_db),
 ):
     try:
-        resultado = remarcar_agendamento_por_token(db, token, dados.data_hora_inicio)
+        resultado = remarcar_agendamento_por_token(
+            db,
+            token,
+            dados.data_hora_inicio,
+            barbeiro_id=dados.barbeiro_id,
+            servico_id=dados.servico_id,
+        )
         payload = obter_payload_email_status(db, token=token, tipo="confirmado")
         if payload:
             background_tasks.add_task(send_email_payload, payload)

@@ -1,6 +1,8 @@
 from datetime import datetime
 
-from sqlalchemy import Column, DateTime, Integer, String, UniqueConstraint
+from sqlalchemy import JSON, Column, DateTime, Integer, String, UniqueConstraint
+
+from sqlalchemy.orm import deferred
 
 from app.database import Base
 from app.time_utils import utcnow_naive
@@ -17,3 +19,6 @@ class WebhookEvent(Base):
     event_id = Column(String(255), nullable=False, index=True)
     tenant_id = Column(Integer, nullable=True, index=True)
     criado_em = Column(DateTime, nullable=False, default=utcnow_naive, index=True)
+    # Preserva o conteúdo dos registros do schema anterior durante a migração
+    # 0005 sem misturá-lo ao contrato de idempotência atual.
+    legacy_payload = deferred(Column(JSON, nullable=True))

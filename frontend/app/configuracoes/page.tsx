@@ -4,8 +4,13 @@ import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Settings, User, Lock, Palette, Bell, ArrowLeft } from "lucide-react";
 
-import { useAuthSession, AUTH_STORAGE_KEY } from "@/services/auth";
+import { fetchMe, updateAuthSession, useAuthSession } from "@/services/auth";
 import { API_URL } from "@/services/api";
+import {
+  applyTenantTheme,
+  DEFAULT_ACCENT_COLOR,
+  DEFAULT_BACKGROUND_COLOR,
+} from "@/lib/theme";
 import styles from "./page.module.css";
 
 type Section = "perfil" | "senha" | "tema" | "notificacoes";
@@ -33,6 +38,25 @@ const PRESETS: Preset[] = [
   { label: "Noturno", accent: "#e5a820", bg: "#0f0f0e" },
 ];
 
+function formatApiDetail(detail: unknown): string | undefined {
+  if (typeof detail === "string") return detail;
+  if (!Array.isArray(detail)) return undefined;
+
+  const messages = detail
+    .map((item) => {
+      if (!item || typeof item !== "object" || !("msg" in item)) return "";
+      const record = item as { msg?: unknown; loc?: unknown };
+      const location = Array.isArray(record.loc)
+        ? record.loc.filter((part) => part !== "body").join(".")
+        : "";
+      const message = typeof record.msg === "string" ? record.msg : "";
+      return location && message ? `${location}: ${message}` : message;
+    })
+    .filter(Boolean);
+
+  return messages.length ? messages.join(" ") : undefined;
+}
+
 async function patchConfiguracao(
   section: string,
   body: Record<string, unknown>,
@@ -47,7 +71,7 @@ async function patchConfiguracao(
       body: JSON.stringify(body),
     });
     const data = await resp.json().catch(() => ({}));
-    return { ok: resp.ok, detail: data.detail };
+    return { ok: resp.ok, detail: formatApiDetail(data.detail) };
   } catch {
     return { ok: false, detail: "Erro de conexao." };
   }
@@ -66,6 +90,7 @@ function ConfiguracoesContent() {
       ? requestedSection
       : "perfil";
   const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [success, setSuccess] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -78,8 +103,8 @@ function ConfiguracoesContent() {
   const [novaSenha, setNovaSenha] = useState("");
   const [confirmarSenha, setConfirmarSenha] = useState("");
 
-  const [accentColor, setAccentColor] = useState(session?.accentColor ?? "#1e3a5f");
-  const [bgColor, setBgColor] = useState(session?.bgColor ?? "#ffffff");
+  const [accentColor, setAccentColor] = useState(session?.accentColor ?? DEFAULT_ACCENT_COLOR);
+  const [bgColor, setBgColor] = useState(session?.bgColor ?? DEFAULT_BACKGROUND_COLOR);
   const [logoUrl, setLogoUrl] = useState(session?.logoUrl ?? "");
   const [activePreset, setActivePreset] = useState<string | null>(null);
 
@@ -90,16 +115,107 @@ function ConfiguracoesContent() {
     if (session?.tenantId === "admin") router.replace("/admin");
   }, [session?.tenantId, router]);
 
+  useEffect(() => {
+    const tenantId = session?.tenantId;
+    if (!tenantId || tenantId === "admin") {
+      return;
+    }
+
+    let active = true;
+    const loadingFrame = window.requestAnimationFrame(() => {
+      setInitialLoading(true);
+    });
+
+    void fetchMe()
+      .then((profile) => {
+        if (!active) return;
+        if (!profile) {
+          setError("Nao foi possivel carregar as configuracoes atuais.");
+          return;
+        }
+
+        const nextAccent = profile.accent_color ?? DEFAULT_ACCENT_COLOR;
+        const nextBackground = profile.bg_color ?? DEFAULT_BACKGROUND_COLOR;
+        setNome(profile.nome ?? "");
+        setEndereco(profile.endereco ?? "");
+        setWhatsapp(profile.whatsapp_number ?? "");
+        setSlug(profile.slug ?? "");
+        setAccentColor(nextAccent);
+        setBgColor(nextBackground);
+        setLogoUrl(profile.logo_url ?? "");
+        setNotifAtivo(profile.notif_ativo ?? true);
+        setNotifHoras(profile.notif_horas_antes ?? 2);
+        setActivePreset(
+          PRESETS.find(
+            (preset) => preset.accent === nextAccent && preset.bg === nextBackground,
+          )?.label ?? null,
+        );
+        updateAuthSession({
+          tenantName: profile.nome,
+          plan:
+            profile.plano === "premium"
+              ? "premium"
+              : profile.plano === "basico"
+                ? "basico"
+                : "gratis",
+          accentColor: nextAccent,
+          bgColor: nextBackground,
+          logoUrl: profile.logo_url ?? null,
+        });
+      })
+      .finally(() => {
+        window.cancelAnimationFrame(loadingFrame);
+        if (active) setInitialLoading(false);
+      });
+
+    return () => {
+      active = false;
+      window.cancelAnimationFrame(loadingFrame);
+    };
+  }, [session?.tenantId]);
+
+  useEffect(() => {
+    if (!session) return;
+    const frame = window.requestAnimationFrame(() => {
+      const nextAccent = session.accentColor ?? DEFAULT_ACCENT_COLOR;
+      const nextBackground = session.bgColor ?? DEFAULT_BACKGROUND_COLOR;
+      setAccentColor(nextAccent);
+      setBgColor(nextBackground);
+      setLogoUrl(session.logoUrl ?? "");
+      setActivePreset(
+        PRESETS.find(
+          (preset) => preset.accent === nextAccent && preset.bg === nextBackground,
+        )?.label ?? null,
+      );
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [session]);
+
+  useEffect(() => {
+    return () => {
+      applyTenantTheme(
+        document.documentElement,
+        session?.accentColor ?? DEFAULT_ACCENT_COLOR,
+        session?.bgColor ?? DEFAULT_BACKGROUND_COLOR,
+      );
+    };
+  }, [session?.accentColor, session?.bgColor]);
+
   function clearMessages() {
     setSuccess(null);
     setError(null);
+  }
+
+  function previewTheme(accent: string, background: string) {
+    applyTenantTheme(document.documentElement, accent, background);
   }
 
   function applyPreset(preset: Preset) {
     setAccentColor(preset.accent);
     setBgColor(preset.bg);
     setActivePreset(preset.label);
-    document.documentElement.style.setProperty("--accent", preset.accent);
+    previewTheme(preset.accent, preset.bg);
   }
 
   async function handleSalvarPerfil(e: React.FormEvent) {
@@ -117,8 +233,12 @@ function ConfiguracoesContent() {
       },
     );
     setLoading(false);
-    if (result.ok) setSuccess("Perfil atualizado com sucesso.");
-    else setError(result.detail ?? "Erro ao atualizar perfil.");
+    if (result.ok) {
+      if (nome.trim()) updateAuthSession({ tenantName: nome.trim() });
+      setSuccess("Perfil atualizado com sucesso.");
+    } else {
+      setError(result.detail ?? "Erro ao atualizar perfil.");
+    }
   }
 
   async function handleSalvarSenha(e: React.FormEvent) {
@@ -164,22 +284,18 @@ function ConfiguracoesContent() {
     setLoading(false);
 
     if (result.ok) {
-      if (typeof window !== "undefined") {
-        const raw = window.localStorage.getItem(AUTH_STORAGE_KEY);
-        if (raw) {
-          try {
-            const s = JSON.parse(raw);
-            s.accentColor = accentColor;
-            s.bgColor = bgColor;
-            s.logoUrl = logoUrl || null;
-            window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(s));
-          } catch {
-            // noop
-          }
-        }
-      }
-      setSuccess("Tema salvo. As cores serao aplicadas no proximo login.");
+      updateAuthSession({
+        accentColor,
+        bgColor,
+        logoUrl: logoUrl || null,
+      });
+      previewTheme(accentColor, bgColor);
+      setSuccess("Tema salvo e aplicado ao painel e a pagina publica.");
     } else {
+      previewTheme(
+        session.accentColor ?? DEFAULT_ACCENT_COLOR,
+        session.bgColor ?? DEFAULT_BACKGROUND_COLOR,
+      );
       setError(result.detail ?? "Erro ao salvar tema.");
     }
   }
@@ -266,8 +382,8 @@ function ConfiguracoesContent() {
               </div>
 
               <div className={styles.cardFooter}>
-                <button type="submit" className="btn btn-accent" disabled={loading}>
-                  {loading ? "Salvando..." : "Salvar perfil"}
+                <button type="submit" className="btn btn-accent" disabled={loading || initialLoading}>
+                  {loading || initialLoading ? "Salvando..." : "Salvar perfil"}
                 </button>
               </div>
             </form>
@@ -302,8 +418,8 @@ function ConfiguracoesContent() {
               </div>
 
               <div className={styles.cardFooter}>
-                <button type="submit" className="btn btn-accent" disabled={loading}>
-                  {loading ? "Salvando..." : "Alterar senha"}
+                <button type="submit" className="btn btn-accent" disabled={loading || initialLoading}>
+                  {loading || initialLoading ? "Salvando..." : "Alterar senha"}
                 </button>
               </div>
             </form>
@@ -349,9 +465,10 @@ function ConfiguracoesContent() {
                           className={styles.colorPickerInput}
                           value={accentColor}
                           onChange={(e) => {
-                            setAccentColor(e.target.value);
+                            const nextAccent = e.target.value;
+                            setAccentColor(nextAccent);
                             setActivePreset(null);
-                            document.documentElement.style.setProperty("--accent", e.target.value);
+                            previewTheme(nextAccent, bgColor);
                           }}
                         />
                       </div>
@@ -367,8 +484,10 @@ function ConfiguracoesContent() {
                           className={styles.colorPickerInput}
                           value={bgColor}
                           onChange={(e) => {
-                            setBgColor(e.target.value);
+                            const nextBackground = e.target.value;
+                            setBgColor(nextBackground);
                             setActivePreset(null);
+                            previewTheme(accentColor, nextBackground);
                           }}
                         />
                       </div>
@@ -386,8 +505,8 @@ function ConfiguracoesContent() {
               </div>
 
               <div className={styles.cardFooter}>
-                <button type="submit" className="btn btn-accent" disabled={loading}>
-                  {loading ? "Salvando..." : "Salvar tema"}
+                <button type="submit" className="btn btn-accent" disabled={loading || initialLoading}>
+                  {loading || initialLoading ? "Salvando..." : "Salvar tema"}
                 </button>
               </div>
             </form>
@@ -427,8 +546,8 @@ function ConfiguracoesContent() {
               </div>
 
               <div className={styles.cardFooter}>
-                <button type="submit" className="btn btn-accent" disabled={loading}>
-                  {loading ? "Salvando..." : "Salvar preferencias"}
+                <button type="submit" className="btn btn-accent" disabled={loading || initialLoading}>
+                  {loading || initialLoading ? "Salvando..." : "Salvar preferencias"}
                 </button>
               </div>
             </form>

@@ -71,6 +71,13 @@ def _normalize_database_url(database_url: str) -> str:
     return normalized
 
 
+def admin_mfa_required() -> bool:
+    configured = os.getenv("ADMIN_MFA_REQUIRED", "").strip().lower()
+    if configured:
+        return configured not in {"0", "false", "no", "off"}
+    return _DEFAULT_ADMIN_MFA_REQUIRED
+
+
 ENV_FILE_PATHS = _resolve_env_files()
 for env_path in ENV_FILE_PATHS:
     load_dotenv(env_path, override=False)
@@ -79,6 +86,8 @@ for env_path in ENV_FILE_PATHS:
 # Variaveis injetadas pelo ambiente (CI/producao) sempre prevalecem.
 if "ADMIN_SENHA_HASH" not in os.environ:
     load_dotenv(BACKEND_DIR / ".env.admin", override=True)
+
+_DEFAULT_ADMIN_MFA_REQUIRED = os.getenv("APP_ENV", "development").strip().lower() in {"prod", "production"}
 
 DATABASE_URL = _get_database_url()
 

@@ -4,10 +4,9 @@ import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Copy, Eye, Headset, MessageCircle, ShieldCheck, User, X } from "lucide-react";
-import CalendarCheckLogo from "../components/icons/CalendarCheckLogo";
+import HagendeiLogo, { HagendeiMark } from "../components/brand/HagendeiLogo";
 import { login, fetchMe } from "@/services/auth";
 import { AdminMfaSetup, confirmarMfaAdmin, iniciarMfaAdmin, loginUsuario, verificarMfaAdmin } from "@/services/api";
-import { PRODUCT_NAME } from "@/lib/brand";
 import styles from "./page.module.css";
 
 export default function LoginPage() {
@@ -82,7 +81,12 @@ export default function LoginPage() {
         email: usuario,
         tenantId: String(resposta.tenant_id),
         tenantName: resposta.tenant_name,
-        plan: resposta.plano === "premium" ? "premium" : "basico",
+        plan:
+          resposta.plano === "premium"
+            ? "premium"
+            : resposta.plano === "basico"
+              ? "basico"
+              : "gratis",
         accentColor: me?.accent_color,
         bgColor: me?.bg_color,
         logoUrl: me?.logo_url,
@@ -150,38 +154,43 @@ export default function LoginPage() {
 
   return (
     <main className={styles.page}>
-      {/* PAINEL ESQUERDO — branding */}
+      {/* PAINEL ESQUERDO — marca */}
       <div className={styles.left}>
-        <div className={styles.leftBrand}>
-          <div className={styles.leftIcon}>
-            <CalendarCheckLogo size={20} variant="mark" />
-          </div>
-          <div>
-            <div className={styles.leftEyebrow}>Sistema de gestão</div>
-            <div className={styles.leftBrandName}>{PRODUCT_NAME}</div>
+        <div className={styles.brandRow}>
+          <HagendeiLogo className={styles.brandLogo} light size={38} />
+          <span className={styles.brandTag}>Gestão que acompanha seu ritmo</span>
+        </div>
+
+        <HagendeiMark className={styles.decorativeMark} size={430} />
+
+        <div className={styles.leftCopy}>
+          <p className={styles.leftEyebrow}>Agenda, clientes e gestão</p>
+          <h1 className={styles.leftTitle}>
+            Seu negócio em movimento,
+            <br />
+            sua agenda sob controle.
+          </h1>
+          <p className={styles.leftDescription}>
+            Organize atendimentos, acompanhe resultados e ofereça uma experiência
+            de reserva com a identidade do seu estabelecimento.
+          </p>
+          <div className={styles.featureList} aria-label="Recursos da plataforma">
+            <span>Agenda inteligente</span>
+            <span>Reserva online</span>
+            <span>Gestão centralizada</span>
           </div>
         </div>
 
-        <div className={styles.leftCopy}>
-          <h1 className={styles.leftTitle}>Seu negócio,<br />bem gerido.</h1>
-          <div className={styles.leftDivider} />
-          <div className={styles.socialProof}>
-            <div className={styles.avatars}>
-              <div className={styles.avatar}>CA</div>
-              <div className={styles.avatar}>MB</div>
-              <div className={styles.avatar}>+</div>
-            </div>
-            <div className={styles.socialText}>
-              <strong>+50 estabelecimentos</strong><br />já usam o sistema
-            </div>
-          </div>
-        </div>
+        <p className={styles.leftFooter}>Hagendei · Feito para negócios que valorizam tempo.</p>
       </div>
 
       {/* PAINEL DIREITO — formulário */}
       <div className={styles.right}>
+        <div className={styles.mobileBrand}>
+          <HagendeiLogo size={32} />
+        </div>
         <p className={styles.formEyebrow}>Área restrita</p>
-        <h2 className={styles.formTitle}>Bem-vindo<br />de volta.</h2>
+        <h2 className={styles.formTitle}>Bem-vindo de volta.</h2>
         <p className={styles.formSub}>Acesse o painel do seu estabelecimento.</p>
 
         <form onSubmit={mfaSetup ? handleMfaSetupSubmit : mfaChallenge ? handleMfaSubmit : handleSubmit} className={styles.form}>

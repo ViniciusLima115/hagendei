@@ -58,7 +58,8 @@ const initialServico = {
   payment_description_override: "",
 };
 const MAX_BARBEIROS_PREMIUM = 3;
-const MAX_BARBEIROS_BASICO = 1;
+const MAX_BARBEIROS_BASICO = 2;
+const MAX_BARBEIROS_GRATIS = 1;
 const tabs: Array<{
   key: Tab;
   label: string;
@@ -466,6 +467,7 @@ export default function GestaoPage() {
   const authSession = useAuthSession();
   const router = useRouter();
   const isPremiumPlan = authSession?.plan === "premium";
+  const isFreePlan = authSession?.plan === "gratis";
   const [tab, setTab] = useState<Tab>("agendamentos");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -487,6 +489,7 @@ export default function GestaoPage() {
   const [savingFuncionamento, setSavingFuncionamento] = useState(false);
   const [intervaloMinutos, setIntervaloMinutos] = useState<number>(30);
   const [paymentAccount, setPaymentAccount] = useState<PaymentAccountStatus | null>(null);
+  const [referenceNow, setReferenceNow] = useState(() => Date.now());
 
   const [novoCliente, setNovoCliente] = useState(initialCliente);
   const [editClienteId, setEditClienteId] = useState<number | null>(null);
@@ -505,7 +508,11 @@ export default function GestaoPage() {
   });
   const [editAgendamentoId, setEditAgendamentoId] = useState<number | null>(null);
 
-  const limiteBarbeiros = isPremiumPlan ? MAX_BARBEIROS_PREMIUM : MAX_BARBEIROS_BASICO;
+  const limiteBarbeiros = isPremiumPlan
+    ? MAX_BARBEIROS_PREMIUM
+    : isFreePlan
+      ? MAX_BARBEIROS_GRATIS
+      : MAX_BARBEIROS_BASICO;
   const limiteBarbeirosAtingido = barbeiros.length >= limiteBarbeiros;
 
   async function carregarTudo() {
@@ -523,6 +530,7 @@ export default function GestaoPage() {
       setServicos(ss);
       setBarbeiros(bs);
       setAgendamentos(ags);
+      setReferenceNow(Date.now());
       setFuncionamento(workingHours);
       setIntervaloMinutos(workingHours.intervalo_minutos ?? 30);
       try {
@@ -539,7 +547,10 @@ export default function GestaoPage() {
   }
 
   useEffect(() => {
-    carregarTudo();
+    const frame = window.requestAnimationFrame(() => {
+      void carregarTudo();
+    });
+    return () => window.cancelAnimationFrame(frame);
   }, [authSession?.tenantId]);
 
   useEffect(() => {
@@ -552,13 +563,13 @@ export default function GestaoPage() {
   const funcionamentoResumo = useMemo(() => summarizeWorkingHours(funcionamento), [funcionamento]);
   const proximoAgendamento = useMemo(() => {
     const futuros = agendamentos
-      .filter((item) => new Date(item.data_hora_inicio).getTime() >= Date.now())
+      .filter((item) => new Date(item.data_hora_inicio).getTime() >= referenceNow)
       .sort(
         (left, right) =>
           new Date(left.data_hora_inicio).getTime() - new Date(right.data_hora_inicio).getTime()
       );
     return futuros[0] ?? null;
-  }, [agendamentos]);
+  }, [agendamentos, referenceNow]);
   const barbeiroSelecionadoAgendamento = useMemo(
     () => barbeiros.find((item) => String(item.id) === formAgendamento.barbeiroId) ?? null,
     [barbeiros, formAgendamento.barbeiroId]
@@ -764,11 +775,15 @@ export default function GestaoPage() {
   }
 
   function abrirModalOuUpgrade() {
-    if (!isPremiumPlan && limiteBarbeirosAtingido) {
-      setShowUpgradeModal(true);
-    } else {
-      abrirModalBarbeiro();
+    if (limiteBarbeirosAtingido) {
+      if (!isPremiumPlan) {
+        setShowUpgradeModal(true);
+      } else {
+        setError("Limite de 3 profissionais ativos atingido no plano premium.");
+      }
+      return;
     }
+    abrirModalBarbeiro();
   }
 
   async function submitAgendamento(e: FormEvent) {
@@ -907,7 +922,7 @@ export default function GestaoPage() {
             </p>
             <div className={styles.heroMeta}>
               <span className={styles.metaPill}>
-                Plano {isPremiumPlan ? "Premium" : "Basico"}
+                Plano {isPremiumPlan ? "Premium" : isFreePlan ? "Gratis" : "Basico"}
               </span>
               <span className={styles.metaPill}>{funcionamentoResumo}</span>
               {proximoAgendamento ? (
@@ -1020,14 +1035,20 @@ export default function GestaoPage() {
                     </div>
                     <div className={styles.summaryTile}>
                       <span className={styles.summaryLabel}>Plano atual</span>
-                      <strong className={styles.summaryValue}>{isPremiumPlan ? "Premium" : "Basico"}</strong>
+                      <strong className={styles.summaryValue}>
+                        {isPremiumPlan ? "Premium" : isFreePlan ? "Gratis" : "Basico"}
+                      </strong>
                     </div>
                   </div>
 
                   {!isPremiumPlan && limiteBarbeirosAtingido ? (
                     <Notice
                       tone="warning"
-                      message="Limite do plano basico atingido. Para mais profissionais, faca upgrade para o premium."
+                      message={
+                        isFreePlan
+                          ? "Limite de 1 profissional atingido no plano gratis. Faca upgrade para adicionar mais."
+                          : "Limite de 2 profissionais atingido no plano basico. Faca upgrade para o premium."
+                      }
                     />
                   ) : null}
                   {isPremiumPlan && limiteBarbeirosAtingido ? (
@@ -1626,14 +1647,23 @@ export default function GestaoPage() {
       <Modal
         isOpen={showUpgradeModal}
         onClose={() => setShowUpgradeModal(false)}
-        title="Limite do plano básico atingido"
+        title={`Limite do plano ${isFreePlan ? "gratis" : "basico"} atingido`}
         size="md"
       >
         <div className={styles.upgradeModalBody}>
           <p className={styles.upgradeModalText}>
-            O plano básico permite <strong>1 profissional</strong> ativo. Com o{" "}
-            <strong>Premium</strong> você pode cadastrar até 3 profissionais e ter acesso
-            a dashboard financeiro, análise de clientes e suporte prioritário.
+            {isFreePlan ? (
+              <>
+                O plano gratis permite <strong>1 profissional</strong>. O plano{" "}
+                <strong>Basico</strong> permite ate 2, e o Premium permite ate 3.
+              </>
+            ) : (
+              <>
+                O plano Basico permite <strong>2 profissionais</strong>. Com o{" "}
+                <strong>Premium</strong> voce pode cadastrar ate 3 profissionais e ter
+                acesso ao dashboard financeiro e a analise de clientes.
+              </>
+            )}
           </p>
           <div className={styles.upgradeModalActions}>
             <ActionButton variant="primary" onClick={() => router.push("/upgrade")}>

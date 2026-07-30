@@ -109,17 +109,18 @@ export default function AgendaPage() {
   }, [selectedDate]);
 
   useEffect(() => {
-    if (!data) {
-      setSelectedProfissionalId("all");
-      return;
-    }
-
-    if (
-      selectedProfissionalId !== "all" &&
-      !data.barbeiros.some((barbeiro) => String(barbeiro.id) === selectedProfissionalId)
-    ) {
-      setSelectedProfissionalId("all");
-    }
+    const frame = window.requestAnimationFrame(() => {
+      if (
+        !data ||
+        (selectedProfissionalId !== "all" &&
+          !data.barbeiros.some(
+            (barbeiro) => String(barbeiro.id) === selectedProfissionalId,
+          ))
+      ) {
+        setSelectedProfissionalId("all");
+      }
+    });
+    return () => window.cancelAnimationFrame(frame);
   }, [data, selectedProfissionalId]);
 
   const barbeirosVisiveis =

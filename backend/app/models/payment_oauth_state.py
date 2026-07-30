@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Column, DateTime, Index, Integer, String, UniqueConstraint
+from sqlalchemy import Column, DateTime, ForeignKey, Index, Integer, String, UniqueConstraint
 
 from app.database import Base
 from app.time_utils import utcnow_naive
@@ -16,7 +16,7 @@ class PaymentOAuthState(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     provider = Column(String(50), nullable=False, default="mercadopago")
-    establishment_id = Column(Integer, nullable=False)
+    establishment_id = Column(Integer, ForeignKey("estabelecimentos.id"), nullable=False)
     user_sub = Column(String(255), nullable=True)
     state = Column(String(255), nullable=False, index=True)
     expires_at = Column(DateTime, nullable=False)

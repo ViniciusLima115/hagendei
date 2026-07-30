@@ -4,7 +4,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
-PlanoEstabelecimento = Literal["basico", "premium"]
+PlanoEstabelecimento = Literal["gratis", "basico", "premium"]
 StatusManualEstabelecimento = Literal["ativo", "inativo"]
 
 
@@ -38,7 +38,7 @@ class EstabelecimentoAdminUpdate(BaseModel):
     nome: str = Field(min_length=2, max_length=255)
     slug: str | None = Field(default=None, min_length=1, max_length=120, pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
     login: str = Field(min_length=3, max_length=255, pattern=r"^[A-Za-z0-9._@+-]+$")
-    senha: str = Field(min_length=8, max_length=128)
+    senha: str | None = Field(default=None, min_length=8, max_length=128)
     plano: PlanoEstabelecimento
     status_manual: StatusManualEstabelecimento
     vencimento_em: date
@@ -46,11 +46,13 @@ class EstabelecimentoAdminUpdate(BaseModel):
     trial_fim_em: date | None = None
     ultimo_acesso_em: datetime | None = None
     pagamento_recusado: bool = False
-    endereco: str = Field(default="", max_length=255)
+    endereco: str | None = Field(default=None, max_length=255)
 
     @field_validator("senha")
     @classmethod
-    def validar_tamanho_bcrypt(cls, value: str) -> str:
+    def validar_tamanho_bcrypt(cls, value: str | None) -> str | None:
+        if value is None:
+            return value
         if len(value.encode("utf-8")) > 72:
             raise ValueError("A senha deve ter no maximo 72 bytes.")
         return value
